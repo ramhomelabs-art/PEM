@@ -1,0 +1,758 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * PEM Pro design tokens.
+ * ThemeContext rewrites the dark/light halves of these on every mode change,
+ * and tailwind.config.js maps its semantic colour names onto them.
+ */
+@layer base {
+  :root {
+    /* dark (default) — solid fintech surfaces so cards read clearly against
+       the ambient background instead of dissolving into it. */
+    --pem-bg: #050a15;
+    --pem-bg-sunken: #030611;
+    --pem-surface: #0d1526;
+    --pem-surface-raised: #15203a;
+    --pem-border: #1d2a42;
+    --pem-border-strong: #34455f;
+    --pem-text: #f1f5f9;
+    --pem-text-secondary: #9aa8bd;
+    --pem-text-faint: #64748b;
+    --pem-accent: #10b981;
+    --pem-accent-soft: rgba(16, 185, 129, 0.16);
+    --pem-accent-ink: #6ee7b7;
+    --pem-positive: #10b981;
+    --pem-positive-soft: rgba(16, 185, 129, 0.14);
+    --pem-negative: #f43f5e;
+    --pem-negative-soft: rgba(244, 63, 94, 0.14);
+    --pem-warning: #f59e0b;
+    --pem-warning-soft: rgba(245, 158, 11, 0.14);
+    --pem-info: #38bdf8;
+    --pem-info-soft: rgba(56, 189, 248, 0.14);
+    --pem-violet: #8b5cf6;
+    --pem-violet-soft: rgba(139, 92, 246, 0.16);
+
+    --pem-radius-card: 18px;
+    --pem-radius-control: 11px;
+    --pem-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 34px -24px rgba(0, 0, 0, 0.9);
+    --pem-shadow-raised: 0 28px 70px -30px rgba(0, 0, 0, 0.95);
+
+    --skeleton-base: rgba(255, 255, 255, 0.05);
+    --skeleton-sheen: rgba(255, 255, 255, 0.1);
+  }
+
+  [data-theme='light'] {
+    --pem-bg: #f3f5fa;
+    --pem-bg-sunken: #e9edf5;
+    --pem-surface: #ffffff;
+    --pem-surface-raised: #f7f9fc;
+    --pem-border: #e5e9f2;
+    --pem-border-strong: #cbd5e1;
+    --pem-text: #0b1220;
+    --pem-text-secondary: #64748b;
+    --pem-text-faint: #94a3b8;
+    --pem-accent: #059669;
+    --pem-accent-soft: rgba(5, 150, 105, 0.12);
+    --pem-accent-ink: #047857;
+    --pem-positive: #059669;
+    --pem-positive-soft: rgba(5, 150, 105, 0.1);
+    --pem-negative: #e11d48;
+    --pem-negative-soft: rgba(225, 29, 72, 0.1);
+    --pem-warning: #d97706;
+    --pem-warning-soft: rgba(217, 119, 6, 0.1);
+    --pem-info: #0284c7;
+    --pem-info-soft: rgba(2, 132, 199, 0.1);
+    --pem-violet: #7c3aed;
+    --pem-violet-soft: rgba(124, 58, 237, 0.1);
+
+    --pem-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --pem-shadow-raised: 0 18px 40px -22px rgba(15, 23, 42, 0.28);
+
+    --skeleton-base: #eef1f7;
+    --skeleton-sheen: #e2e8f0;
+  }
+
+  html {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    /* gray-900 */
+    color: var(--text-color);
+    /* gray-100 */
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+    /* Base type scale for the redesign: 14px body, 1.5 leading. */
+    font-family: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    display: block;
+  }
+
+  /* Visible, consistent keyboard focus instead of the default UA ring */
+  :focus-visible {
+    outline: 2px solid var(--pem-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Tabular numerals keep money columns from jittering as values change */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@layer components {
+  /* Surface used by every panel in the new dashboard/layout */
+  .pem-card {
+    background-color: var(--pem-surface);
+    border: 1px solid var(--pem-border);
+    border-radius: var(--pem-radius-card);
+    box-shadow: var(--pem-shadow-card);
+  }
+
+  /* Optional outward polish for interactive cards. Deliberately subtle so a
+     grid of cards does not bounce around while the pointer moves. */
+  .pem-card-hover {
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .pem-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: var(--pem-border-strong);
+    box-shadow: var(--pem-shadow-raised);
+  }
+
+  /* Gradient wash used behind hero / insight surfaces. */
+  .pem-glass {
+    background-image: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--pem-surface-raised) 92%, transparent),
+      var(--pem-surface)
+    );
+    backdrop-filter: blur(14px);
+  }
+
+  .pem-skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--skeleton-base);
+    border-radius: 8px;
+  }
+
+  .pem-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      var(--skeleton-sheen),
+      transparent
+    );
+    animation: pem-shimmer 1.6s infinite;
+  }
+
+  @keyframes pem-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Slim themed scrollbars for scroll regions inside cards */
+  .pem-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--pem-border-strong) transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .pem-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .pem-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .pem-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--pem-border-strong);
+    border-radius: 999px;
+  }
+}
+
+/* Animated Background - Standard CSS for reliability */
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Floating Shapes */
+.shape {
+  position: fixed;
+  filter: blur(80px);
+  z-index: -5;
+  border-radius: 50%;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.shape-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%);
+  top: -150px;
+  left: -150px;
+  animation: float1 20s infinite alternate ease-in-out;
+}
+
+.shape-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
+  bottom: -100px;
+  right: -100px;
+  animation: float2 25s infinite alternate ease-in-out;
+}
+
+@keyframes float1 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+
+  to {
+    transform: translate(100px, 100px) scale(1.1);
+  }
+}
+
+@keyframes float2 {
+  from {
+    transform: translate(0, 0) scale(1.1);
+  }
+
+  to {
+    transform: translate(-100px, -100px) scale(1);
+  }
+}
+
+/* Glass Enhancement */
+.glass-dark {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Fix for Select Dropdowns - Dark Theme */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+select option {
+  background-color: var(--sidebar-bg) !important;
+  color: var(--text-color) !important;
+  padding: 10px !important;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+/* For better dropdown visibility in modals */
+select:focus {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+/* ==========================================
+   Responsive Design Utilities 
+   ========================================== */
+
+/* Page container with responsive padding */
+.page-container {
+  margin: 0 auto;
+  padding: 60px 40px;
+  box-sizing: border-box;
+  transition: padding 0.3s ease;
+}
+
+@media (max-width: 1024px) {
+  .page-container {
+    padding: 30px 20px !important;
+  }
+}
+
+@media (max-height: 850px) {
+  .page-container {
+    padding: 30px 20px !important;
+  }
+}
+
+/* Sidebar responsive adjustments */
+.sidebar-aside {
+  transition: padding 0.3s ease, width 0.3s ease !important;
+}
+
+@media (max-height: 850px) {
+  .sidebar-aside {
+    padding: 20px 16px !important;
+  }
+  .sidebar-logo-container {
+    margin-bottom: 24px !important;
+  }
+  .sidebar-profile-container {
+    margin-bottom: 24px !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+  .sidebar-profile-avatar {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .sidebar-menu-list {
+    gap: 4px !important;
+  }
+  .sidebar-menu-item {
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Responsive Grids */
+.responsive-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  transition: grid-template-columns 0.3s ease, gap 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .responsive-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+/* Responsive Profile Card Header */
+.profile-header-card {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 40px;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .profile-header-card {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 20px !important;
+    padding: 24px !important;
+  }
+}
+
+@media (max-height: 850px) {
+  .profile-header-card {
+    padding: 24px !important;
+    gap: 24px !important;
+  }
+}
+
+.profile-avatar-container {
+  width: 160px;
+  height: 160px;
+  transition: all 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .profile-avatar-container {
+    width: 110px !important;
+    height: 110px !important;
+    border-radius: 28px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-avatar-container {
+    width: 120px !important;
+    height: 120px !important;
+  }
+}
+
+.profile-title-text {
+  font-size: 48px;
+  font-weight: 900;
+  margin: 0 0 10px 0;
+  transition: font-size 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .profile-title-text {
+    font-size: 32px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-title-text {
+    font-size: 28px !important;
+  }
+}
+
+.responsive-save-btn {
+  width: 100%;
+  height: 70px;
+  font-size: 20px;
+  transition: all 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .responsive-save-btn {
+    height: 55px !important;
+    font-size: 16px !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* Hide scrollbar track but keep scrollable */
+.no-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.no-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.no-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 4px;
+}
+.no-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+/* Auth card responsive styles */
+.auth-card {
+  width: 500px;
+  min-height: 700px;
+  padding: 60px 40px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .auth-card {
+    min-height: 550px !important;
+    padding: 30px 24px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .auth-card {
+    width: 100% !important;
+    max-width: 450px;
+    min-height: 500px !important;
+    padding: 24px 16px !important;
+  }
+}
+
+/* Success Card responsive styles */
+.success-inner-card {
+  padding: 48px !important; /* equivalent to p-12 */
+  transition: all 0.3s ease;
+}
+
+.success-avatar-wrapper {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.success-avatar-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #34d399;
+  box-shadow: 0 0 40px rgba(52, 211, 153, 0.4);
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .success-inner-card {
+    padding: 24px !important; /* equivalent to p-6 */
+  }
+  .success-avatar-wrapper {
+    width: 160px !important;
+    height: 160px !important;
+  }
+  .success-avatar-img {
+    width: 100px !important;
+    height: 100px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .success-inner-card {
+    padding: 16px !important; /* equivalent to p-4 */
+  }
+  .success-avatar-wrapper {
+    width: 140px !important;
+    height: 140px !important;
+  }
+  .success-avatar-img {
+    width: 85px !important;
+    height: 85px !important;
+  }
+}
+
+/* Signup card & grid layout styles */
+.signup-card {
+  width: 650px;
+  min-height: 600px;
+  padding: 40px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.signup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .signup-card {
+    width: 100% !important;
+    max-width: 500px;
+    padding: 30px 24px !important;
+  }
+  .signup-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-height: 850px) {
+  .signup-card {
+    padding: 24px !important;
+  }
+}
+
+/* Auth Page Typography & Spacing Responsiveness */
+.auth-header-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+  transition: all 0.3s ease;
+}
+
+.auth-header-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.auth-header-title {
+  font-size: 3.75rem; /* text-6xl is 3.75rem */
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  margin: 0 0 4px 0;
+  line-height: 1.1;
+  transition: all 0.3s ease;
+}
+
+.auth-header-subtitle {
+  font-size: 1.125rem; /* text-lg is 1.125rem */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin: 0;
+  transition: all 0.3s ease;
+}
+
+@media (max-height: 850px) {
+  .auth-header-container {
+    margin-bottom: 24px !important;
+  }
+  .auth-header-logo {
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 16px !important;
+    margin-bottom: 12px !important;
+  }
+  .auth-header-logo svg {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .auth-header-title {
+    font-size: 2.25rem !important; /* text-4xl is 2.25rem */
+  }
+  .auth-header-subtitle {
+    font-size: 0.875rem !important; /* text-sm is 0.875rem */
+  }
+}
+
+/* Drag and Drop Dashboard Layout Styles */
+div[draggable] .drag-handle {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease-in-out;
+}
+
+div[draggable]:hover .drag-handle {
+  opacity: 0.5 !important;
+}
+
+div[draggable] .drag-handle:hover {
+  opacity: 1 !important;
+}
+
+/* Dashboard Responsive columns Layout */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+@media (max-width: 1400px) {
+  .dashboard-columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Responsive Credit Card Modal Styles */
+.cc-modal-box {
+  width: 100%;
+  max-width: 780px;
+  background-color: rgba(15, 23, 42, 0.95);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 35px;
+  position: relative;
+  z-index: 20;
+  color: white;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.cc-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+  .cc-modal-box {
+    max-width: 95%;
+    padding: 20px;
+    border-radius: 24px;
+  }
+  .cc-modal-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .cc-modal-box {
+    max-width: 98%;
+    padding: 15px;
+    border-radius: 16px;
+    max-height: 95vh;
+  }
+  .cc-modal-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* ==========================================
+   Printable dashboard (Export → PDF)
+   ========================================== */
+@media print {
+  .animated-bg,
+  .shape,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pem-card {
+    box-shadow: none !important;
+    border-color: #d5dae3 !important;
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,586 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { MessageCircle, PiggyBank, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+
+import { useAuth } from '../../context/personal_expense/AuthContext';
+import { useCreditCards } from '../../context/credit_card/CreditCardContext';
+import { useSmartNotes } from '../../context/personal_expense/SmartNotesContext';
+import {
+    useBudgetAlerts,
+    useBudgetVsActual,
+    useCategoryBreakdown,
+    useCommitments,
+    useDailySeries,
+    useDailySpendMonth,
+    useInsights,
+    useKpiMetrics,
+    useTransactions,
+    useUnreadMessages,
+    useUpcomingObligations,
+    useWeatherLocation,
+} from '../../hooks/personal_expense/useDashboardData';
+
+import { IconBadge, Panel, PanelHeader } from '../../components/ui/primitives';
+import { formatCurrency, formatPercent } from '../../utils/currency';
+import { CHART, RANGE_PRESETS } from '../../utils/theme';
+import { exportTransactionsCsv, printDashboard } from '../../utils/exportDashboard';
+
+import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
+import { KpiCard } from '../../components/dashboard/KpiCard';
+import { CashFlowCard } from '../../components/dashboard/CashFlowCard';
+import { CategoryDonut } from '../../components/dashboard/CategoryDonut';
+import { BudgetActualChart, DailySpendChart, WeekdayHeatmap } from '../../components/dashboard/charts';
+import { ActivityList } from '../../components/dashboard/ActivityList';
+import { DueList } from '../../components/dashboard/DueList';
+import { CreditCardsPanel } from '../../components/dashboard/CreditCardsPanel';
+import { InvestmentPanel } from '../../components/dashboard/InvestmentPanel';
+import { InsightsCard } from '../../components/dashboard/InsightsCard';
+import { CommandPalette } from '../../components/dashboard/CommandPalette';
+
+import WeatherLocationModal from '../../components/personal_expense/WeatherLocationModal';
+import TransactionModal from '../../components/personal_expense/TransactionModal';
+import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import NotificationCenter from '../../components/personal_expense/NotificationCenter';
+import CalculatorPanel from '../../components/personal_expense/CalculatorPanel';
+import ContactsDropdown from '../../components/personal_expense/ContactsDropdown';
+import MessagesDropdown from '../../components/personal_expense/MessagesDropdown';
+import ShareDropdown from '../../components/personal_expense/ShareDropdown';
+import BirthdayGreeting from '../../components/personal_expense/BirthdayGreeting';
+
+const currencyOf = (user) => user?.currency || 'INR';
+
+function resolveMonths(range, customRange) {
+    if (range === 'custom' && customRange.from) {
+        const from = new Date(customRange.from);
+        const to = customRange.to ? new Date(customRange.to) : new Date();
+        const days = Math.max(1, (to - from) / 86400000);
+        return Math.max(1, Math.round(days / 30));
+    }
+    return RANGE_PRESETS.find((p) => p.id === range)?.months ?? 6;
+}
+
+const isTypingTarget = (el) =>
+    el &&
+    (el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.tagName === 'SELECT' ||
+        el.isContentEditable);
+
+const Dashboard = () => {
+    const { user } = useAuth();
+    const { cards = [] } = useCreditCards();
+    const { openNotes } = useSmartNotes();
+    const navigate = useNavigate();
+    const reduceMotion = useReducedMotion();
+
+    const userId = user?.id;
+    const currency = currencyOf(user);
+
+    /* data ------------------------------------------------------------- */
+    const {
+        transactions,
+        loading: txLoading,
+        reload: reloadTransactions,
+        remove: deleteTransaction,
+    } = useTransactions(userId);
+
+    const { bills, loans, borrow, budgets, loading: commitmentsLoading } =
+        useCommitments(userId);
+
+    const { location: weatherLocation, update: updateWeather } = useWeatherLocation(
+        user?.preferences?.weather
+    );
+
+    /* ui state --------------------------------------------------------- */
+    // Defaults to the current calendar month.
+    const [range, setRange] = useState('1m');
+    const [customRange, setCustomRange] = useState({ from: '', to: '' });
+    const [compare, setCompare] = useState(false);
+    const [paletteOpen, setPaletteOpen] = useState(false);
+    const [activityTab, setActivityTab] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState(null);
+
+    const [dismissed, setDismissed] = useState([]);
+    const [modal, setModal] = useState({ open: false, mode: 'add', entry: null });
+    const [confirm, setConfirm] = useState({ open: false, id: null });
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [showContacts, setShowContacts] = useState(false);
+    const [showMessages, setShowMessages] = useState(false);
+    const [showShare, setShowShare] = useState(false);
+    const [showWeather, setShowWeather] = useState(false);
+    const [messageToast, setMessageToast] = useState(null);
+
+    const openAdd = useCallback(
+        () => setModal({ open: true, mode: 'add', entry: null }),
+        []
+    );
+
+    /* keyboard shortcuts ---------------------------------------------- */
+    useEffect(() => {
+        const onKey = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setPaletteOpen(true);
+                return;
+            }
+            if (
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                e.key.toLowerCase() === 'n' &&
+                !isTypingTarget(e.target)
+            ) {
+                e.preventDefault();
+                openAdd();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [openAdd]);
+
+    /* derived data ---------------------------------------------------- */
+    const months = resolveMonths(range, customRange);
+
+    // Transactions limited to the selected date range, so range-driven widgets
+    // (e.g. Spend by category) reconcile with the header filter instead of
+    // silently showing all-time totals.
+    const scopedTransactions = useMemo(() => {
+        const start = new Date();
+        if (range === 'custom' && customRange.from) {
+            start.setTime(new Date(customRange.from).getTime());
+        } else {
+            start.setMonth(start.getMonth() - (months - 1));
+            start.setDate(1);
+        }
+        start.setHours(0, 0, 0, 0);
+        const end =
+            range === 'custom' && customRange.to
+                ? new Date(`${customRange.to}T23:59:59.999`)
+                : null;
+
+        return transactions.filter((t) => {
+            const d = new Date(t.date);
+            if (Number.isNaN(d.getTime())) return false;
+            if (d < start) return false;
+            if (end && d > end) return false;
+            return true;
+        });
+    }, [transactions, range, customRange, months]);
+
+    const kpi = useKpiMetrics(transactions, months);
+    const daily = useDailySeries(transactions, 30);
+    const expenseBreakdown = useCategoryBreakdown(scopedTransactions, 'expense');
+    const dailyCurrent = useDailySpendMonth(transactions, 0);
+    const dailyPrevious = useDailySpendMonth(transactions, 1);
+    const budgetVsActual = useBudgetVsActual(transactions, budgets, 0);
+    const budgetAlerts = useBudgetAlerts(transactions, budgets);
+    const obligations = useUpcomingObligations(bills, loans, borrow, { days: 30 });
+    const insights = useInsights(transactions, budgets);
+
+    const { count: unreadCount, conversations } = useUnreadMessages(Boolean(user), {
+        onNewMessage: (msg) => setMessageToast(msg),
+    });
+
+    const sparks = useMemo(() => {
+        let cumulative = 0;
+        const balance = daily.map((d) => (cumulative += d.net));
+        return {
+            balance,
+            income: daily.map((d) => d.income),
+            expense: daily.map((d) => d.expense),
+        };
+    }, [daily]);
+
+    const heatmapSeries = useMemo(
+        () => daily.map((d) => ({ date: d.date, amount: d.expense })),
+        [daily]
+    );
+
+    const dismiss = useCallback((id) => {
+        setDismissed((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }, []);
+
+    const activeObligations = obligations.filter((o) => !dismissed.includes(o.id));
+    const activeBudgetAlerts = budgetAlerts.filter(
+        (b) => !dismissed.includes(`budget-${b.category}`)
+    );
+    const alertCount = activeObligations.length + activeBudgetAlerts.length + unreadCount;
+
+    const historyFeed = useMemo(
+        () =>
+            transactions.slice(0, 25).map((t) => ({
+                id: t.id,
+                title: t.description || t.category,
+                time: t.date,
+                desc: `${t.type === 'income' ? 'Received' : 'Paid'} ${t.amount}`,
+                type: t.type === 'income' ? 'success' : 'info',
+            })),
+        [transactions]
+    );
+
+    const loading = txLoading || commitmentsLoading;
+
+    const handleDelete = useCallback(async () => {
+        try {
+            await deleteTransaction(confirm.id);
+        } catch {
+            // Row remains until the next successful reload; nothing else to do.
+        } finally {
+            setConfirm({ open: false, id: null });
+        }
+    }, [confirm.id, deleteTransaction]);
+
+    const handleExportCsv = useCallback(() => {
+        exportTransactionsCsv(transactions, 'pem-dashboard.csv');
+    }, [transactions]);
+
+    /* KPI definitions ------------------------------------------------- */
+    const money = useCallback((v) => formatCurrency(v, currency), [currency]);
+    const kpis = [
+        {
+            icon: Wallet,
+            label: 'Total Balance',
+            value: kpi.current.balance,
+            format: money,
+            delta: kpi.deltas.balance,
+            spark: sparks.balance,
+            sparkColor: CHART.net,
+            tone: 'brand',
+        },
+        {
+            icon: TrendingUp,
+            label: 'Income',
+            value: kpi.current.income,
+            format: money,
+            delta: kpi.deltas.income,
+            spark: sparks.income,
+            sparkColor: CHART.income,
+            tone: 'pos',
+        },
+        {
+            icon: TrendingDown,
+            label: 'Spend',
+            value: kpi.current.expense,
+            format: money,
+            delta: kpi.deltas.expense,
+            deltaInverse: true,
+            spark: sparks.expense,
+            sparkColor: CHART.expense,
+            tone: 'neg',
+        },
+        {
+            icon: PiggyBank,
+            label: 'Savings Rate',
+            value: kpi.current.savingsRate,
+            format: (v) => formatPercent(v),
+            delta: kpi.deltas.savingsRate,
+            ring: kpi.current.savingsRate,
+            ringColor: CHART.net,
+            tone: 'violet',
+        },
+    ];
+
+    const enter = (i) =>
+        reduceMotion
+            ? {}
+            : {
+                  initial: { opacity: 0, y: 14 },
+                  animate: { opacity: 1, y: 0 },
+                  transition: { duration: 0.35, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
+              };
+
+    return (
+        <>
+            <DashboardHeader
+                user={user}
+                unreadCount={unreadCount}
+                alertCount={alertCount}
+                weatherLocation={weatherLocation}
+                range={range}
+                onRangeChange={setRange}
+                customRange={customRange}
+                onCustomRangeChange={setCustomRange}
+                compare={compare}
+                onToggleCompare={() => setCompare((c) => !c)}
+                onSearch={() => setPaletteOpen(true)}
+                onAdd={openAdd}
+                onOpenWeather={() => setShowWeather(true)}
+                onOpenNotes={openNotes}
+                onOpenContacts={() => setShowContacts(true)}
+                onOpenMessages={() => setShowMessages(true)}
+                onOpenShare={() => setShowShare(true)}
+                onOpenNotifications={() => setShowNotifications(true)}
+                onExportCsv={handleExportCsv}
+                onExportPdf={printDashboard}
+            />
+
+            <main className="print-area mx-auto w-full max-w-[1600px] px-4 pb-16 pt-5 sm:px-6">
+                {/* KPI row */}
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {kpis.map((k, i) => (
+                        <motion.div key={k.label} {...enter(i)}>
+                            <KpiCard {...k} loading={loading} />
+                        </motion.div>
+                    ))}
+                </section>
+
+                {/* Cash flow + category donut */}
+                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                    <motion.div className="md:col-span-2 xl:col-span-8" {...enter(0)}>
+                        <CashFlowCard
+                            transactions={transactions}
+                            range={range}
+                            customRange={customRange}
+                            currency={currency}
+                            loading={txLoading}
+                            onAdd={openAdd}
+                        />
+                    </motion.div>
+
+                    <motion.div className="md:col-span-2 xl:col-span-4" {...enter(1)}>
+                        <Panel className="flex h-full flex-col">
+                            <PanelHeader
+                                title="Spend by Category"
+                                subtitle={categoryFilter ? `Filtered: ${categoryFilter}` : 'Click a slice to filter activity'}
+                                icon={PiggyBank}
+                            />
+                            <CategoryDonut
+                                data={expenseBreakdown}
+                                currency={currency}
+                                loading={txLoading}
+                                activeCategory={categoryFilter}
+                                onSelect={(c) => setCategoryFilter((prev) => (prev === c ? null : c))}
+                                transactions={scopedTransactions}
+                                allTransactions={transactions}
+                                range={range}
+                            />
+                        </Panel>
+                    </motion.div>
+                </section>
+
+                {/* Daily spend + budget vs actual */}
+                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                    <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
+                        <Panel className="h-full">
+                            <PanelHeader
+                                title="Daily Spending"
+                                subtitle={dailyCurrent.label}
+                                icon={TrendingDown}
+                            />
+                            <DailySpendChart
+                                data={dailyCurrent.data}
+                                label={dailyCurrent.label}
+                                compareData={compare ? dailyPrevious.data : null}
+                                compareLabel={dailyPrevious.label}
+                                currency={currency}
+                                loading={txLoading}
+                            />
+                        </Panel>
+                    </motion.div>
+
+                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
+                        <Panel className="h-full">
+                            <PanelHeader title="Budget vs Actual" subtitle="This month" icon={PiggyBank} />
+                            <BudgetActualChart data={budgetVsActual} currency={currency} loading={loading} />
+                        </Panel>
+                    </motion.div>
+                </section>
+
+                {/* Activity + dues */}
+                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                    <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
+                        <Panel className="flex h-full flex-col">
+                            <PanelHeader
+                                title="Recent Activity"
+                                subtitle="Latest transactions"
+                                icon={Wallet}
+                            />
+                            <ActivityList
+                                transactions={transactions}
+                                currency={currency}
+                                loading={txLoading}
+                                tab={activityTab}
+                                onTabChange={setActivityTab}
+                                categoryFilter={categoryFilter}
+                                onClearFilter={() => setCategoryFilter(null)}
+                                onViewAll={() => navigate('/transactions')}
+                            />
+                        </Panel>
+                    </motion.div>
+
+                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
+                        <Panel className="h-full">
+                            <PanelHeader title="Upcoming Dues" subtitle="Next 30 days" icon={Wallet} />
+                            <DueList items={activeObligations} currency={currency} loading={loading} />
+                        </Panel>
+                    </motion.div>
+                </section>
+
+                {/* Cards + investments + insights */}
+                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                    <motion.div className="md:col-span-1 xl:col-span-4" {...enter(0)}>
+                        <Panel className="h-full">
+                            <PanelHeader title="Credit Cards" subtitle="Balance & utilisation" icon={Wallet} />
+                            <CreditCardsPanel cards={cards} currency={currency} loading={loading} />
+                        </Panel>
+                    </motion.div>
+
+                    <motion.div className="md:col-span-1 xl:col-span-4" {...enter(1)}>
+                        <InvestmentPanel />
+                    </motion.div>
+
+                    <motion.div className="md:col-span-2 xl:col-span-4" {...enter(2)}>
+                        <Panel className="flex h-full flex-col">
+                            <PanelHeader title="Insights" subtitle="Auto-generated tips" icon={TrendingUp} />
+                            <InsightsCard insights={insights} loading={loading} />
+                            <div className="mt-4 border-t border-line pt-4">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                                    Spend by weekday · 30d
+                                </p>
+                                <WeekdayHeatmap series={heatmapSeries} currency={currency} loading={txLoading} />
+                            </div>
+                        </Panel>
+                    </motion.div>
+                </section>
+            </main>
+
+            {/* ------------------------------------------------ overlays -- */}
+
+            <AnimatePresence>
+                {paletteOpen ? (
+                    <CommandPalette
+                        transactions={transactions}
+                        currency={currency}
+                        onClose={() => setPaletteOpen(false)}
+                        onAdd={openAdd}
+                    />
+                ) : null}
+            </AnimatePresence>
+
+            <TransactionModal
+                isOpen={modal.open}
+                onClose={() => setModal({ open: false, mode: 'add', entry: null })}
+                user={user}
+                onReload={reloadTransactions}
+                mode={modal.mode}
+                editData={modal.entry}
+            />
+
+            <ConfirmDialog
+                isOpen={confirm.open}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirm({ open: false, id: null })}
+                title="Delete transaction"
+                message="This permanently removes the entry. This cannot be undone."
+            />
+
+            <NotificationCenter
+                isOpen={showNotifications}
+                onClose={() => setShowNotifications(false)}
+                activeReminders={{
+                    bills: activeObligations.filter((o) => o.kind === 'bill'),
+                    loans: activeObligations.filter((o) => o.kind === 'emi'),
+                    borrow: activeObligations.filter((o) => o.kind === 'borrow'),
+                    notes: [],
+                }}
+                budgetAlerts={activeBudgetAlerts}
+                historyData={historyFeed}
+                messages={conversations}
+                onDismiss={dismiss}
+                onOpenMessages={() => {
+                    setShowMessages(true);
+                }}
+            />
+
+            <CalculatorPanel isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+
+            <ContactsDropdown
+                isOpen={showContacts}
+                onClose={() => setShowContacts(false)}
+                currentUser={user}
+                onOpenMessages={() => setShowMessages(true)}
+            />
+
+            <MessagesDropdown
+                isOpen={showMessages}
+                onClose={() => setShowMessages(false)}
+                currentUser={user}
+                initialFriend={null}
+            />
+
+            <ShareDropdown
+                isOpen={showShare}
+                onClose={() => setShowShare(false)}
+                currentUser={user}
+            />
+
+            <WeatherLocationModal
+                isOpen={showWeather}
+                onClose={() => setShowWeather(false)}
+                onSelectLocation={(next) => {
+                    updateWeather(next);
+                    setShowWeather(false);
+                }}
+                currentLocation={
+                    weatherLocation?.display || weatherLocation?.name || ''
+                }
+            />
+
+            <MessageToast
+                toast={messageToast}
+                onDismiss={() => setMessageToast(null)}
+                onOpen={() => {
+                    setMessageToast(null);
+                    setShowMessages(true);
+                }}
+            />
+
+            <BirthdayGreeting user={user} />
+        </>
+    );
+};
+
+/* --------------------------------------------------------------- toast -- */
+
+function MessageToast({ toast, onDismiss, onOpen }) {
+    return (
+        <AnimatePresence>
+            {toast ? (
+                <motion.button
+                    type="button"
+                    onClick={onOpen}
+                    initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -16, scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                    className="fixed left-1/2 top-20 z-50 flex w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-card border border-line bg-surface p-3 text-left shadow-raised backdrop-blur-xl"
+                >
+                    <IconBadge icon={MessageCircle} tone="info" />
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-ink">
+                            New message from{' '}
+                            {toast.sender?.fullName || toast.sender?.username || 'a contact'}
+                        </span>
+                        <span className="block truncate text-xs text-ink-faint">{toast.message}</span>
+                    </span>
+                    <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDismiss();
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && onDismiss()}
+                        className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-ink-faint hover:text-ink"
+                    >
+                        Dismiss
+                    </span>
+                </motion.button>
+            ) : null}
+        </AnimatePresence>
+    );
+}
+
+export default Dashboard;

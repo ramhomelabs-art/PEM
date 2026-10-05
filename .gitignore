@@ -1,0 +1,92 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Production build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment variables & secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Service account keys & credentials
+*firebase*.json
+*adminsdk*.json
+!*firebase*.json.example
+!*adminsdk*.json.example
+
+# Python virtual environment & cache
+venv/
+venv_win/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Machine learning model binary weights (>100MB GitHub limit)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.h5
+python-extraction-service/ml_training/models/
+
+# User uploads & ephemeral storage (preserving folders via .gitkeep)
+server/uploads/*
+!server/uploads/.gitkeep
+!server/uploads/documents/
+server/uploads/documents/*
+!server/uploads/documents/.gitkeep
+python-extraction-service/temp_uploads/*
+!python-extraction-service/temp_uploads/.gitkeep
+temp_uploads/*
+!temp_uploads/.gitkeep
+
+# Personal SMS transaction logs & database artifacts
+server/data/pending_sms.json
+server/routes/data/
+server/routes/data/*
+*_status.json
+
+# Logs & process files
+logs/
+*.log
+npm-debug.log*
+server/logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Backup archives
+*.tar
+*.tar.gz
+*.zip
+*.bak
+
+# Temporary / scratch scripts
+scratch/
+server/scratch/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

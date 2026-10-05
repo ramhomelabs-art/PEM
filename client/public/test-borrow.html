@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Borrow Page Test</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #020617;
+            color: white;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #10b981;
+        }
+
+        .error {
+            background: #ef4444;
+        }
+
+        .info {
+            background: #3b82f6;
+        }
+
+        pre {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Borrow Page Diagnostic</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        async function testBorrowAPI() {
+            log('Testing Borrow API...', 'info');
+
+            try {
+                const response = await fetch('http://localhost:5001/api/borrow/user/1');
+                log(`Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                const data = await response.json();
+
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(data, null, 2);
+                results.appendChild(pre);
+
+                if (Array.isArray(data)) {
+                    log(`✓ Received array with ${data.length} items`, 'success');
+                } else if (data.error) {
+                    log(`✗ Error: ${data.error}`, 'error');
+                } else {
+                    log(`⚠ Unexpected format: ${typeof data}`, 'error');
+                }
+            } catch (error) {
+                log(`✗ Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        testBorrowAPI();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,58 @@
+[
+  {
+    "sms": "Credit Alert! Rs.3600.00 credited to HDFC Bank A/c XX0489 on 05-01-26 from VPA sureshdrlzzz01@okhdfcbank (UPI 116735714569)",
+    "parsed": {
+      "amount": 3600.0,
+      "type": "credit",
+      "merchant": "sureshdrlzzz01 @ okhdfcbank",
+      "payment_mode": null,
+      "account": "0489",
+      "bank": "HDFC Bank",
+      "date": "-",
+      "reference": "UPI 116735714569",
+      "confidence": 0.9986864278713862
+    }
+  },
+  {
+    "sms": "Sent Rs.70.00 From HDFC Bank A/C *0489 To RUPESH On 30/12/26 Ref 637816313645",
+    "parsed": {
+      "amount": 70.0,
+      "type": "debit",
+      "merchant": "RUPESH",
+      "payment_mode": null,
+      "account": "0489",
+      "bank": "HDFC Bank",
+      "date": "/",
+      "reference": "Ref 637816313645",
+      "confidence": 0.9530310251496055
+    }
+  },
+  {
+    "sms": "Spent Rs.1002 On HDFC Bank Card 4129 At AIRPLAZA RETAIL HOLDIN On 2025-12-27:18:32:03",
+    "parsed": {
+      "amount": 1002.0,
+      "type": "debit",
+      "merchant": null,
+      "payment_mode": "Card",
+      "account": "4129",
+      "bank": "HDFC",
+      "date": null,
+      "reference": null,
+      "confidence": 0.9972772101561228
+    }
+  },
+  {
+    "sms": "Dear UPI user A/C X3534 debited by 19.0 on date 26Jan25 trf to Jio Prepaid Rech Refno 502623989723",
+    "parsed": {
+      "amount": null,
+      "type": "debit",
+      "merchant": "Refno 502623989723",
+      "payment_mode": "UPI",
+      "account": "3534",
+      "bank": null,
+      "date": "26Jan25",
+      "reference": null,
+      "confidence": 0.9988387584686279
+    }
+  }
+]
