@@ -24,15 +24,54 @@ import {
     Info,
     Trash2,
     RotateCcw,
+    Smartphone,
+    Music,
+    Car,
+    Laptop,
+    Camera,
+    ShoppingBag,
+    Sliders,
+    Edit3,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 import { cx } from '../ui/cx';
 import { API_URL } from '../../config';
 
+const ICON_MAP = {
+    Plane: Plane,
+    Gamepad2: Gamepad2,
+    Coffee: Coffee,
+    Gift: Gift,
+    Trophy: Trophy,
+    Heart: Heart,
+    Sparkles: Sparkles,
+    Smartphone: Smartphone,
+    Music: Music,
+    Car: Car,
+    Laptop: Laptop,
+    Camera: Camera,
+    ShoppingBag: ShoppingBag,
+};
+
+const ICON_OPTIONS = [
+    { key: 'Plane', label: 'Travel', icon: Plane },
+    { key: 'Gamepad2', label: 'Gaming', icon: Gamepad2 },
+    { key: 'Coffee', label: 'Dining', icon: Coffee },
+    { key: 'Smartphone', label: 'Gadget', icon: Smartphone },
+    { key: 'ShoppingBag', label: 'Shopping', icon: ShoppingBag },
+    { key: 'Car', label: 'Road Trip', icon: Car },
+    { key: 'Music', label: 'Concert', icon: Music },
+    { key: 'Camera', label: 'Hobby', icon: Camera },
+    { key: 'Laptop', label: 'Work', icon: Laptop },
+    { key: 'Gift', label: 'Treat', icon: Gift },
+    { key: 'Heart', label: 'Self Care', icon: Heart },
+    { key: 'Trophy', label: 'Milestone', icon: Trophy },
+];
+
 const DEFAULT_GOALS = [
-    { id: '1', title: 'Weekend Getaway', target: 25000, icon: Plane, color: 'from-teal-400 to-emerald-500' },
-    { id: '2', title: 'Gaming Console / Gadget', target: 45000, icon: Gamepad2, color: 'from-violet-400 to-purple-500' },
-    { id: '3', title: 'Michelin Dining Experience', target: 12000, icon: Coffee, color: 'from-amber-400 to-orange-500' },
+    { id: '1', title: 'Weekend Getaway', target: 25000, iconKey: 'Plane' },
+    { id: '2', title: 'Gaming Console / Gadget', target: 45000, iconKey: 'Gamepad2' },
+    { id: '3', title: 'Michelin Dining Experience', target: 12000, iconKey: 'Coffee' },
 ];
 
 export function FunSavingsJarModal({
@@ -57,17 +96,26 @@ export function FunSavingsJarModal({
         return Number(saved) || 0;
     });
 
-    const [selectedGoal, setSelectedGoal] = useState(() => {
-        const saved = localStorage.getItem('pem-fun-jar-selected-goal');
+    const [goals, setGoals] = useState(() => {
+        const saved = localStorage.getItem('pem-fun-jar-goals');
         if (saved) {
             try {
                 return JSON.parse(saved);
             } catch {
-                return DEFAULT_GOALS[0];
+                return DEFAULT_GOALS;
             }
         }
-        return DEFAULT_GOALS[0];
+        return DEFAULT_GOALS;
     });
+
+    const [selectedGoalId, setSelectedGoalId] = useState(() => {
+        const saved = localStorage.getItem('pem-fun-jar-selected-goal-id');
+        return saved || DEFAULT_GOALS[0].id;
+    });
+
+    const selectedGoal = useMemo(() => {
+        return goals.find((g) => g.id === selectedGoalId) || goals[0] || DEFAULT_GOALS[0];
+    }, [goals, selectedGoalId]);
 
     const [lastStashedDate, setLastStashedDate] = useState(() => {
         return localStorage.getItem('pem-fun-jar-last-stashed-date') || '';
@@ -80,7 +128,6 @@ export function FunSavingsJarModal({
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                // Filter out any obsolete static mock entries from older versions
                 return parsed.filter((item) => item.amount !== 496 && item.amount !== 850 && item.amount !== 1200 && item.amount !== 2000 || item.realTx);
             } catch {
                 return [];
@@ -96,6 +143,14 @@ export function FunSavingsJarModal({
     const [loadingAction, setLoadingAction] = useState(false);
     const [toastMessage, setToastMessage] = useState(null);
 
+    // Custom Goal Form State
+    const [showAddGoal, setShowAddGoal] = useState(false);
+    const [showEditTarget, setShowEditTarget] = useState(false);
+    const [newGoalTitle, setNewGoalTitle] = useState('');
+    const [newGoalTarget, setNewGoalTarget] = useState('');
+    const [newGoalIconKey, setNewGoalIconKey] = useState('Plane');
+    const [editingTargetAmount, setEditingTargetAmount] = useState('');
+
     useEffect(() => {
         localStorage.setItem('pem-fun-jar-balance', String(jarBalance));
         if (onJarUpdate) onJarUpdate(jarBalance);
@@ -106,8 +161,12 @@ export function FunSavingsJarModal({
     }, [history]);
 
     useEffect(() => {
-        if (selectedGoal) {
-            localStorage.setItem('pem-fun-jar-selected-goal', JSON.stringify(selectedGoal));
+        localStorage.setItem('pem-fun-jar-goals', JSON.stringify(goals));
+    }, [goals]);
+
+    useEffect(() => {
+        if (selectedGoal?.id) {
+            localStorage.setItem('pem-fun-jar-selected-goal-id', selectedGoal.id);
         }
     }, [selectedGoal]);
 
@@ -140,7 +199,6 @@ export function FunSavingsJarModal({
             if (res.ok) {
                 const txData = await res.json();
 
-                // Save pending verification for next day check-in
                 const pendingList = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
                 const newVerification = {
                     id: `verify_${Date.now()}`,
@@ -265,6 +323,58 @@ export function FunSavingsJarModal({
             setTimeout(() => setToastMessage(null), 4500);
         } finally {
             setLoadingAction(false);
+        }
+    };
+
+    const handleCreateCustomGoal = (e) => {
+        e.preventDefault();
+        const trimmedTitle = newGoalTitle.trim();
+        const targetVal = Number(newGoalTarget) || 0;
+        if (!trimmedTitle || targetVal <= 0) return;
+
+        const newGoal = {
+            id: `goal_${Date.now()}`,
+            title: trimmedTitle,
+            target: targetVal,
+            iconKey: newGoalIconKey || 'Plane',
+            isCustom: true,
+        };
+
+        const updated = [...goals, newGoal];
+        setGoals(updated);
+        setSelectedGoalId(newGoal.id);
+        setShowAddGoal(false);
+        setNewGoalTitle('');
+        setNewGoalTarget('');
+
+        setToastMessage(`🎯 Custom goal "${trimmedTitle}" set as active target!`);
+        setTimeout(() => setToastMessage(null), 3500);
+    };
+
+    const handleSaveEditTarget = (e) => {
+        e.preventDefault();
+        const targetVal = Number(editingTargetAmount) || 0;
+        if (targetVal <= 0 || !selectedGoal) return;
+
+        const updated = goals.map((g) =>
+            g.id === selectedGoal.id ? { ...g, target: targetVal } : g
+        );
+        setGoals(updated);
+        setShowEditTarget(false);
+        setEditingTargetAmount('');
+
+        setToastMessage(`🎯 Updated target for "${selectedGoal.title}" to ${formatCurrency(targetVal, currency)}`);
+        setTimeout(() => setToastMessage(null), 3500);
+    };
+
+    const handleDeleteGoal = (goalId, e) => {
+        e.stopPropagation();
+        if (goals.length <= 1) return;
+
+        const updated = goals.filter((g) => g.id !== goalId);
+        setGoals(updated);
+        if (selectedGoalId === goalId) {
+            setSelectedGoalId(updated[0]?.id || DEFAULT_GOALS[0].id);
         }
     };
 
@@ -406,20 +516,6 @@ export function FunSavingsJarModal({
                             )}
                         </div>
 
-                        {/* Physical Cash Pot Tip Box */}
-                        <div className="rounded-2xl bg-[#080e1d] border border-white/[0.06] p-3.5 flex items-start gap-3">
-                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-teal-500/15 text-teal-300 mt-0.5">
-                                <Info size={15} />
-                            </span>
-                            <div className="text-xs space-y-0.5">
-                                <p className="font-bold text-white">Physical Pot &amp; Main Balance Sync</p>
-                                <p className="text-[11px] text-ink-muted leading-relaxed">
-                                    • <b>Stash:</b> Deducts from main balance. Next day you verify if cash was placed in your jar.<br />
-                                    • <b>Withdraw:</b> Adds the withdrawn amount back into your Main Balance in real time!
-                                </p>
-                            </div>
-                        </div>
-
                         {/* Middle Section: Fun Jar Tank + Goals + Actions */}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                             {/* Visual Liquid Fun Jar */}
@@ -443,7 +539,6 @@ export function FunSavingsJarModal({
                                         animate={{ height: `${jarBalance <= 0 ? 0 : Math.max(12, Math.min(100, goalProgressPct))}%` }}
                                         transition={{ duration: 1, ease: 'easeOut' }}
                                     >
-                                        {/* Floating Sparkle/Coin Icons inside Liquid */}
                                         {jarBalance > 0 && (
                                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
                                                 <Coins size={28} className="text-amber-200 animate-pulse" />
@@ -456,9 +551,22 @@ export function FunSavingsJarModal({
                                     <p className="text-3xl font-black text-white tracking-tight tnum">
                                         {formatCurrency(jarBalance, currency)}
                                     </p>
-                                    <p className="text-xs text-ink-muted font-medium mt-0.5">
-                                        {goalProgressPct}% of {selectedGoal ? selectedGoal.title : 'Fun Goal'} ({formatCurrency(selectedGoal ? selectedGoal.target : 0, currency)})
-                                    </p>
+                                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                                        <p className="text-xs text-ink-muted font-medium">
+                                            {goalProgressPct}% of {selectedGoal ? selectedGoal.title : 'Fun Goal'} ({formatCurrency(selectedGoal ? selectedGoal.target : 0, currency)})
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingTargetAmount(String(selectedGoal?.target || 10000));
+                                                setShowEditTarget(true);
+                                            }}
+                                            title="Edit Goal Target Amount"
+                                            className="text-ink-faint hover:text-teal-300 transition cursor-pointer"
+                                        >
+                                            <Edit3 size={12} />
+                                        </button>
+                                    </div>
 
                                     {/* Clear/Reset Button */}
                                     {jarBalance > 0 && (
@@ -476,39 +584,195 @@ export function FunSavingsJarModal({
 
                             {/* Right Controls: Goal Picker & Quick Stash/Spend */}
                             <div className="md:col-span-7 space-y-4">
-                                {/* Goal Selector */}
+                                {/* Goal Selector Header */}
                                 <div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block mb-2">
-                                        Select Target Fun Goal
-                                    </span>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {DEFAULT_GOALS.map((g) => {
-                                            const Icon = g.icon;
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                                            Select Target Fun Goal
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddGoal(!showAddGoal)}
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 px-2.5 py-1 rounded-xl transition cursor-pointer"
+                                        >
+                                            <Plus size={13} />
+                                            + Custom Goal
+                                        </button>
+                                    </div>
+
+                                    {/* Add Custom Goal Inline Form */}
+                                    <AnimatePresence>
+                                        {showAddGoal && (
+                                            <motion.form
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                onSubmit={handleCreateCustomGoal}
+                                                className="mb-3 rounded-2xl bg-[#080e1d] border border-teal-500/30 p-3.5 space-y-3 shadow-xl overflow-hidden"
+                                            >
+                                                <div className="flex items-center justify-between text-xs font-bold text-teal-300">
+                                                    <span>Create New Custom Goal</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowAddGoal(false)}
+                                                        className="text-ink-muted hover:text-white"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="text-[10px] font-semibold text-ink-muted block mb-1">Goal Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={newGoalTitle}
+                                                            onChange={(e) => setNewGoalTitle(e.target.value)}
+                                                            placeholder="e.g. Apple Watch Ultra, Bali Trip"
+                                                            required
+                                                            className="w-full rounded-xl bg-[#101a33] px-3 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-semibold text-ink-muted block mb-1">Target Amount ({currency})</label>
+                                                        <input
+                                                            type="number"
+                                                            value={newGoalTarget}
+                                                            onChange={(e) => setNewGoalTarget(e.target.value)}
+                                                            placeholder="e.g. 35000"
+                                                            required
+                                                            className="w-full rounded-xl bg-[#101a33] px-3 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Icon Selector */}
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-ink-muted block mb-1">Choose Icon</label>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {ICON_OPTIONS.map((opt) => {
+                                                            const IconCmp = opt.icon;
+                                                            const isSel = newGoalIconKey === opt.key;
+                                                            return (
+                                                                <button
+                                                                    key={opt.key}
+                                                                    type="button"
+                                                                    onClick={() => setNewGoalIconKey(opt.key)}
+                                                                    className={cx(
+                                                                        'h-7 w-7 grid place-items-center rounded-lg transition cursor-pointer',
+                                                                        isSel
+                                                                            ? 'bg-teal-500 text-black shadow-md'
+                                                                            : 'bg-[#101a33] text-ink-muted hover:text-white'
+                                                                    )}
+                                                                    title={opt.label}
+                                                                >
+                                                                    <IconCmp size={14} />
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex justify-end gap-2 pt-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowAddGoal(false)}
+                                                        className="px-3 py-1.5 rounded-xl bg-white/[0.05] text-xs font-semibold text-ink-muted hover:text-white"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="px-3.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-black text-xs font-extrabold shadow-md transition"
+                                                    >
+                                                        Save &amp; Set Goal
+                                                    </button>
+                                                </div>
+                                            </motion.form>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Edit Target Amount Quick Modal/Form */}
+                                    <AnimatePresence>
+                                        {showEditTarget && (
+                                            <motion.form
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                onSubmit={handleSaveEditTarget}
+                                                className="mb-3 rounded-2xl bg-[#080e1d] border border-amber-500/30 p-3.5 space-y-2.5 shadow-xl overflow-hidden"
+                                            >
+                                                <div className="flex items-center justify-between text-xs font-bold text-amber-300">
+                                                    <span>Set Target for "{selectedGoal.title}"</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowEditTarget(false)}
+                                                        className="text-ink-muted hover:text-white"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={editingTargetAmount}
+                                                        onChange={(e) => setEditingTargetAmount(e.target.value)}
+                                                        placeholder="New Target Amount"
+                                                        required
+                                                        className="flex-1 rounded-xl bg-[#101a33] px-3.5 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-amber-400"
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold shadow-md transition"
+                                                    >
+                                                        Update Target
+                                                    </button>
+                                                </div>
+                                            </motion.form>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Goals Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1">
+                                        {goals.map((g) => {
+                                            const Icon = ICON_MAP[g.iconKey] || Plane;
                                             const isSel = selectedGoal?.id === g.id;
                                             return (
-                                                <button
+                                                <div
                                                     key={g.id}
-                                                    type="button"
-                                                    onClick={() => setSelectedGoal(g)}
+                                                    onClick={() => setSelectedGoalId(g.id)}
                                                     className={cx(
-                                                        'p-3 rounded-2xl text-left transition relative overflow-hidden flex flex-col justify-between h-24 cursor-pointer',
+                                                        'group relative p-3 rounded-2xl text-left transition overflow-hidden flex flex-col justify-between h-24 cursor-pointer select-none',
                                                         isSel
                                                             ? 'bg-[#101a33] border border-teal-400/50 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
                                                             : 'bg-[#101a33]/60 hover:bg-[#101a33]'
                                                     )}
                                                 >
-                                                    <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSel ? 'bg-teal-400/20 text-teal-300' : 'bg-white/[0.05] text-ink-muted')}>
-                                                        <Icon size={14} />
-                                                    </span>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSel ? 'bg-teal-400/20 text-teal-300' : 'bg-white/[0.05] text-ink-muted')}>
+                                                            <Icon size={14} />
+                                                        </span>
+                                                        {g.isCustom && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleDeleteGoal(g.id, e)}
+                                                                title="Delete Goal"
+                                                                className="opacity-0 group-hover:opacity-100 p-1 text-ink-faint hover:text-rose-400 transition cursor-pointer"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                     <div>
                                                         <p className="text-[11px] font-bold text-white leading-tight truncate">
                                                             {g.title}
                                                         </p>
-                                                        <p className="text-[10px] text-ink-muted tnum font-semibold">
+                                                        <p className="text-[10px] text-ink-muted tnum font-semibold mt-0.5">
                                                             {formatCurrency(g.target, currency)}
                                                         </p>
                                                     </div>
-                                                </button>
+                                                </div>
                                             );
                                         })}
                                     </div>
