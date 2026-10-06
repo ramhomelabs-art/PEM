@@ -377,7 +377,7 @@ const Loans = () => {
     const totalBorrowed = loans.reduce((s, l) => s + Number(l.totalAmount || 0), 0);
 
     return (
-        <div className="page-container mx-auto w-full max-w-[1100px]">
+        <div className="page-container">
             <AnimatePresence>
                 {toast.isVisible ? <Toast message={toast.message} type={toast.type} /> : null}
             </AnimatePresence>
@@ -389,9 +389,9 @@ const Loans = () => {
                 message={confirmDialog.message}
             />
 
-            <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-ink">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
                         Loans &amp; Liabilities
                     </h1>
                     <p className="mt-1 text-sm text-ink-muted">

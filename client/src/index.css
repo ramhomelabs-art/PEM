@@ -310,19 +310,24 @@ select:focus {
    Responsive Design Utilities 
    ========================================== */
 
-/* Page container with fluid padding: shrinks smoothly from a 27" monitor
-   down to phone widths without any breakpoint jumps. */
+/* Page container with unified width across all modules (Overview, Transactions, Bills, Investments, Loans, etc.) */
 .page-container {
+  width: 100%;
+  max-width: 1520px;
   margin: 0 auto;
-  padding: clamp(20px, 4vh, 60px) clamp(14px, 3vw, 40px);
+  padding: 24px 20px 64px 20px;
   box-sizing: border-box;
-  transition: padding 0.3s ease;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 640px) {
   .page-container {
-    padding-top: 16px;
-    padding-bottom: 40px;
+    padding: 28px 28px 64px 28px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: 32px 36px 64px 36px;
   }
 }
 

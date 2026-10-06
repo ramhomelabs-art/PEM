@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { API_URL, BASE_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
@@ -42,6 +42,8 @@ import TransactionModal, { categoryIcons } from '../../components/personal_expen
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import { Button, StatTile } from '../../components/ui/primitives';
+import { cx } from '../../components/ui/cx';
 
 import { useCategories } from '../../context/CategoryContext';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
@@ -65,6 +67,16 @@ const Transactions = () => {
     const [customDates, setCustomDates] = useState({ start: '', end: '' });
     const [isExporting, setIsExporting] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, transactionId: null });
+
+    const totalExpense = useMemo(
+        () => transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + (Number(t.amount) || 0), 0),
+        [transactions]
+    );
+    const totalIncome = useMemo(
+        () => transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + (Number(t.amount) || 0), 0),
+        [transactions]
+    );
+    const netBalance = totalIncome - totalExpense;
 
     const fetchTransactions = useCallback(async () => {
         try {
@@ -248,7 +260,7 @@ const Transactions = () => {
     }
 
     return (
-        <div className="page-container" style={{ maxWidth: '1000px' }}>
+        <div className="page-container">
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onConfirm={() => handleDelete(confirmDialog.transactionId)}
@@ -288,166 +300,249 @@ const Transactions = () => {
                 }}
             />
 
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-3 sm:mb-12">
-                <div className="flex min-w-0 items-center gap-3 sm:gap-5">
-                    <motion.button whileHover={{ x: -5 }} onClick={() => navigate('/')} className="shrink-0 border-none bg-none text-ink-muted cursor-pointer"><ArrowLeft size={28} /></motion.button>
-                    <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: theme.text }}>Transaction History</h2>
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+                        Transaction History
+                    </h1>
+                    <p className="mt-1 text-sm text-ink-muted">
+                        Track, filter, and audit all personal income and expense records.
+                    </p>
                 </div>
-                <div className="flex gap-2.5">
-                    <span className="whitespace-nowrap rounded-pill bg-brand-soft px-3 py-1.5 text-[11px] font-black tracking-[2px] text-brand">{filteredTransactions.length} RECORDS</span>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <Button
+                        variant="secondary"
+                        icon={FileDown}
+                        onClick={exportToPDF}
+                        disabled={isExporting || filteredTransactions.length === 0}
+                    >
+                        {isExporting ? 'Generating...' : 'Export PDF'}
+                    </Button>
+                    <Button
+                        variant="primary"
+                        icon={Plus}
+                        onClick={() => {
+                            setModalMode('add');
+                            setSelectedEntry(null);
+                            setIsModalOpen(true);
+                        }}
+                    >
+                        Add Entry
+                    </Button>
                 </div>
+            </header>
+
+            {/* KPI STATS ROW */}
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <StatTile
+                    label="Total Spend"
+                    value={formatCurrency(totalExpense)}
+                    tone="neg"
+                    icon={TrendingDown}
+                />
+                <StatTile
+                    label="Total Income"
+                    value={formatCurrency(totalIncome)}
+                    tone="pos"
+                    icon={TrendingUp}
+                />
+                <StatTile
+                    label="Net Flow"
+                    value={`${netBalance >= 0 ? '+' : ''}${formatCurrency(netBalance)}`}
+                    tone={netBalance >= 0 ? 'pos' : 'neg'}
+                    icon={Wallet}
+                />
+                <StatTile
+                    label="Total Records"
+                    value={filteredTransactions.length}
+                    tone="info"
+                    icon={ReceiptText}
+                    hint={`${transactions.length} total`}
+                />
             </div>
 
             {/* SEARCH & FILTER BAR */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
-                <div className="flex flex-wrap gap-3 sm:gap-5">
-                    <div className="relative min-w-0 flex-1 basis-[220px]">
-                        <Search size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint" />
+            <div className="mb-6 flex flex-col gap-3.5">
+                <div className="flex flex-wrap gap-3">
+                    <div className="relative min-w-0 flex-1">
+                        <Search
+                            size={18}
+                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
+                        />
                         <input
                             type="text"
                             placeholder="Search by description or category..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full rounded-2xl border py-4 pl-[52px] pr-4 text-[15px] font-bold outline-none"
-                            style={{
-                                backgroundColor: theme.inputBg,
-                                borderColor: theme.border,
-                                color: theme.text,
-                            }}
+                            className="h-10 w-full rounded-control border border-line bg-surface pl-10 pr-4 text-sm font-medium text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
                         />
                     </div>
-                    <button
-                        onClick={exportToPDF}
-                        disabled={isExporting || filteredTransactions.length === 0}
-                        className="flex items-center gap-2.5 rounded-2xl bg-brand px-5 py-4 font-black text-white shadow-[0_10px_20px_rgba(16,185,129,0.2)] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        <FileDown size={20} /> <span className="whitespace-nowrap">{isExporting ? 'Generating...' : 'Export PDF'}</span>
-                    </button>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border p-1" style={{ backgroundColor: theme.inputBg, borderColor: theme.border }}>
-                        {['all', 'day', 'week', 'month', 'year', 'custom'].map(p => (
-                            <button
-                                key={p}
-                                onClick={() => setTimeFilter(p)}
-                                className="whitespace-nowrap rounded-xl border-none px-3 py-2 text-[11px] font-black uppercase transition"
-                                style={{
-                                    backgroundColor: timeFilter === p ? '#10b981' : 'transparent',
-                                    color: timeFilter === p ? 'white' : '#64748b',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                {p}
-                            </button>
-                        ))}
+                    <div
+                        role="tablist"
+                        aria-label="Filter timeframe"
+                        className="no-scrollbar inline-flex max-w-full overflow-x-auto rounded-control border border-line bg-sunken p-0.5"
+                    >
+                        {['all', 'day', 'week', 'month', 'year', 'custom'].map((p) => {
+                            const active = timeFilter === p;
+                            return (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setTimeFilter(p)}
+                                    aria-selected={active}
+                                    className={cx(
+                                        'rounded-[8px] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition',
+                                        active
+                                            ? 'bg-surface text-ink shadow-card'
+                                            : 'text-ink-muted hover:text-ink'
+                                    )}
+                                >
+                                    {p}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border p-1" style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
-                        {['all', 'expense', 'income'].map(t => (
-                            <button
-                                key={t}
-                                onClick={() => setFilterType(t)}
-                                className="whitespace-nowrap rounded-xl border-none px-3 py-2 text-[11px] font-black uppercase transition"
-                                style={{
-                                    backgroundColor: filterType === t ? (t === 'expense' ? '#f43f5e' : t === 'income' ? '#10b981' : '#1e293b') : 'transparent',
-                                    color: filterType === t ? 'white' : '#64748b',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                {t}
-                            </button>
-                        ))}
+                    <div
+                        role="tablist"
+                        aria-label="Filter type"
+                        className="inline-flex rounded-control border border-line bg-sunken p-0.5"
+                    >
+                        {['all', 'expense', 'income'].map((t) => {
+                            const active = filterType === t;
+                            return (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setFilterType(t)}
+                                    aria-selected={active}
+                                    className={cx(
+                                        'rounded-[8px] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition',
+                                        active
+                                            ? 'bg-surface text-ink shadow-card'
+                                            : 'text-ink-muted hover:text-ink'
+                                    )}
+                                >
+                                    {t}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {timeFilter === 'custom' && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand/10 bg-brand-soft/5 p-4">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '900', color: '#10b981' }}>START:</label>
-                            <input type="date" value={customDates.start} onChange={e => setCustomDates({ ...customDates, start: e.target.value })} className="min-w-0 rounded-lg border px-2.5 py-1.5" style={{ backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text, cursor: 'pointer' }} />
+                    <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-wrap items-center gap-3 rounded-control border border-line bg-surface p-3"
+                    >
+                        <div className="flex items-center gap-2 text-xs font-bold text-ink">
+                            <span className="text-brand">START:</span>
+                            <input
+                                type="date"
+                                value={customDates.start}
+                                onChange={(e) => setCustomDates({ ...customDates, start: e.target.value })}
+                                className="rounded-control border border-line bg-sunken px-2.5 py-1 text-xs text-ink"
+                            />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '900', color: '#10b981' }}>END:</label>
-                            <input type="date" value={customDates.end} onChange={e => setCustomDates({ ...customDates, end: e.target.value })} className="min-w-0 rounded-lg border px-2.5 py-1.5" style={{ backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text, cursor: 'pointer' }} />
+                        <div className="flex items-center gap-2 text-xs font-bold text-ink">
+                            <span className="text-brand">END:</span>
+                            <input
+                                type="date"
+                                value={customDates.end}
+                                onChange={(e) => setCustomDates({ ...customDates, end: e.target.value })}
+                                className="rounded-control border border-line bg-sunken px-2.5 py-1 text-xs text-ink"
+                            />
                         </div>
                     </motion.div>
                 )}
             </div>
 
             {/* TRANSACTION LIST */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className="flex flex-col gap-2.5">
                 {loading ? (
-                    <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                            <Smartphone size={40} color="#10b981" />
-                        </motion.div>
+                    <div className="flex h-52 items-center justify-center">
+                        <Smartphone size={32} className="animate-pulse text-brand" />
                     </div>
                 ) : filteredTransactions.length === 0 ? (
-                    <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '32px' }}>
-                        <p style={{ color: '#64748b', fontWeight: 'bold' }}>No transactions found matching your criteria.</p>
+                    <div className="flex h-52 flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line text-center">
+                        <p className="text-sm font-bold text-ink-muted">No transactions found</p>
+                        <p className="text-xs text-ink-faint">Try adjusting your filters or search terms.</p>
                     </div>
                 ) : (
                     <AnimatePresence mode="popLayout">
                         {filteredTransactions.map((t, i) => {
-                            const catData = categories.find(c => c.name === t.category);
+                            const catData = categories.find((c) => c.name === t.category);
                             const Icon = categoryIcons[t.category] || ReceiptText;
+                            const isIncome = t.type === 'income';
                             return (
                                 <motion.div
                                     key={t.id}
-                                    initial={{ opacity: 0, y: 20 }}
+                                    initial={{ opacity: 0, y: 12 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    className="flex flex-wrap items-center gap-3 rounded-3xl border p-4 sm:gap-5 sm:p-6"
-                                    style={{
-                                        backgroundColor: theme.card,
-                                        borderColor: theme.border,
-                                        cursor: 'pointer'
-                                    }}
-                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 10 }}
+                                    transition={{ delay: i * 0.03 }}
+                                    onClick={() => openEditModal(t)}
+                                    className="pem-card flex flex-wrap items-center gap-3 p-3.5 transition sm:gap-4 sm:p-4 hover:border-line-strong cursor-pointer"
+                                    whileHover={{ x: 4 }}
                                 >
-                                    <div className="shrink-0" style={{
-                                        width: '56px',
-                                        height: '56px',
-                                        backgroundColor: catData?.color ? `${catData.color}20` : (t.type === 'income' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)'),
-                                        borderRadius: '16px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        <Icon size={24} color={catData?.color || (t.type === 'income' ? '#10b981' : '#f43f5e')} />
+                                    <div
+                                        className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px]"
+                                        style={{
+                                            backgroundColor: catData?.color ? `${catData.color}20` : isIncome ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)',
+                                        }}
+                                    >
+                                        <Icon size={20} color={catData?.color || (isIncome ? '#10b981' : '#f43f5e')} />
                                     </div>
                                     <div className="min-w-[170px] flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h4 className="m-0 text-base font-black sm:text-lg" style={{ color: theme.text }}>{t.description || t.category}</h4>
-                                            <span className="rounded-pill bg-white/5 px-2 py-0.5 text-[9px] font-black text-ink-faint">{(t.source ? String(t.source).toUpperCase() : 'MANUAL')}</span>
+                                            <h4 className="m-0 text-sm font-bold text-ink sm:text-base">
+                                                {t.description || t.category}
+                                            </h4>
+                                            <span className="rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">
+                                                {t.source ? String(t.source).toUpperCase() : 'MANUAL'}
+                                            </span>
                                         </div>
                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                                             <Calendar size={12} className="shrink-0" />
-                                            <span className="font-bold text-ink">
+                                            <span className="font-medium text-ink">
                                                 {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: getIANATimezone() })}, {new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: getIANATimezone() })}
                                             </span>
                                             <span>•</span>
-                                            <span className="font-bold text-brand">{t.category}</span>
+                                            <span className="font-semibold text-brand">{t.category}</span>
                                             <span>•</span>
-                                            <span className="font-black text-info">{t.paymentMode === 'Other' ? t.otherPaymentMode : t.paymentMode}</span>
-                                        </div>
-                                        <div className="mt-1 hidden text-[10px] font-bold text-ink-faint sm:block">
-                                            Added by <span className="text-ink-muted">{t.User?.fullName || t.User?.username || 'System'}</span>
+                                            <span className="font-bold text-ink-muted">{t.paymentMode === 'Other' ? t.otherPaymentMode : t.paymentMode}</span>
                                         </div>
                                     </div>
-                                    <div className="ml-auto flex items-center gap-3 text-right sm:gap-5">
+                                    <div className="ml-auto flex items-center gap-3 text-right sm:gap-4">
                                         <div>
-                                            <div className="flex items-center gap-2 text-lg font-black sm:text-[22px]"
-                                                style={{ color: t.type === 'income' ? '#10b981' : '#f43f5e' }}>
-                                                {t.type === 'income' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
-                                                {t.type === 'expense' && '-'} {formatCurrency(t.amount)}
+                                            <div
+                                                className="tnum flex items-center gap-1.5 text-base font-bold sm:text-lg"
+                                                style={{ color: isIncome ? '#10b981' : '#f43f5e' }}
+                                            >
+                                                {isIncome ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
+                                                {!isIncome && '-'} {formatCurrency(t.amount)}
                                             </div>
-                                            <div className="mt-1 text-[10px] font-bold text-ink-faint">SUCCESS</div>
                                         </div>
-                                        <div className="flex gap-2.5 border-l border-white/10 pl-3 sm:gap-2.5 sm:pl-5">
-                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(t); }} className="border-none bg-none text-brand cursor-pointer" title="Edit"><Edit2 size={20} /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, transactionId: t.id }); }} className="border-none bg-none text-neg cursor-pointer" title="Delete"><Trash2 size={20} /></button>
+                                        <div className="flex gap-1.5 border-l border-line pl-3">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); openEditModal(t); }}
+                                                className="grid h-8 w-8 place-items-center rounded-control text-ink-muted transition hover:bg-raised hover:text-brand"
+                                                title="Edit"
+                                            >
+                                                <Edit2 size={15} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, transactionId: t.id }); }}
+                                                className="grid h-8 w-8 place-items-center rounded-control text-ink-muted transition hover:bg-raised hover:text-neg"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
                                         </div>
                                     </div>
                                 </motion.div>

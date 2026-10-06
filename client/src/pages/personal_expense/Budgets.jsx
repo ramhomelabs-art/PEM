@@ -197,7 +197,7 @@ const Budgets = () => {
     const overCount = budgets.filter((b) => calculateSpent(b.category) >= Number(b.amountLimit)).length;
 
     return (
-        <div className="page-container mx-auto w-full max-w-[1000px]">
+        <div className="page-container">
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onConfirm={() => handleDelete(confirmDialog.budgetId)}
@@ -215,9 +215,9 @@ const Budgets = () => {
                 editData={selectedBudget}
             />
 
-            <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-ink">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
                         Budgets &amp; Targets
                     </h1>
                     <p className="mt-1 text-sm text-ink-muted">

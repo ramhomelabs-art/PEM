@@ -335,7 +335,7 @@ const Dashboard = () => {
                 onExportPdf={printDashboard}
             />
 
-            <main className="print-area mx-auto w-full max-w-[1600px] px-4 pb-16 pt-5 sm:px-6">
+            <main className="print-area page-container">
                 {/* KPI row */}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {kpis.map((k, i) => (

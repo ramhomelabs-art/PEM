@@ -260,7 +260,7 @@ const Bills = () => {
     const paidCount = bills.filter((b) => b.status === 'paid').length;
 
     return (
-        <div className="page-container mx-auto w-full max-w-[1100px]">
+        <div className="page-container">
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onConfirm={() => {
@@ -277,9 +277,9 @@ const Bills = () => {
                 }
             />
 
-            <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-ink">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
                         Bills &amp; Payments
                     </h1>
                     <p className="mt-1 text-sm text-ink-muted">
@@ -332,7 +332,7 @@ const Bills = () => {
                     }
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <AnimatePresence>
                         {bills.map((bill) => {
                             const Icon = billIcons[bill.category] || CreditCard;

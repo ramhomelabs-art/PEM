@@ -770,10 +770,10 @@ const InvestmentDashboard = () => {
     );
 
     return (
-        <div className="mx-auto max-w-[1400px] p-6 md:p-8">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="page-container">
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-ink">Investment Portfolio</h1>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Investment Portfolio</h1>
                     <p className="mt-1 text-sm text-ink-muted">Plan-driven tracking across allocations and goals</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -787,7 +787,7 @@ const InvestmentDashboard = () => {
                         Add Investment
                     </Button>
                 </div>
-            </div>
+            </header>
 
             <div className="mb-6 inline-flex flex-wrap items-center gap-1 rounded-control border border-line bg-surface p-1" role="tablist" aria-label="Portfolio sections">
                 {TABS.map((t) => (

@@ -233,7 +233,7 @@ const Archive = () => {
     };
 
     return (
-        <div className="page-container" style={{ maxWidth: '1200px' }}>
+        <div className="page-container">
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onConfirm={() => handleDelete(confirmDialog.id, confirmDialog.type)}
@@ -241,17 +241,17 @@ const Archive = () => {
                 title="Delete Archive"
                 message={`Are you sure you want to delete this archived ${confirmDialog.type}?`}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
+            <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 style={{ fontSize: '42px', fontWeight: '900', marginBottom: '10px', color: theme.text }}>Archive Data</h1>
-                    <p style={{ color: theme.textSecondary, fontWeight: 'bold', margin: 0 }}>History of completed loans and settled liabilities</p>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Archive Data</h1>
+                    <p className="mt-1 text-sm text-ink-muted">History of completed loans and settled liabilities</p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '5px 12px', borderRadius: '100px', letterSpacing: '2px' }}>
-                        {filteredLoans.length + filteredBorrows.length} RECORDS FOUND
+                <div className="flex gap-2">
+                    <span className="rounded-pill bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
+                        {filteredLoans.length + filteredBorrows.length} RECORDS
                     </span>
                 </div>
-            </div>
+            </header>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
                 <div style={{ display: 'flex', gap: '20px' }}>

@@ -221,7 +221,7 @@ const Accounts = () => {
     }
 
     return (
-        <div className="page-container" style={{ maxWidth: '1400px' }}>
+        <div className="page-container">
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 onConfirm={() => {
@@ -247,8 +247,8 @@ const Accounts = () => {
                 message="Are you sure you want to delete this document from the viewer?"
             />
             {/* HEADER WITH TOGGLE */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                <h1 style={{ fontSize: '42px', fontWeight: '900', margin: 0, color: theme.text }}>Accounts & Documents</h1>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Accounts &amp; Documents</h1>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                     <button onClick={() => setIsLocked(true)} title="Lock" style={{ padding: '12px', backgroundColor: theme.card, borderRadius: '12px', border: `1px solid ${theme.border}`, cursor: 'pointer', color: theme.textSecondary }}>
                         <Lock size={20} />
