@@ -193,7 +193,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Strategy Description Banner */}
-                    <div className="rounded-control bg-surface p-3 text-xs leading-relaxed text-ink-muted border border-line/40">
+                    <div className="rounded-control bg-surface p-3.5 text-xs leading-relaxed text-ink-muted">
                         {strategy === 'avalanche' ? (
                             <p>
                                 <strong>Avalanche Focus:</strong> Targets debts with the{' '}
@@ -210,7 +210,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Extra Monthly Payment Slider / Input */}
-                    <div className="rounded-card bg-surface p-4 border border-line/40 space-y-3">
+                    <div className="rounded-card bg-surface p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <div>
                                 <label className="text-xs font-bold uppercase tracking-wider text-ink-faint">
@@ -260,7 +260,7 @@ export function DebtPayoffSimulatorModal({
 
                     {/* Payoff Comparison Summary Cards */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="rounded-card bg-surface p-3.5 border border-line/40">
+                        <div className="rounded-card bg-surface p-3.5">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Months to Debt-Free
                             </span>
@@ -277,7 +277,7 @@ export function DebtPayoffSimulatorModal({
                             )}
                         </div>
 
-                        <div className="rounded-card bg-surface p-3.5 border border-line/40">
+                        <div className="rounded-card bg-surface p-3.5">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Total Interest Paid
                             </span>
@@ -291,7 +291,7 @@ export function DebtPayoffSimulatorModal({
                             </p>
                         </div>
 
-                        <div className="rounded-card bg-surface p-3.5 border border-emerald-500/25 bg-emerald-950/10">
+                        <div className="rounded-card bg-emerald-500/10 p-3.5">
                             <span className="text-[11px] font-bold uppercase text-emerald-400">
                                 Total Interest Saved
                             </span>
@@ -307,7 +307,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Roadmap: Sequence of Payoff */}
-                    <div className="rounded-card bg-surface p-4 border border-line/40">
+                    <div className="rounded-card bg-surface p-4">
                         <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-ink">
                             Target Payoff Sequence
                         </h4>
