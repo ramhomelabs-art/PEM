@@ -501,12 +501,23 @@ const Transactions = () => {
                                     <div className="ml-auto flex items-center gap-3 text-right sm:gap-4">
                                         <div>
                                             <div
-                                                className="tnum flex items-center gap-1.5 text-base font-bold sm:text-lg"
-                                                style={{ color: isIncome ? '#10b981' : '#f43f5e' }}
+                                                className="tnum flex items-center gap-1.5 text-base font-extrabold sm:text-lg"
+                                                style={{ color: isHold ? '#f59e0b' : isIncome ? '#10b981' : '#f43f5e' }}
                                             >
-                                                {isIncome ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
-                                                {!isIncome && '-'} {formatCurrency(t.amount)}
+                                                {isHold ? (
+                                                    <span className="text-amber-400">🕒 -</span>
+                                                ) : isIncome ? (
+                                                    <ArrowDownLeft size={17} />
+                                                ) : (
+                                                    <ArrowUpRight size={17} />
+                                                )}
+                                                {!isIncome && !isHold && '-'} {formatCurrency(t.amount)}
                                             </div>
+                                            {isHold && (
+                                                <span className="text-[10px] font-bold text-amber-400/90 block">
+                                                    Pending Confirmation
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex gap-1.5 border-l border-line pl-3">
                                             <button
