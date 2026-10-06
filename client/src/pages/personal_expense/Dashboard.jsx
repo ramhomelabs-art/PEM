@@ -345,20 +345,29 @@ const Dashboard = () => {
                     ))}
                 </section>
 
-                {/* Cash flow + category donut */}
+                {/* 1. Recent activity + Spend by category */}
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-                    <motion.div className="md:col-span-2 xl:col-span-8" {...enter(0)}>
-                        <CashFlowCard
-                            transactions={transactions}
-                            range={range}
-                            customRange={customRange}
-                            currency={currency}
-                            loading={txLoading}
-                            onAdd={openAdd}
-                        />
+                    <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
+                        <Panel className="flex h-full flex-col">
+                            <PanelHeader
+                                title="Recent Activity"
+                                subtitle="Latest transactions"
+                                icon={Wallet}
+                            />
+                            <ActivityList
+                                transactions={transactions}
+                                currency={currency}
+                                loading={txLoading}
+                                tab={activityTab}
+                                onTabChange={setActivityTab}
+                                categoryFilter={categoryFilter}
+                                onClearFilter={() => setCategoryFilter(null)}
+                                onViewAll={() => navigate('/transactions')}
+                            />
+                        </Panel>
                     </motion.div>
 
-                    <motion.div className="md:col-span-2 xl:col-span-4" {...enter(1)}>
+                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
                         <Panel className="flex h-full flex-col">
                             <PanelHeader
                                 title="Spend by Category"
@@ -379,7 +388,21 @@ const Dashboard = () => {
                     </motion.div>
                 </section>
 
-                {/* Daily spend + budget vs actual */}
+                {/* 2. Cash flow stream */}
+                <section className="mt-4">
+                    <motion.div {...enter(0)}>
+                        <CashFlowCard
+                            transactions={transactions}
+                            range={range}
+                            customRange={customRange}
+                            currency={currency}
+                            loading={txLoading}
+                            onAdd={openAdd}
+                        />
+                    </motion.div>
+                </section>
+
+                {/* 3. Daily spend + budget vs actual */}
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
                     <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
                         <Panel className="h-full">
@@ -407,50 +430,9 @@ const Dashboard = () => {
                     </motion.div>
                 </section>
 
-                {/* Activity + dues */}
+                {/* 4. Insights + upcoming dues */}
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
                     <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
-                        <Panel className="flex h-full flex-col">
-                            <PanelHeader
-                                title="Recent Activity"
-                                subtitle="Latest transactions"
-                                icon={Wallet}
-                            />
-                            <ActivityList
-                                transactions={transactions}
-                                currency={currency}
-                                loading={txLoading}
-                                tab={activityTab}
-                                onTabChange={setActivityTab}
-                                categoryFilter={categoryFilter}
-                                onClearFilter={() => setCategoryFilter(null)}
-                                onViewAll={() => navigate('/transactions')}
-                            />
-                        </Panel>
-                    </motion.div>
-
-                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
-                        <Panel className="h-full">
-                            <PanelHeader title="Upcoming Dues" subtitle="Next 30 days" icon={Wallet} />
-                            <DueList items={activeObligations} currency={currency} loading={loading} />
-                        </Panel>
-                    </motion.div>
-                </section>
-
-                {/* Cards + investments + insights */}
-                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-                    <motion.div className="md:col-span-1 xl:col-span-4" {...enter(0)}>
-                        <Panel className="h-full">
-                            <PanelHeader title="Credit Cards" subtitle="Balance & utilisation" icon={Wallet} />
-                            <CreditCardsPanel cards={cards} currency={currency} loading={loading} />
-                        </Panel>
-                    </motion.div>
-
-                    <motion.div className="md:col-span-1 xl:col-span-4" {...enter(1)}>
-                        <InvestmentPanel />
-                    </motion.div>
-
-                    <motion.div className="md:col-span-2 xl:col-span-4" {...enter(2)}>
                         <Panel className="flex h-full flex-col">
                             <PanelHeader title="Insights" subtitle="Auto-generated tips" icon={TrendingUp} />
                             <InsightsCard insights={insights} loading={loading} />
@@ -461,6 +443,27 @@ const Dashboard = () => {
                                 <WeekdayHeatmap series={heatmapSeries} currency={currency} loading={txLoading} />
                             </div>
                         </Panel>
+                    </motion.div>
+
+                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
+                        <Panel className="flex h-full flex-col">
+                            <PanelHeader title="Upcoming Dues" subtitle="Next 30 days" icon={Wallet} />
+                            <DueList items={activeObligations} currency={currency} loading={loading} />
+                        </Panel>
+                    </motion.div>
+                </section>
+
+                {/* 5. Credit cards + investment */}
+                <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+                    <motion.div className="md:col-span-1 xl:col-span-6" {...enter(0)}>
+                        <Panel className="h-full">
+                            <PanelHeader title="Credit Cards" subtitle="Balance & utilisation" icon={Wallet} />
+                            <CreditCardsPanel cards={cards} currency={currency} loading={loading} />
+                        </Panel>
+                    </motion.div>
+
+                    <motion.div className="md:col-span-1 xl:col-span-6" {...enter(1)}>
+                        <InvestmentPanel />
                     </motion.div>
                 </section>
             </main>
