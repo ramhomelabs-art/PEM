@@ -146,8 +146,14 @@ export function DailyBarChart({
     };
 
     return (
-        <div className="h-[230px] w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+        <div className="h-[230px] w-full min-w-0 min-h-[230px]">
+            <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                minHeight={230}
+                initialDimension={{ width: 500, height: 230 }}
+            >
                 <BarChart
                     data={data}
                     margin={{ top: 12, right: 12, left: -16, bottom: 12 }}
