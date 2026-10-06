@@ -20,12 +20,15 @@ import {
     Wifi,
     X,
     Zap,
+    RefreshCw,
+    Sparkles,
 } from 'lucide-react';
 import { Badge, Button, EmptyState, IconBadge, StatTile } from '../../components/ui/primitives';
 import { Modal } from '../../components/ui/Modal';
 import { cx } from '../../components/ui/cx';
 import { formatCurrency, formatDate, relativeDayLabel, daysUntil } from '../../utils/currency';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import SubscriptionAuditorModal from '../../components/personal_expense/SubscriptionAuditorModal';
 
 const billIcons = {
     Broadband: Wifi,
@@ -69,8 +72,10 @@ const Bills = () => {
     const money = (v) => formatCurrency(v, currency);
 
     const [bills, setBills] = useState([]);
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAuditorOpen, setIsAuditorOpen] = useState(false);
     const [selectedBillHistory, setSelectedBillHistory] = useState(null);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -82,15 +87,24 @@ const Bills = () => {
     const fetchBills = useCallback(async () => {
         if (!user || !user.id) return;
         try {
-            const res = await fetch(`${API_URL}/bills/user/${user.id}`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-            });
-            if (!res.ok) throw new Error('Failed to fetch bills');
-            const data = await res.json();
-            setBills(Array.isArray(data) ? data : []);
+            const [billsRes, txRes] = await Promise.all([
+                fetch(`${API_URL}/bills/user/${user.id}`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                }),
+                fetch(`${API_URL}/transactions/user/${user.id}`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                }),
+            ]);
+            const [billsData, txData] = await Promise.all([
+                billsRes.ok ? billsRes.json() : [],
+                txRes.ok ? txRes.json() : [],
+            ]);
+            setBills(Array.isArray(billsData) ? billsData : []);
+            setTransactions(Array.isArray(txData) ? txData : []);
         } catch (err) {
             console.error('Fetch failed:', err);
             setBills([]);
+            setTransactions([]);
         } finally {
             setLoading(false);
         }
@@ -286,9 +300,18 @@ const Bills = () => {
                         Manage your recurring expenses and stay ahead of every due date.
                     </p>
                 </div>
-                <Button variant="primary" icon={Plus} onClick={() => handleOpenModal(null)}>
-                    Add New Bill
-                </Button>
+                <div className="flex items-center gap-2.5">
+                    <Button
+                        variant="secondary"
+                        icon={RefreshCw}
+                        onClick={() => setIsAuditorOpen(true)}
+                    >
+                        Subscription Auditor
+                    </Button>
+                    <Button variant="primary" icon={Plus} onClick={() => handleOpenModal(null)}>
+                        Add New Bill
+                    </Button>
+                </div>
             </header>
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -663,6 +686,26 @@ const Bills = () => {
                     <EmptyState icon={History} title="No payment history found" />
                 )}
             </Modal>
+
+            <SubscriptionAuditorModal
+                isOpen={isAuditorOpen}
+                onClose={() => setIsAuditorOpen(false)}
+                transactions={transactions}
+                existingBills={bills}
+                currency={currency}
+                onAddBill={(sub) => {
+                    setIsAuditorOpen(false);
+                    setSelectedBill(null);
+                    setFormData({
+                        ...emptyForm,
+                        name: sub.name,
+                        amount: sub.amount,
+                        frequency: sub.frequency || 'monthly',
+                        category: sub.category || 'Other',
+                    });
+                    setIsModalOpen(true);
+                }}
+            />
         </div>
     );
 };

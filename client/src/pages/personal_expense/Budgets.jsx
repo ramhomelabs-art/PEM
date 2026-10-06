@@ -19,6 +19,9 @@ import {
     Trash2,
     Wallet,
     Zap,
+    Radar,
+    Sparkles,
+    ShieldAlert,
 } from 'lucide-react';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
 import {
@@ -31,6 +34,8 @@ import {
 } from '../../components/ui/primitives';
 import { Modal } from '../../components/ui/Modal';
 import { formatCurrency } from '../../utils/currency';
+import OverspendRadarModal from '../../components/personal_expense/OverspendRadarModal';
+import { cx } from '../../components/ui/cx';
 
 export const categoryIcons = {
     Food: { icon: Coffee, color: '#f43f5e', bg: 'rgba(244,63,94,0.1)' },
@@ -197,6 +202,18 @@ const Budgets = () => {
     const totalSpent = budgets.reduce((s, b) => s + calculateSpent(b.category), 0);
     const overCount = budgets.filter((b) => calculateSpent(b.category) >= Number(b.amountLimit)).length;
 
+    const [isRadarOpen, setIsRadarOpen] = useState(false);
+
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const currentDay = Math.min(now.getDate(), daysInMonth);
+    const monthTimelinePercent = Math.round((currentDay / daysInMonth) * 100);
+
+    // Projected velocity calculation across all active budgets
+    const totalProjected = currentDay > 0 ? Math.round((totalSpent / currentDay) * daysInMonth) : 0;
+    const isProjectedOver = totalProjected > totalLimit && totalLimit > 0;
+    const projectedOvershoot = Math.max(0, totalProjected - totalLimit);
+
     return (
         <div className="page-container">
             <ConfirmDialog
@@ -225,19 +242,28 @@ const Budgets = () => {
                         Manage your monthly spending limits.
                     </p>
                 </div>
-                <Button
-                    variant="primary"
-                    icon={Plus}
-                    onClick={() => {
-                        setModalMode('add');
-                        setIsModalOpen(true);
-                    }}
-                >
-                    Set New Budget
-                </Button>
+                <div className="flex items-center gap-2.5">
+                    <Button
+                        variant="secondary"
+                        icon={Radar}
+                        onClick={() => setIsRadarOpen(true)}
+                    >
+                        Overspend Radar
+                    </Button>
+                    <Button
+                        variant="primary"
+                        icon={Plus}
+                        onClick={() => {
+                            setModalMode('add');
+                            setIsModalOpen(true);
+                        }}
+                    >
+                        Set New Budget
+                    </Button>
+                </div>
             </header>
 
-            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="Total limit" value={formatCurrency(totalLimit, currency)} tone="info" icon={Target} />
                 <StatTile label="Total spent" value={formatCurrency(totalSpent, currency)} tone="warn" icon={Wallet} />
                 <StatTile
@@ -248,6 +274,61 @@ const Budgets = () => {
                 />
                 <StatTile label="Over budget" value={overCount} tone="neg" icon={AlertCircle} />
             </div>
+
+            {/* Smart Overspend Radar Velocity Strip */}
+            {budgets.length > 0 && (
+                <div
+                    onClick={() => setIsRadarOpen(true)}
+                    className={cx(
+                        'mb-6 flex cursor-pointer flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-control border p-3.5 transition hover:brightness-105',
+                        isProjectedOver
+                            ? 'border-rose-500/30 bg-rose-950/20'
+                            : 'border-brand/25 bg-brand/5'
+                    )}
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className={cx(
+                                'grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold text-xs',
+                                isProjectedOver ? 'bg-rose-500/20 text-rose-400' : 'bg-brand/20 text-brand'
+                            )}
+                        >
+                            <Radar size={18} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-ink">
+                                    Month-End Overspend Radar: {monthTimelinePercent}% of month elapsed (Day {currentDay}/{daysInMonth})
+                                </span>
+                                <span
+                                    className={cx(
+                                        'rounded-full px-2 py-0.2 text-[10px] font-extrabold uppercase',
+                                        isProjectedOver ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'
+                                    )}
+                                >
+                                    {isProjectedOver ? 'Overspend Predicted' : 'Pacing Safe'}
+                                </span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-ink-muted">
+                                {isProjectedOver ? (
+                                    <>
+                                        Current velocity projects month-end spend of <strong className="text-ink">{formatCurrency(totalProjected, currency)}</strong> (overshooting budget by <strong className="text-rose-400">+{formatCurrency(projectedOvershoot, currency)}</strong>). Click to view category throttle limits.
+                                    </>
+                                ) : (
+                                    <>
+                                        Current velocity projects month-end spend of <strong className="text-emerald-400">{formatCurrency(totalProjected, currency)}</strong> within total budget. Click to inspect category burn rates.
+                                    </>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand shrink-0 self-end sm:self-auto">
+                        <span>Launch Radar</span>
+                        <Radar size={13} />
+                    </div>
+                </div>
+            )}
 
             {loading ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -365,6 +446,14 @@ const Budgets = () => {
                     </AnimatePresence>
                 </div>
             )}
+
+            <OverspendRadarModal
+                isOpen={isRadarOpen}
+                onClose={() => setIsRadarOpen(false)}
+                budgets={budgets}
+                transactions={transactions}
+                currency={currency}
+            />
         </div>
     );
 };
