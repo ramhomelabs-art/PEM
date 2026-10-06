@@ -86,6 +86,7 @@ const BudgetModal = ({ isOpen, onClose, user, onReload, mode, editData }) => {
             title={mode === 'edit' ? 'Edit budget' : 'Set new budget'}
             subtitle="Monthly spending limit"
             icon={Target}
+            size="sm"
             bodyClassName="space-y-4"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,10 +120,10 @@ const BudgetModal = ({ isOpen, onClose, user, onReload, mode, editData }) => {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                    <Button variant="secondary" className="flex-1" onClick={onClose}>
+                    <Button variant="secondary" className="flex-1 border-0 bg-surface hover:bg-raised" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button variant="primary" type="submit" className="flex-1">
+                    <Button variant="primary" type="submit" className="flex-1 border-0 shadow-none">
                         {mode === 'edit' ? 'Update budget' : 'Create budget'}
                     </Button>
                 </div>
@@ -249,9 +250,9 @@ const Budgets = () => {
             </div>
 
             {loading ? (
-                <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="pem-skeleton h-40 rounded-card" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="pem-skeleton h-48 rounded-card" />
                     ))}
                 </div>
             ) : budgets.length === 0 ? (
@@ -273,7 +274,7 @@ const Budgets = () => {
                     }
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <AnimatePresence>
                         {budgets.map((budget) => {
                             const spent = calculateSpent(budget.category);
@@ -292,7 +293,7 @@ const Budgets = () => {
                                     initial={{ opacity: 0, y: 12 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.96 }}
-                                    className="pem-card pem-card-hover flex flex-col gap-4 p-5"
+                                    className="pem-card pem-card-hover flex flex-col gap-3.5 p-4 sm:p-5"
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex min-w-0 items-center gap-3">
@@ -306,7 +307,7 @@ const Budgets = () => {
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-1.5">
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -316,9 +317,9 @@ const Budgets = () => {
                                                 }}
                                                 title="Edit budget"
                                                 aria-label="Edit budget"
-                                                className="grid h-8 w-8 place-items-center rounded-control text-pos transition hover:bg-pos-soft"
+                                                className="grid h-8 w-8 place-items-center rounded-control bg-surface hover:bg-raised text-pos transition active:scale-95"
                                             >
-                                                <Edit2 size={16} />
+                                                <Edit2 size={15} />
                                             </button>
                                             <button
                                                 type="button"
@@ -327,15 +328,15 @@ const Budgets = () => {
                                                 }
                                                 title="Delete budget"
                                                 aria-label="Delete budget"
-                                                className="grid h-8 w-8 place-items-center rounded-control text-neg transition hover:bg-neg-soft"
+                                                className="grid h-8 w-8 place-items-center rounded-control bg-surface hover:bg-neg/15 text-neg transition active:scale-95"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={15} />
                                             </button>
                                         </div>
                                     </div>
 
                                     <div className="flex items-end justify-between gap-3">
-                                        <p className="tnum text-2xl font-extrabold tracking-tight text-ink">
+                                        <p className="tnum text-xl sm:text-2xl font-extrabold tracking-tight text-ink">
                                             {formatCurrency(spent, currency)}
                                         </p>
                                         <p className="tnum text-sm font-semibold text-ink-muted">
@@ -345,7 +346,7 @@ const Budgets = () => {
 
                                     <div>
                                         <Progress value={spent} max={limit} tone={tone} />
-                                        <div className="mt-1.5 flex items-center justify-between">
+                                        <div className="mt-1 flex items-center justify-between">
                                             <Badge tone={tone}>{Math.round(percent)}% used</Badge>
                                             <span className="tnum text-xs font-semibold text-ink-muted">
                                                 {formatCurrency(Math.max(limit - spent, 0), currency)} left
@@ -354,7 +355,7 @@ const Budgets = () => {
                                     </div>
 
                                     {isDanger ? (
-                                        <div className="flex items-center gap-2 rounded-control border border-neg bg-neg-soft px-3 py-2 text-xs font-bold text-neg">
+                                        <div className="flex items-center gap-2 rounded-control bg-neg-soft px-3 py-2 text-xs font-bold text-neg">
                                             <AlertCircle size={14} /> Budget exceeded
                                         </div>
                                     ) : null}

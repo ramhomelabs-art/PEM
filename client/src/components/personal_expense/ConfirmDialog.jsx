@@ -62,7 +62,7 @@ const ConfirmDialog = ({ isOpen, onConfirm, onCancel, title, message }) => {
                             borderRadius: '12px',
                             backgroundColor: theme.card,
                             color: theme.text,
-                            border: `1px solid ${theme.border}`,
+                            border: 'none',
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
