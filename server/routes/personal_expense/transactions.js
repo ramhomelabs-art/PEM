@@ -171,18 +171,19 @@ router.get('/user/:userId', async (req, res) => {
 router.put('/manual/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { type, amount, category, description, date, paymentMode, otherPaymentMode } = req.body;
+        const { type, amount, category, description, date, paymentMode, otherPaymentMode, source } = req.body;
 
         const transaction = await Transaction.findByPk(id);
         if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
 
         await transaction.update({
-            type,
-            amount: parseFloat(amount),
-            category,
-            description,
-            paymentMode,
-            otherPaymentMode,
+            type: type || transaction.type,
+            amount: amount !== undefined ? parseFloat(amount) : transaction.amount,
+            category: category || transaction.category,
+            description: description || transaction.description,
+            paymentMode: paymentMode || transaction.paymentMode,
+            otherPaymentMode: otherPaymentMode !== undefined ? otherPaymentMode : transaction.otherPaymentMode,
+            source: source !== undefined ? source : transaction.source,
             date: date || transaction.date
         });
 

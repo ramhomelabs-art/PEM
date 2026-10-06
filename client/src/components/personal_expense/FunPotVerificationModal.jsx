@@ -41,6 +41,24 @@ export function FunPotVerificationModal({
     const handleConfirm = async () => {
         setLoading(true);
         try {
+            // 1. If there is a backend transactionId, convert it from temporary hold to permanent
+            if (transactionId) {
+                try {
+                    await fetch(`${API_URL}/transactions/manual/${transactionId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${localStorage.getItem('token')}`,
+                        },
+                        body: JSON.stringify({
+                            source: 'manual',
+                        }),
+                    });
+                } catch (err) {
+                    console.error('Failed to convert transaction to permanent:', err);
+                }
+            }
+
             // Update pending verification list in localStorage
             const savedList = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
             const updated = savedList.map((item) =>
@@ -48,7 +66,7 @@ export function FunPotVerificationModal({
             );
             localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify(updated));
 
-            setStatusMessage({ type: 'success', text: `Verified! ${formatCurrency(amount, currency)} is securely locked in your Fun Pot.` });
+            setStatusMessage({ type: 'success', text: `Confirmed! ${formatCurrency(amount, currency)} is now a permanent savings record.` });
             setTimeout(() => {
                 if (onVerified) onVerified(verificationItem);
                 onClose();

@@ -98,18 +98,30 @@ export function ActivityList({
                 <ul className="pem-scroll max-h-[290px] space-y-1 overflow-y-auto pr-1">
                     {filtered.slice(0, limit).map((t) => {
                         const isIncome = t.type === 'income';
+                        const isHold = t.source === 'fun_jar_hold' || t.source === 'fun_jar';
                         return (
                             <li
                                 key={t.id}
-                                className="flex items-center gap-3 rounded-control border border-transparent px-2 py-2 transition hover:border-line hover:bg-raised"
+                                className={cx(
+                                    'flex items-center gap-3 rounded-control px-2 py-2 transition hover:bg-raised',
+                                    isHold
+                                        ? 'border border-amber-500/30 bg-amber-500/[0.04]'
+                                        : 'border border-transparent hover:border-line'
+                                )}
                             >
                                 <span
                                     className={cx(
                                         'grid h-9 w-9 shrink-0 place-items-center rounded-[10px]',
-                                        isIncome ? 'bg-pos-soft text-pos' : 'bg-neg-soft text-neg'
+                                        isHold
+                                            ? 'bg-amber-500/20 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                                            : isIncome
+                                            ? 'bg-pos-soft text-pos'
+                                            : 'bg-neg-soft text-neg'
                                     )}
                                 >
-                                    {isIncome ? (
+                                    {isHold ? (
+                                        <ArrowUpRight size={16} className="text-amber-400" aria-hidden="true" />
+                                    ) : isIncome ? (
                                         <ArrowDownLeft size={16} aria-hidden="true" />
                                     ) : (
                                         <ArrowUpRight size={16} aria-hidden="true" />
@@ -117,9 +129,16 @@ export function ActivityList({
                                 </span>
 
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-ink">
-                                        {t.description || t.category || 'Transaction'}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="truncate text-sm font-semibold text-ink">
+                                            {t.description || t.category || 'Transaction'}
+                                        </p>
+                                        {isHold && (
+                                            <span className="rounded-pill bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                                                🕒 Temporary Hold
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
                                         <span className="rounded-pill bg-raised px-1.5 py-0.5 font-medium text-ink-muted">
                                             {t.category || 'Uncategorised'}
@@ -132,10 +151,10 @@ export function ActivityList({
                                 <span
                                     className={cx(
                                         'tnum shrink-0 text-sm font-bold',
-                                        isIncome ? 'text-pos' : 'text-neg'
+                                        isHold ? 'text-amber-400 font-extrabold' : isIncome ? 'text-pos' : 'text-neg'
                                     )}
                                 >
-                                    {isIncome ? '+' : '-'}
+                                    {isHold ? '🕒 -' : isIncome ? '+' : '-'}
                                     {formatCurrency(Math.abs(Number(t.amount) || 0), currency)}
                                 </span>
                             </li>

@@ -448,6 +448,7 @@ const Transactions = () => {
                             const catData = categories.find((c) => c.name === t.category);
                             const Icon = categoryIcons[t.category] || ReceiptText;
                             const isIncome = t.type === 'income';
+                            const isHold = t.source === 'fun_jar_hold' || t.source === 'fun_jar';
                             return (
                                 <motion.div
                                     key={t.id}
@@ -455,25 +456,36 @@ const Transactions = () => {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.03 }}
                                     onClick={() => openEditModal(t)}
-                                    className="pem-card flex flex-wrap items-center gap-3 p-3.5 transition sm:gap-4 sm:p-4 hover:border-line-strong cursor-pointer"
+                                    className={cx(
+                                        'pem-card flex flex-wrap items-center gap-3 p-3.5 transition sm:gap-4 sm:p-4 cursor-pointer',
+                                        isHold
+                                            ? 'border-amber-500/40 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.08)]'
+                                            : 'hover:border-line-strong'
+                                    )}
                                     whileHover={{ x: 4 }}
                                 >
                                     <div
                                         className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px]"
                                         style={{
-                                            backgroundColor: catData?.color ? `${catData.color}20` : isIncome ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)',
+                                            backgroundColor: isHold ? 'rgba(245,158,11,0.15)' : catData?.color ? `${catData.color}20` : isIncome ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)',
                                         }}
                                     >
-                                        <Icon size={20} color={catData?.color || (isIncome ? '#10b981' : '#f43f5e')} />
+                                        <Icon size={20} color={isHold ? '#f59e0b' : catData?.color || (isIncome ? '#10b981' : '#f43f5e')} />
                                     </div>
                                     <div className="min-w-[170px] flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h4 className="m-0 text-sm font-bold text-ink sm:text-base">
                                                 {t.description || t.category}
                                             </h4>
-                                            <span className="rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">
-                                                {t.source ? String(t.source).toUpperCase() : 'MANUAL'}
-                                            </span>
+                                            {isHold ? (
+                                                <span className="rounded-pill bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                                                    🕒 TEMPORARY HOLD: POT
+                                                </span>
+                                            ) : (
+                                                <span className="rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">
+                                                    {t.source ? String(t.source).toUpperCase() : 'MANUAL'}
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                                             <Calendar size={12} className="shrink-0" />

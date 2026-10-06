@@ -192,7 +192,7 @@ export function FunSavingsJarModal({
                     userId: user.id,
                     paymentMode: 'Cash/Pot Transfer',
                     date: new Date(),
-                    source: 'fun_jar',
+                    source: 'fun_jar_hold',
                 }),
             });
 
@@ -885,36 +885,49 @@ export function FunSavingsJarModal({
                                 </div>
                             ) : (
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                    {history.slice(0, 10).map((h) => (
-                                        <div
-                                            key={h.id}
-                                            className="flex items-center justify-between p-3 rounded-xl bg-[#101a33] text-xs font-semibold"
-                                        >
-                                            <div className="flex items-center gap-2.5">
-                                                <span
-                                                    className={cx(
-                                                        'grid h-7 w-7 place-items-center rounded-lg',
-                                                        h.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-teal-500/20 text-teal-300'
-                                                    )}
-                                                >
-                                                    {h.type === 'deposit' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
-                                                </span>
-                                                <div>
-                                                    <p className="font-bold text-white">{h.desc}</p>
-                                                    <p className="text-[10px] text-ink-muted">{h.date}</p>
-                                                </div>
-                                            </div>
-
-                                            <span
+                                    {history.slice(0, 10).map((h) => {
+                                        const isHold = h.type === 'deposit' && h.realTx;
+                                        return (
+                                            <div
+                                                key={h.id}
                                                 className={cx(
-                                                    'font-black tnum',
-                                                    h.type === 'deposit' ? 'text-emerald-400' : 'text-teal-300'
+                                                    'flex items-center justify-between p-3 rounded-xl text-xs font-semibold',
+                                                    isHold ? 'bg-[#101a33] border border-amber-500/30' : 'bg-[#101a33]'
                                                 )}
                                             >
-                                                {h.type === 'deposit' ? '+' : '-'}{formatCurrency(h.amount, currency)}
-                                            </span>
-                                        </div>
-                                    ))}
+                                                <div className="flex items-center gap-2.5">
+                                                    <span
+                                                        className={cx(
+                                                            'grid h-7 w-7 place-items-center rounded-lg',
+                                                            isHold ? 'bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : h.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-teal-500/20 text-teal-300'
+                                                        )}
+                                                    >
+                                                        {h.type === 'deposit' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
+                                                    </span>
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="font-bold text-white">{h.desc}</p>
+                                                            {isHold && (
+                                                                <span className="text-[9px] font-extrabold uppercase bg-amber-500/20 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-full">
+                                                                    🕒 Hold
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-ink-muted">{h.date}</p>
+                                                    </div>
+                                                </div>
+
+                                                <span
+                                                    className={cx(
+                                                        'font-black tnum',
+                                                        isHold ? 'text-amber-400 font-extrabold' : h.type === 'deposit' ? 'text-emerald-400' : 'text-teal-300'
+                                                    )}
+                                                >
+                                                    {isHold ? '🕒 +' : h.type === 'deposit' ? '+' : '-'}{formatCurrency(h.amount, currency)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
