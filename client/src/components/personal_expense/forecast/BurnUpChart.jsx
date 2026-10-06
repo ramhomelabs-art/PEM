@@ -135,7 +135,7 @@ export function BurnUpChart({ categoryForecast, timeInfo, currency = 'INR' }) {
 
     return (
         <div className="h-[96px] w-full min-w-0" aria-label={`Burn-up trajectory chart for ${categoryForecast?.category}`}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <ComposedChart
                     data={chartData}
                     margin={{ top: 6, right: 6, left: 6, bottom: 2 }}

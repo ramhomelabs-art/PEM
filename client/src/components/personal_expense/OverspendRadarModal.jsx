@@ -66,13 +66,19 @@ export function OverspendRadarModal({
         let isMounted = true;
         async function fetchCommitments() {
             setLoadingObligations(true);
+            const token = localStorage.getItem('token') || user?.token;
+            if (!token) {
+                setLoadingObligations(false);
+                return;
+            }
+
             try {
                 const [billsRes, loansRes] = await Promise.all([
                     fetch(`${API_URL}/bills/user/${user.id}`, {
-                        headers: { Authorization: `Bearer ${user.token}` },
+                        headers: { Authorization: `Bearer ${token}` },
                     }),
                     fetch(`${API_URL}/loans/user/${user.id}`, {
-                        headers: { Authorization: `Bearer ${user.token}` },
+                        headers: { Authorization: `Bearer ${token}` },
                     }),
                 ]);
 
