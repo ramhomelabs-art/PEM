@@ -265,7 +265,7 @@ const Layout = ({ children }) => {
             {/* Desktop / tablet sidebar (collapsible) */}
             <aside
                 className={cx(
-                    'sidebar-aside relative z-20 hidden shrink-0 flex-col overflow-x-hidden border-r border-line bg-surface md:flex',
+                    'sidebar-aside relative z-20 hidden shrink-0 flex-col border-r border-line bg-surface md:flex',
                     collapsed ? 'md:w-[76px] md:p-3' : 'md:w-[260px] md:p-5'
                 )}
                 style={{ backgroundColor: theme.sidebar }}

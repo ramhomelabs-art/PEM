@@ -110,57 +110,23 @@ router.post('/email-parse', async (req, res) => {
     }
 });
 
-// 4. Get User Transactions
+// 4. Get User Transactions (Personal Expense Only)
 router.get('/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         const { User } = require('../../models');
 
-        // Fetch regular transactions
+        // Fetch regular transactions only - credit card transactions remain isolated to credit card module
         const regularTransactions = await Transaction.findAll({
             where: { userId },
             include: [{
                 model: User,
                 attributes: ['fullName', 'username']
-            }]
+            }],
+            order: [['date', 'DESC']]
         });
 
-        // Fetch credit card transactions
-        const ccTransactions = await CreditCardTransaction.findAll({
-            where: { userId },
-            include: [{
-                model: CreditCard,
-                attributes: ['cardName', 'bankName']
-            }]
-        });
-
-        // Format and map credit card transactions to standard transaction schema
-        const mappedCcTransactions = ccTransactions.map(t => ({
-            id: `cc_${t.id}`, // prefix with cc_ to make unique
-            realId: t.id,
-            creditCardId: t.creditCardId,
-            userId: t.userId,
-            amount: parseFloat(t.amount),
-            type: t.type === 'credit' ? 'income' : 'expense', // 'credit' -> payment/income, 'debit' -> spend/expense
-            category: t.category || 'General',
-            description: t.merchant + (t.description ? ` - ${t.description}` : ''),
-            paymentMode: t.CreditCard ? `${t.CreditCard.bankName} ${t.CreditCard.cardName}` : 'Credit Card',
-            date: t.transactionDate || t.createdAt,
-            isCreditCardTx: true,
-            createdAt: t.createdAt,
-            updatedAt: t.updatedAt
-        }));
-
-        // Combine both
-        const combined = [
-            ...regularTransactions.map(t => t.toJSON()),
-            ...mappedCcTransactions
-        ];
-
-        // Sort by date descending
-        combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        res.json(combined);
+        res.json(regularTransactions);
     } catch (error) {
         console.error("Fetch transactions error:", error);
         res.status(500).json({ error: error.message });
