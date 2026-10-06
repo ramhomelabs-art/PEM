@@ -4,9 +4,6 @@ import {
     ShieldCheck,
     ShieldAlert,
     Sparkles,
-    Calendar,
-    ArrowUpRight,
-    HelpCircle,
     ChevronDown,
     ChevronUp,
     Calculator,
@@ -16,7 +13,7 @@ import {
     Receipt,
     Landmark,
     X,
-    Info,
+    Clock,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 import { cx } from '../ui/cx';
@@ -43,13 +40,35 @@ export function SafeToSpendWidget({
         const currentDay = today.getDate();
         const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
 
-        // 1. Liquid funds
+        // Date matcher for today (local timezone safe)
+        const isToday = (dateVal) => {
+            if (!dateVal) return false;
+            const d = new Date(dateVal);
+            return (
+                !isNaN(d.getTime()) &&
+                d.getFullYear() === year &&
+                d.getMonth() === month &&
+                d.getDate() === currentDay
+            );
+        };
+
+        // 1. Calculate today's actual expenses in real-time
+        const todayExpenseTransactions = (transactions || []).filter(
+            (t) => (t.type === 'expense' || !t.type) && isToday(t.date)
+        );
+        const todaySpent = todayExpenseTransactions.reduce(
+            (sum, t) => sum + Math.abs(Number(t.amount) || 0),
+            0
+        );
+        const todayCount = todayExpenseTransactions.length;
+
+        // 2. Liquid funds
         const bankBalanceSum = Array.isArray(banks)
             ? banks.reduce((sum, b) => sum + (Number(b.balance) || 0), 0)
             : 0;
         const liquidCash = bankBalanceSum > 0 ? bankBalanceSum : Math.max(0, kpiBalance || 0);
 
-        // 2. Upcoming bills due in the remainder of this month
+        // 3. Upcoming bills due in the remainder of this month (from today onwards)
         const upcomingBills = (bills || []).filter((b) => {
             if (b.status === 'paid') return false;
             if (!b.dueDate) return true;
@@ -62,14 +81,14 @@ export function SafeToSpendWidget({
         });
         const billsTotal = upcomingBills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
 
-        // 3. Unpaid loan EMIs
+        // 4. Unpaid loan EMIs
         const activeEmis = (loans || []).filter((l) => {
             if (l.status === 'closed' || l.isEmiPaid) return false;
             return true;
         });
         const emisTotal = activeEmis.reduce((s, l) => s + (Number(l.emiAmount) || 0), 0);
 
-        // 4. Borrowed payables due
+        // 5. Borrowed payables due
         const pendingPayables = (borrow || []).filter((w) => {
             if (w.status === 'settled' || w.type !== 'borrowed') return false;
             return true;
@@ -78,9 +97,19 @@ export function SafeToSpendWidget({
 
         const totalObligations = billsTotal + emisTotal + payablesTotal;
 
-        // 5. Monthly safe-to-spend & daily burn rate
+        // 6. Monthly safe-to-spend pool
         const safeMonth = Math.max(0, liquidCash - totalObligations);
-        const safeDaily = Math.round(safeMonth / daysRemaining);
+
+        // 7. Today's Base Target & Real-time Remaining Allowance
+        // Total pool available at start of today = remaining safe month pool + what was already spent today
+        const poolStartOfToday = safeMonth + todaySpent;
+        const dailyTarget = Math.max(0, Math.round(poolStartOfToday / daysRemaining));
+
+        // Real-time remaining safe amount for TODAY specifically
+        const safeTodayRemaining = Math.max(0, dailyTarget - todaySpent);
+        const isOverDailyTarget = todaySpent > dailyTarget;
+        const overDailyAmount = isOverDailyTarget ? todaySpent - dailyTarget : 0;
+        const percentOfDailySpent = dailyTarget > 0 ? Math.min(100, Math.round((todaySpent / dailyTarget) * 100)) : (todaySpent > 0 ? 100 : 0);
 
         // Status
         let status = 'healthy';
@@ -88,7 +117,9 @@ export function SafeToSpendWidget({
             status = 'neutral';
         } else if (liquidCash < totalObligations) {
             status = 'danger';
-        } else if (safeDaily < 200) {
+        } else if (isOverDailyTarget) {
+            status = 'tight';
+        } else if (safeTodayRemaining < 200 && safeTodayRemaining > 0) {
             status = 'tight';
         }
 
@@ -104,7 +135,13 @@ export function SafeToSpendWidget({
             payablesTotal,
             totalObligations,
             safeMonth,
-            safeDaily,
+            todaySpent,
+            todayCount,
+            dailyTarget,
+            safeTodayRemaining,
+            isOverDailyTarget,
+            overDailyAmount,
+            percentOfDailySpent,
             status,
         };
     }, [transactions, banks, bills, loans, borrow, kpiBalance]);
@@ -186,7 +223,11 @@ export function SafeToSpendWidget({
                                     : 'bg-rose-500/15 text-rose-400 shadow-[0_0_16px_rgba(239,68,68,0.2)]'
                             )}
                         >
-                            <ShieldCheck size={20} strokeWidth={2.4} />
+                            {calculations.status === 'danger' ? (
+                                <ShieldAlert size={20} strokeWidth={2.4} />
+                            ) : (
+                                <ShieldCheck size={20} strokeWidth={2.4} />
+                            )}
                         </div>
 
                         <div className="min-w-0">
@@ -197,7 +238,9 @@ export function SafeToSpendWidget({
                                 <span
                                     className={cx(
                                         'inline-flex items-center gap-1 rounded-full px-2 py-0.2 text-[10px] font-extrabold uppercase tracking-wide',
-                                        calculations.status === 'healthy'
+                                        calculations.isOverDailyTarget
+                                            ? 'bg-amber-500/15 text-amber-400'
+                                            : calculations.status === 'healthy'
                                             ? 'bg-emerald-500/15 text-emerald-400'
                                             : calculations.status === 'tight'
                                             ? 'bg-amber-500/15 text-amber-400'
@@ -205,7 +248,9 @@ export function SafeToSpendWidget({
                                     )}
                                 >
                                     <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                                    {calculations.status === 'healthy'
+                                    {calculations.isOverDailyTarget
+                                        ? 'Daily Target Exceeded'
+                                        : calculations.status === 'healthy'
                                         ? 'Protected'
                                         : calculations.status === 'tight'
                                         ? 'Caution'
@@ -215,11 +260,26 @@ export function SafeToSpendWidget({
 
                             <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
                                 <span className="tnum text-xl sm:text-2xl font-extrabold tracking-tight text-ink">
-                                    {formatCurrency(calculations.safeDaily, currency)}
-                                    <span className="text-xs font-semibold text-ink-muted"> / day</span>
+                                    {formatCurrency(calculations.safeTodayRemaining, currency)}
+                                    <span className="text-xs font-semibold text-ink-muted"> left today</span>
                                 </span>
+
                                 <span className="text-xs font-medium text-ink-faint">
-                                    ({formatCurrency(calculations.safeMonth, currency)} left for {calculations.daysRemaining} days)
+                                    {calculations.todaySpent > 0 ? (
+                                        calculations.isOverDailyTarget ? (
+                                            <>
+                                                (Spent {formatCurrency(calculations.todaySpent, currency)} today · over {formatCurrency(calculations.dailyTarget, currency)} target by <strong className="text-amber-400">{formatCurrency(calculations.overDailyAmount, currency)}</strong>)
+                                            </>
+                                        ) : (
+                                            <>
+                                                (Spent {formatCurrency(calculations.todaySpent, currency)} today of {formatCurrency(calculations.dailyTarget, currency)} target · {formatCurrency(calculations.safeMonth, currency)} left for month)
+                                            </>
+                                        )
+                                    ) : (
+                                        <>
+                                            ({formatCurrency(calculations.safeMonth, currency)} left for {calculations.daysRemaining} days · ₹0 spent today)
+                                        </>
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -227,6 +287,16 @@ export function SafeToSpendWidget({
 
                     {/* Right: Quick metric chips & Expand button */}
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        {calculations.todaySpent > 0 && (
+                            <div className="hidden items-center gap-1.5 rounded-control bg-sunken/80 px-2.5 py-1 text-xs md:flex">
+                                <Clock size={12} className="text-ink-faint" />
+                                <span className="text-ink-muted font-medium">Spent Today:</span>
+                                <span className={cx('font-bold tnum', calculations.isOverDailyTarget ? 'text-amber-400' : 'text-ink')}>
+                                    {formatCurrency(calculations.todaySpent, currency)}
+                                </span>
+                            </div>
+                        )}
+
                         <div className="hidden items-center gap-2 rounded-control bg-sunken/80 px-2.5 py-1 text-xs md:flex">
                             <span className="text-ink-muted font-medium">Reserved Dues:</span>
                             <span className="font-bold text-neg tnum">
@@ -273,6 +343,7 @@ export function SafeToSpendWidget({
                                         </div>
 
                                         <div className="space-y-2 rounded-control bg-surface p-3.5">
+                                            {/* Liquid Balance */}
                                             <div className="flex items-center justify-between text-xs">
                                                 <span className="flex items-center gap-2 text-ink-muted">
                                                     <Landmark size={14} className="text-brand" />
@@ -283,6 +354,7 @@ export function SafeToSpendWidget({
                                                 </span>
                                             </div>
 
+                                            {/* Obligations */}
                                             <div className="flex items-center justify-between text-xs">
                                                 <span className="flex items-center gap-2 text-ink-muted">
                                                     <Receipt size={14} className="text-warn" />
@@ -317,6 +389,7 @@ export function SafeToSpendWidget({
 
                                             <div className="my-1.5 border-t border-line/50" />
 
+                                            {/* Monthly Pool */}
                                             <div className="flex items-center justify-between text-xs sm:text-sm">
                                                 <span className="font-bold text-ink">
                                                     Discretionary Pool for Month
@@ -326,14 +399,60 @@ export function SafeToSpendWidget({
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center justify-between text-xs text-ink-faint">
-                                                <span>Divided over remaining days</span>
-                                                <span className="tnum font-semibold text-ink">
-                                                    ÷ {calculations.daysRemaining} days ={' '}
-                                                    <strong className="text-emerald-400">
-                                                        {formatCurrency(calculations.safeDaily, currency)}/day
-                                                    </strong>
-                                                </span>
+                                            <div className="my-1.5 border-t border-line/50" />
+
+                                            {/* Today's Real-time Allocation & Spending */}
+                                            <div className="space-y-1.5 pt-0.5">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-ink-muted">Today's Target Allowance</span>
+                                                    <span className="font-bold text-ink tnum">
+                                                        {formatCurrency(calculations.dailyTarget, currency)}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-ink-muted">
+                                                        Already Spent Today ({calculations.todayCount} txs)
+                                                    </span>
+                                                    <span className={cx('font-bold tnum', calculations.todaySpent > 0 ? 'text-amber-400' : 'text-ink-muted')}>
+                                                        -{formatCurrency(calculations.todaySpent, currency)}
+                                                    </span>
+                                                </div>
+
+                                                {/* Mini progress bar for today */}
+                                                <div className="pt-1">
+                                                    <div className="flex items-center justify-between text-[11px] text-ink-faint mb-1">
+                                                        <span>Today's spend pace</span>
+                                                        <span className="tnum font-semibold text-ink">
+                                                            {calculations.percentOfDailySpent}% of daily target
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+                                                        <div
+                                                            className={cx(
+                                                                'h-full transition-all duration-300 rounded-full',
+                                                                calculations.isOverDailyTarget
+                                                                    ? 'bg-amber-400'
+                                                                    : 'bg-emerald-400'
+                                                            )}
+                                                            style={{ width: `${calculations.percentOfDailySpent}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-xs sm:text-sm pt-1">
+                                                    <span className="font-bold text-ink">
+                                                        Safe-to-Spend Left Today
+                                                    </span>
+                                                    <span className={cx(
+                                                        'font-extrabold tnum',
+                                                        calculations.isOverDailyTarget
+                                                            ? 'text-amber-400'
+                                                            : 'text-emerald-400'
+                                                    )}>
+                                                        {formatCurrency(calculations.safeTodayRemaining, currency)}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -391,7 +510,7 @@ export function SafeToSpendWidget({
                                         </div>
 
                                         <p className="mt-3 text-[10px] text-ink-faint leading-normal">
-                                            💡 Safe-to-Spend automatically adjusts as you log transactions or pay off monthly bills.
+                                            💡 Safe-to-Spend updates dynamically in real-time as transactions are recorded.
                                         </p>
                                     </div>
                                 </div>
@@ -405,3 +524,4 @@ export function SafeToSpendWidget({
 }
 
 export default SafeToSpendWidget;
+
