@@ -207,6 +207,8 @@ const Budgets = () => {
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const currentDay = Math.min(now.getDate(), daysInMonth);
+    const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
+    const monthName = now.toLocaleString(undefined, { month: 'long' });
     const monthTimelinePercent = Math.round((currentDay / daysInMonth) * 100);
 
     // Projected velocity calculation across all active budgets
@@ -280,10 +282,10 @@ const Budgets = () => {
                 <div
                     onClick={() => setIsRadarOpen(true)}
                     className={cx(
-                        'mb-6 flex cursor-pointer flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-control border p-3.5 transition hover:brightness-105',
+                        'mb-6 flex cursor-pointer flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-3.5 transition hover:brightness-105',
                         isProjectedOver
-                            ? 'border-rose-500/30 bg-rose-950/20'
-                            : 'border-brand/25 bg-brand/5'
+                            ? 'border-rose-500/25 bg-rose-950/20'
+                            : 'border-brand/20 bg-brand/5'
                     )}
                 >
                     <div className="flex items-center gap-3">
@@ -298,7 +300,7 @@ const Budgets = () => {
                         <div>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-ink">
-                                    Month-End Overspend Radar: {monthTimelinePercent}% of month elapsed (Day {currentDay}/{daysInMonth})
+                                    Month-End Overspend Radar · {monthName} (Day {currentDay} of {daysInMonth} · {daysRemaining} days left)
                                 </span>
                                 <span
                                     className={cx(
@@ -312,11 +314,11 @@ const Budgets = () => {
                             <p className="mt-0.5 text-xs text-ink-muted">
                                 {isProjectedOver ? (
                                     <>
-                                        Current velocity projects month-end spend of <strong className="text-ink">{formatCurrency(totalProjected, currency)}</strong> (overshooting budget by <strong className="text-rose-400">+{formatCurrency(projectedOvershoot, currency)}</strong>). Click to view category throttle limits.
+                                        Based on {currentDay} days elapsed in {monthName}, projected month-end spend is <strong className="text-ink">{formatCurrency(totalProjected, currency)}</strong> (overshooting budget by <strong className="text-rose-400">+{formatCurrency(projectedOvershoot, currency)}</strong>). Click to view category throttle limits.
                                     </>
                                 ) : (
                                     <>
-                                        Current velocity projects month-end spend of <strong className="text-emerald-400">{formatCurrency(totalProjected, currency)}</strong> within total budget. Click to inspect category burn rates.
+                                        Based on {currentDay} days elapsed in {monthName}, projected month-end spend is <strong className="text-emerald-400">{formatCurrency(totalProjected, currency)}</strong> within total budget. Click to inspect category burn rates.
                                     </>
                                 )}
                             </p>

@@ -133,10 +133,22 @@ export function OverspendRadarModal({
         const warningCount = categoriesList.filter((c) => c.riskLevel === 'warning').length;
         const netProjectedOvershoot = Math.max(0, totalProjected - totalBudget);
 
+        const monthName = now.toLocaleString(undefined, { month: 'long' });
+        const monthShort = now.toLocaleString(undefined, { month: 'short' });
+        const todayFormatted = now.toLocaleDateString(undefined, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        });
+
         return {
             currentDay,
             daysInMonth,
             daysRemaining,
+            monthName,
+            monthShort,
+            todayFormatted,
             monthProgressPercent,
             totalBudget,
             totalCurrentSpend,
@@ -153,7 +165,7 @@ export function OverspendRadarModal({
             isOpen={isOpen}
             onClose={onClose}
             title="Month-End Expense Forecast &amp; Overspend Radar"
-            subtitle="Predict which categories will overshoot budget by month-end &amp; daily corrective limits"
+            subtitle={`Real-time calendar pace for ${forecastData.monthName} (1 ${forecastData.monthShort} – ${forecastData.daysInMonth} ${forecastData.monthShort}) · Today is ${forecastData.todayFormatted}`}
             icon={Radar}
             size="xl"
             bodyClassName="p-0 overflow-hidden"
@@ -163,12 +175,14 @@ export function OverspendRadarModal({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-b border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-4">
                     <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-ink-muted">
-                            <span>Month Velocity</span>
-                            <span className="text-brand font-bold">Day {forecastData.currentDay}/{forecastData.daysInMonth}</span>
+                            <span>Calendar Timeline</span>
+                            <span className="text-brand font-bold">{forecastData.monthShort} 1–{forecastData.daysInMonth}</span>
                         </div>
                         <div className="mt-1 text-base font-extrabold text-ink tnum">
-                            {forecastData.monthProgressPercent}%
-                            <span className="text-[10px] font-normal text-ink-faint"> elapsed</span>
+                            Day {forecastData.currentDay} of {forecastData.daysInMonth}
+                        </div>
+                        <div className="text-[10px] text-ink-faint mt-0.5">
+                            {forecastData.daysRemaining} days left ({forecastData.monthProgressPercent}% passed)
                         </div>
                     </div>
 
@@ -176,6 +190,9 @@ export function OverspendRadarModal({
                         <span className="text-[11px] font-semibold text-ink-muted">Projected Month-End Spend</span>
                         <div className="mt-1 text-base font-extrabold text-ink tnum">
                             {formatCurrency(forecastData.totalProjected, currency)}
+                        </div>
+                        <div className="text-[10px] text-ink-faint mt-0.5">
+                            Based on {forecastData.currentDay}-day real burn rate
                         </div>
                     </div>
 
@@ -186,12 +203,18 @@ export function OverspendRadarModal({
                                 ? `+${formatCurrency(forecastData.netProjectedOvershoot, currency)}`
                                 : 'Within Budget'}
                         </div>
+                        <div className="text-[10px] text-ink-faint mt-0.5">
+                            vs {formatCurrency(forecastData.totalBudget, currency)} total limit
+                        </div>
                     </div>
 
                     <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Categories at Risk</span>
                         <div className="mt-1 text-base font-extrabold text-amber-400 tnum">
                             {forecastData.highRiskCount + forecastData.warningCount} / {forecastData.categoriesList.length}
+                        </div>
+                        <div className="text-[10px] text-ink-faint mt-0.5">
+                            {forecastData.highRiskCount} breach · {forecastData.warningCount} caution
                         </div>
                     </div>
                 </div>
