@@ -23,6 +23,7 @@ import {
     Wallet,
     Info,
     Trash2,
+    RotateCcw,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 import { cx } from '../ui/cx';
@@ -87,6 +88,7 @@ export function FunSavingsJarModal({
     const [customAmount, setCustomAmount] = useState('');
     const [actionTab, setActionTab] = useState('deposit'); // 'deposit' or 'withdraw'
     const [deductFromMainBalance, setDeductFromMainBalance] = useState(true);
+    const [depositBackToMainBalance, setDepositBackToMainBalance] = useState(true);
     const [loadingAction, setLoadingAction] = useState(false);
     const [toastMessage, setToastMessage] = useState(null);
 
@@ -156,6 +158,39 @@ export function FunSavingsJarModal({
         return null;
     };
 
+    const recordWithdrawalTransaction = async (amount, desc) => {
+        if (!user?.id || !depositBackToMainBalance) return null;
+
+        try {
+            const res = await fetch(`${API_URL}/transactions/manual`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                },
+                body: JSON.stringify({
+                    type: 'income',
+                    amount: parseFloat(amount),
+                    category: 'Savings',
+                    description: `Fun Pot Return to Main Balance: ${desc}`,
+                    userId: user.id,
+                    paymentMode: 'Cash/Pot Transfer',
+                    date: new Date(),
+                    source: 'fun_jar_withdraw',
+                }),
+            });
+
+            if (res.ok) {
+                const txData = await res.json();
+                if (onReloadTransactions) onReloadTransactions();
+                return txData.id;
+            }
+        } catch (err) {
+            console.error('Failed to record withdrawal transaction:', err);
+        }
+        return null;
+    };
+
     const handleAction = async () => {
         const val = Number(customAmount) || 0;
         if (val <= 0) return;
@@ -169,6 +204,8 @@ export function FunSavingsJarModal({
             let txId = null;
             if (actionTab === 'deposit') {
                 txId = await recordStashTransaction(val, `${selectedGoal?.title || 'Goal'} Stash`);
+            } else if (actionTab === 'withdraw') {
+                txId = await recordWithdrawalTransaction(val, `${selectedGoal?.title || 'Goal'} Withdrawal`);
             }
 
             const newBal = actionTab === 'deposit' ? jarBalance + val : Math.max(0, jarBalance - val);
@@ -179,7 +216,7 @@ export function FunSavingsJarModal({
                 type: actionTab,
                 desc: actionTab === 'deposit'
                     ? `Guilt-Free Pot Deposit (${selectedGoal?.title || 'Fun Goal'})`
-                    : `Guilt-Free Treat (${selectedGoal?.title || 'Fun Goal'})`,
+                    : `Withdrawn to Main Balance (${selectedGoal?.title || 'Fun Goal'})`,
                 amount: val,
                 realTx: Boolean(txId),
                 date: 'Today ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -189,8 +226,10 @@ export function FunSavingsJarModal({
 
             if (actionTab === 'deposit') {
                 setToastMessage(`🪙 Stashed ${formatCurrency(val, currency)}! Remember to put this liquid cash into your physical pot.`);
-                setTimeout(() => setToastMessage(null), 4500);
+            } else {
+                setToastMessage(`💰 Withdrew ${formatCurrency(val, currency)} from pot and credited back to your Main Balance!`);
             }
+            setTimeout(() => setToastMessage(null), 4500);
         } finally {
             setLoadingAction(false);
         }
@@ -223,6 +262,14 @@ export function FunSavingsJarModal({
         } finally {
             setLoadingAction(false);
         }
+    };
+
+    const clearJarBalance = () => {
+        setJarBalance(0);
+        localStorage.setItem('pem-fun-jar-balance', '0');
+        if (onJarUpdate) onJarUpdate(0);
+        setToastMessage('Fun Pot balance has been reset to ₹0.');
+        setTimeout(() => setToastMessage(null), 3500);
     };
 
     const clearHistory = () => {
@@ -363,7 +410,8 @@ export function FunSavingsJarModal({
                             <div className="text-xs space-y-0.5">
                                 <p className="font-bold text-white">Physical Pot &amp; Main Balance Sync</p>
                                 <p className="text-[11px] text-ink-muted leading-relaxed">
-                                    When you stash money, it deducts from your main balance. Next time you log in, we will ask if you physically added the cash to your pot. If you didn't, it will automatically roll back and restore your balance!
+                                    • <b>Stash:</b> Deducts from main balance. Next day you verify if cash was placed in your jar.<br />
+                                    • <b>Withdraw:</b> Adds the withdrawn amount back into your Main Balance in real time!
                                 </p>
                             </div>
                         </div>
@@ -388,23 +436,37 @@ export function FunSavingsJarModal({
                                     <motion.div
                                         className="w-full bg-gradient-to-t from-amber-500 via-pink-500 to-rose-400 opacity-85 relative"
                                         initial={{ height: 0 }}
-                                        animate={{ height: `${Math.max(12, Math.min(100, goalProgressPct))}%` }}
+                                        animate={{ height: `${jarBalance <= 0 ? 0 : Math.max(12, Math.min(100, goalProgressPct))}%` }}
                                         transition={{ duration: 1, ease: 'easeOut' }}
                                     >
                                         {/* Floating Sparkle/Coin Icons inside Liquid */}
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
-                                            <Coins size={28} className="text-amber-200 animate-pulse" />
-                                        </div>
+                                        {jarBalance > 0 && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                                                <Coins size={28} className="text-amber-200 animate-pulse" />
+                                            </div>
+                                        )}
                                     </motion.div>
                                 </div>
 
-                                <div className="text-center">
+                                <div className="text-center w-full">
                                     <p className="text-3xl font-black text-white tracking-tight tnum">
                                         {formatCurrency(jarBalance, currency)}
                                     </p>
                                     <p className="text-xs text-ink-muted font-medium mt-0.5">
                                         {goalProgressPct}% of {selectedGoal ? selectedGoal.title : 'Fun Goal'} ({formatCurrency(selectedGoal ? selectedGoal.target : 0, currency)})
                                     </p>
+
+                                    {/* Clear/Reset Button */}
+                                    {jarBalance > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={clearJarBalance}
+                                            className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-ink-muted hover:text-amber-300 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                        >
+                                            <RotateCcw size={12} />
+                                            Reset Pool to {formatCurrency(0, currency)}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -473,11 +535,11 @@ export function FunSavingsJarModal({
                                                 className={cx(
                                                     'px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer',
                                                     actionTab === 'withdraw'
-                                                        ? 'bg-rose-500/20 text-rose-300 shadow-sm'
+                                                        ? 'bg-teal-500/20 text-teal-300 shadow-sm'
                                                         : 'text-ink-muted hover:text-white'
                                                 )}
                                             >
-                                                - Treat Yourself (Spend)
+                                                - Withdraw / Return to Main
                                             </button>
                                         </div>
                                     </div>
@@ -487,7 +549,7 @@ export function FunSavingsJarModal({
                                             type="number"
                                             value={customAmount}
                                             onChange={(e) => setCustomAmount(e.target.value)}
-                                            placeholder={actionTab === 'deposit' ? 'Enter amount (e.g. 1000)' : 'Amount to withdraw (e.g. 500)'}
+                                            placeholder={actionTab === 'deposit' ? 'Enter amount to stash (e.g. 1000)' : 'Amount to withdraw (e.g. 500)'}
                                             className="flex-1 rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-amber-400"
                                         />
                                         <button
@@ -498,10 +560,10 @@ export function FunSavingsJarModal({
                                                 'px-4 py-2 rounded-xl text-xs font-black shadow-md transition cursor-pointer shrink-0',
                                                 actionTab === 'deposit'
                                                     ? 'bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-40'
-                                                    : 'bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-40'
+                                                    : 'bg-teal-500 text-black hover:bg-teal-400 disabled:opacity-40'
                                             )}
                                         >
-                                            {loadingAction ? '...' : (actionTab === 'deposit' ? 'Stash' : 'Spend')}
+                                            {loadingAction ? '...' : (actionTab === 'deposit' ? 'Stash' : 'Withdraw')}
                                         </button>
                                     </div>
 
@@ -514,6 +576,18 @@ export function FunSavingsJarModal({
                                                 className="rounded accent-amber-400 cursor-pointer"
                                             />
                                             <span>Deduct from Main Balance &amp; record as Savings transfer</span>
+                                        </label>
+                                    )}
+
+                                    {actionTab === 'withdraw' && (
+                                        <label className="flex items-center gap-2 text-[11px] text-teal-300/90 cursor-pointer select-none pt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={depositBackToMainBalance}
+                                                onChange={(e) => setDepositBackToMainBalance(e.target.checked)}
+                                                className="rounded accent-teal-400 cursor-pointer"
+                                            />
+                                            <span>Add withdrawn amount back into Main Account Balance</span>
                                         </label>
                                     )}
                                 </div>
@@ -552,7 +626,7 @@ export function FunSavingsJarModal({
                                                 <span
                                                     className={cx(
                                                         'grid h-7 w-7 place-items-center rounded-lg',
-                                                        h.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                                                        h.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-teal-500/20 text-teal-300'
                                                     )}
                                                 >
                                                     {h.type === 'deposit' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
@@ -566,7 +640,7 @@ export function FunSavingsJarModal({
                                             <span
                                                 className={cx(
                                                     'font-black tnum',
-                                                    h.type === 'deposit' ? 'text-emerald-400' : 'text-rose-400'
+                                                    h.type === 'deposit' ? 'text-emerald-400' : 'text-teal-300'
                                                 )}
                                             >
                                                 {h.type === 'deposit' ? '+' : '-'}{formatCurrency(h.amount, currency)}
