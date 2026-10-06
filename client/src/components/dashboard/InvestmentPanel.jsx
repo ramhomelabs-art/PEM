@@ -128,7 +128,7 @@ export function InvestmentPanel() {
 
                     {history.length > 1 ? (
                         <div className="mt-4 h-[120px] w-full min-w-0">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 400, height: 120 }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 400, height: 120 }} debounce={60}>
                                 <AreaChart data={history}>
                                     <defs>
                                         <linearGradient id="inv-area" x1="0" y1="0" x2="0" y2="1">

@@ -153,6 +153,7 @@ export function DailyBarChart({
                 minWidth={0}
                 minHeight={230}
                 initialDimension={{ width: 500, height: 230 }}
+                debounce={60}
             >
                 <BarChart
                     data={data}

@@ -106,7 +106,7 @@ export function CategoryDonut({
             {/* Enlarged Donut Chart Column */}
             <div className="flex flex-col items-center shrink-0">
                 <div className="group relative h-[245px] w-[245px] shrink-0 self-center min-w-0 min-h-0">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 245, height: 245 }}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 245, height: 245 }} debounce={60}>
                         <PieChart>
                             <Pie
                                 data={rows}

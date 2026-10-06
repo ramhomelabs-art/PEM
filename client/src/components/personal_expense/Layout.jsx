@@ -57,51 +57,37 @@ function isActiveRoute(pathname, id) {
 
 function Brand({ compact = false }) {
     return (
-        <div className={cx('flex items-center gap-3', compact && 'justify-center')}>
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-brand text-slate-950">
+        <div className="flex items-center gap-3 overflow-hidden">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-brand text-slate-950 shadow-sm">
                 <Wallet size={22} aria-hidden="true" />
             </div>
-            {!compact ? (
-                <div className="min-w-0">
-                    <p className="text-xl font-black leading-none tracking-tight text-ink">PEM</p>
-                    <p className="text-xs font-bold text-brand">CORE</p>
-                </div>
-            ) : null}
+            <div
+                className="overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+                style={{
+                    maxWidth: compact ? 0 : 160,
+                    opacity: compact ? 0 : 1,
+                    transform: compact ? 'translateX(-8px)' : 'translateX(0)',
+                }}
+            >
+                <p className="text-xl font-black leading-none tracking-tight text-ink">PEM</p>
+                <p className="text-xs font-bold text-brand">CORE</p>
+            </div>
         </div>
     );
 }
 
 function ProfileCard({ user, compact = false, onClick }) {
-    if (compact) {
-        return (
-            <button
-                type="button"
-                onClick={onClick}
-                className="mx-auto h-11 w-11 overflow-hidden rounded-full border-2 border-brand"
-                aria-label="Open profile"
-            >
-                <img
-                    src={avatarUrl(user)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-                            user?.username || 'Guest'
-                        }`;
-                    }}
-                />
-            </button>
-        );
-    }
-
     return (
         <button
             type="button"
             onClick={onClick}
-            className="flex w-full items-center gap-3 rounded-[16px] border border-line bg-sunken p-3 text-left transition hover:border-line-strong"
+            title={compact ? user?.fullName || user?.username : undefined}
+            className={cx(
+                'flex w-full items-center rounded-[16px] border border-line bg-sunken text-left transition-all duration-300 hover:border-line-strong',
+                compact ? 'p-1.5 justify-center' : 'gap-3 p-3'
+            )}
         >
-            <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full border-2 border-brand">
+            <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-brand">
                 <img
                     src={avatarUrl(user)}
                     alt=""
@@ -114,14 +100,21 @@ function ProfileCard({ user, compact = false, onClick }) {
                     }}
                 />
             </span>
-            <span className="min-w-0">
+            <div
+                className="overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+                style={{
+                    maxWidth: compact ? 0 : 160,
+                    opacity: compact ? 0 : 1,
+                    transform: compact ? 'translateX(-8px)' : 'translateX(0)',
+                }}
+            >
                 <span className="block truncate text-sm font-bold text-ink">
                     {user?.fullName || user?.username}
                 </span>
                 <span className="block text-xs font-bold text-brand">
                     {user?.role?.toUpperCase() || 'USER'} ACCOUNT
                 </span>
-            </span>
+            </div>
         </button>
     );
 }
@@ -140,7 +133,7 @@ function NavList({ pathname, onNavigate, compact = false }) {
                         aria-current={active ? 'page' : undefined}
                         onClick={() => onNavigate(item.id)}
                         className={cx(
-                            'flex items-center rounded-[12px] py-2.5 text-sm font-bold transition',
+                            'flex items-center rounded-[12px] py-2.5 text-sm font-bold transition-all duration-300',
                             compact ? 'justify-center px-2' : 'gap-3 px-3',
                             active
                                 ? 'bg-brand-soft text-brand'
@@ -148,7 +141,16 @@ function NavList({ pathname, onNavigate, compact = false }) {
                         )}
                     >
                         <item.icon size={20} className="shrink-0" aria-hidden="true" />
-                        {!compact ? <span className="truncate">{item.label}</span> : null}
+                        <span
+                            className="overflow-hidden whitespace-nowrap text-left transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+                            style={{
+                                maxWidth: compact ? 0 : 160,
+                                opacity: compact ? 0 : 1,
+                                transform: compact ? 'translateX(-6px)' : 'translateX(0)',
+                            }}
+                        >
+                            {item.label}
+                        </span>
                     </button>
                 );
             })}
@@ -164,12 +166,21 @@ function LogoutButton({ onLogout, compact = false }) {
             title={compact ? 'Logout' : undefined}
             aria-label="Logout"
             className={cx(
-                'flex items-center justify-center gap-2.5 rounded-[12px] bg-neg-soft py-2.5 text-sm font-bold text-neg transition hover:bg-neg hover:text-white',
-                compact ? 'px-2' : 'px-3'
+                'flex items-center justify-center rounded-[12px] bg-neg-soft py-2.5 text-sm font-bold text-neg transition-all duration-300 hover:bg-neg hover:text-white',
+                compact ? 'px-2' : 'gap-2.5 px-3'
             )}
         >
-            <LogOut size={18} aria-hidden="true" />
-            {!compact ? <span>Logout</span> : null}
+            <LogOut size={18} className="shrink-0" aria-hidden="true" />
+            <span
+                className="overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+                style={{
+                    maxWidth: compact ? 0 : 160,
+                    opacity: compact ? 0 : 1,
+                    transform: compact ? 'translateX(-6px)' : 'translateX(0)',
+                }}
+            >
+                Logout
+            </span>
         </button>
     );
 }
@@ -254,7 +265,7 @@ const Layout = ({ children }) => {
             {/* Desktop / tablet sidebar (collapsible) */}
             <aside
                 className={cx(
-                    'sidebar-aside relative z-20 hidden shrink-0 flex-col border-r border-line bg-surface md:flex',
+                    'sidebar-aside relative z-20 hidden shrink-0 flex-col overflow-x-hidden border-r border-line bg-surface md:flex',
                     collapsed ? 'md:w-[76px] md:p-3' : 'md:w-[260px] md:p-5'
                 )}
                 style={{ backgroundColor: theme.sidebar }}
@@ -273,24 +284,24 @@ const Layout = ({ children }) => {
                     )}
                 </button>
 
-                <div className={cx('mb-6 flex items-center', collapsed && 'justify-center')}>
+                <div className="mb-6 flex items-center overflow-hidden">
                     <Brand compact={collapsed} />
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-6 overflow-hidden">
                     <ProfileCard user={user} compact={collapsed} onClick={() => go('/profile')} />
                 </div>
 
-                <div className="no-scrollbar flex-1 overflow-y-auto">
+                <div className="no-scrollbar flex-1 overflow-y-auto overflow-x-hidden">
                     <NavList pathname={location.pathname} onNavigate={go} compact={collapsed} />
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 overflow-hidden">
                     <LogoutButton onLogout={logout} compact={collapsed} />
                 </div>
             </aside>
 
-            <main className="relative z-[1] flex-1 overflow-y-auto">{children}</main>
+            <main className="relative z-[1] flex-1 overflow-y-auto overflow-x-hidden min-w-0">{children}</main>
 
             {/* Mobile drawer */}
             {drawerOpen ? (

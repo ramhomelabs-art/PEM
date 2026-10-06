@@ -64,7 +64,7 @@ export function DailySpendChart({
 
     return (
         <div className="h-[200px] w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: 200 }} debounce={60}>
                 <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="daily-spend" x1="0" y1="0" x2="0" y2="1">
@@ -264,7 +264,7 @@ export function BudgetActualChart({ data = [], currency = 'INR', loading }) {
             </div>
 
             <div className="w-full min-w-0" style={{ height }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: height || 250 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: height || 250 }} debounce={60}>
                     <BarChart
                         layout="vertical"
                         data={data}
