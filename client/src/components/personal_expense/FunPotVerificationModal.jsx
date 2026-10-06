@@ -5,6 +5,7 @@ import {
     Gift,
     CheckCircle2,
     XCircle,
+    X,
     RotateCcw,
     AlertCircle,
     ArrowRight,
@@ -140,6 +141,7 @@ export function FunPotVerificationModal({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    onClick={onClose}
                     className="fixed inset-0 bg-black/85 backdrop-blur-md"
                 />
 
@@ -152,6 +154,16 @@ export function FunPotVerificationModal({
                 >
                     {/* Top ambient highlight */}
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500" />
+
+                    {/* Top-Right Close Button */}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        title="Close (will remind you next time you log in)"
+                        className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
+                    >
+                        <X size={16} />
+                    </button>
 
                     {/* Icon & Title */}
                     <div className="flex flex-col items-center">
@@ -212,25 +224,35 @@ export function FunPotVerificationModal({
 
                     {/* Decision Actions */}
                     {!statusMessage && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                            <button
-                                type="button"
-                                onClick={handleConfirm}
-                                disabled={loading}
-                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black text-xs font-black shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
-                            >
-                                <CheckCircle2 size={16} />
-                                <span>Yes, I Added It</span>
-                            </button>
+                        <div className="space-y-2 pt-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <button
+                                    type="button"
+                                    onClick={handleConfirm}
+                                    disabled={loading}
+                                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black text-xs font-black shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
+                                >
+                                    <CheckCircle2 size={16} />
+                                    <span>Yes, I Added It</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleRollback}
+                                    disabled={loading}
+                                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                                >
+                                    <RotateCcw size={15} />
+                                    <span>No, Roll It Back</span>
+                                </button>
+                            </div>
 
                             <button
                                 type="button"
-                                onClick={handleRollback}
-                                disabled={loading}
-                                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                                onClick={onClose}
+                                className="text-[11px] font-semibold text-ink-muted hover:text-white transition cursor-pointer py-1"
                             >
-                                <RotateCcw size={15} />
-                                <span>No, Roll It Back</span>
+                                Remind Me Next Time I Log In →
                             </button>
                         </div>
                     )}
