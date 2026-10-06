@@ -11,8 +11,34 @@ router.get('/user/:userId', async (req, res) => {
             where: { userId: req.params.userId },
             order: [['date', 'DESC']]
         });
-        res.json(records);
+        res.json(records || []);
     } catch (err) {
+        console.error('Error fetching user borrow records:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get single record by ID or fallback to user query
+router.get('/:id', async (req, res) => {
+    try {
+        if (!isValidUUID(req.params.id)) return res.status(404).json({ error: 'Record not found' });
+        
+        // 1. Try finding by PK
+        const record = await Borrow.findByPk(req.params.id);
+        if (record) return res.json(record);
+
+        // 2. Try finding by userId
+        const userRecords = await Borrow.findAll({
+            where: { userId: req.params.id },
+            order: [['date', 'DESC']]
+        });
+        if (userRecords && userRecords.length > 0) {
+            return res.json(userRecords);
+        }
+
+        res.status(404).json({ error: 'Record not found' });
+    } catch (err) {
+        console.error('Error fetching borrow record by ID:', err);
         res.status(500).json({ error: err.message });
     }
 });

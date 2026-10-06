@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ScanText,
