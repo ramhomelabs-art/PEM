@@ -38,6 +38,7 @@ import { CreditCardsPanel } from '../../components/dashboard/CreditCardsPanel';
 import { InvestmentPanel } from '../../components/dashboard/InvestmentPanel';
 import { InsightsCard } from '../../components/dashboard/InsightsCard';
 import { CommandPalette } from '../../components/dashboard/CommandPalette';
+import { SafeToSpendWidget } from '../../components/dashboard/SafeToSpendWidget';
 
 import WeatherLocationModal from '../../components/personal_expense/WeatherLocationModal';
 import TransactionModal from '../../components/personal_expense/TransactionModal';
@@ -86,7 +87,7 @@ const Dashboard = () => {
         remove: deleteTransaction,
     } = useTransactions(userId);
 
-    const { bills, loans, borrow, budgets, loading: commitmentsLoading } =
+    const { bills, loans, borrow, budgets, banks, loading: commitmentsLoading } =
         useCommitments(userId);
 
     const { location: weatherLocation, update: updateWeather } = useWeatherLocation(
@@ -337,6 +338,21 @@ const Dashboard = () => {
             />
 
             <main className="print-area page-container">
+                {/* Safe-to-Spend Intelligence Widget */}
+                <motion.div {...enter(0)}>
+                    <SafeToSpendWidget
+                        transactions={transactions}
+                        banks={banks}
+                        bills={bills}
+                        loans={loans}
+                        borrow={borrow}
+                        budgets={budgets}
+                        kpiBalance={kpi.current.balance}
+                        currency={currency}
+                        loading={loading}
+                    />
+                </motion.div>
+
                 {/* KPI row */}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {kpis.map((k, i) => (

@@ -101,21 +101,24 @@ export function useCommitments(userId) {
     const [loans, setLoans] = useState([]);
     const [borrow, setBorrow] = useState([]);
     const [budgets, setBudgets] = useState([]);
+    const [banks, setBanks] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const load = useCallback(async () => {
         if (!userId) return;
         try {
-            const [b, l, w, g] = await Promise.all([
+            const [b, l, w, g, k] = await Promise.all([
                 loadJSON(`${API_URL}/bills/user/${userId}`, { auth: true, fallback: [] }),
                 loadJSON(`${API_URL}/loans/user/${userId}`, { auth: true, fallback: [] }),
                 loadJSON(`${API_URL}/borrow/user/${userId}`, { auth: true, fallback: [] }),
                 loadJSON(`${API_URL}/budgets/user/${userId}`, { auth: true, fallback: [] }),
+                loadJSON(`${API_URL}/banks/user/${userId}`, { auth: true, fallback: [] }),
             ]);
             setBills(Array.isArray(b) ? b : []);
             setLoans(Array.isArray(l) ? l : []);
             setBorrow(Array.isArray(w) ? w : []);
             setBudgets(Array.isArray(g) ? g : []);
+            setBanks(Array.isArray(k) ? k : []);
         } finally {
             setLoading(false);
         }
@@ -130,7 +133,7 @@ export function useCommitments(userId) {
         load();
     }, [load]);
 
-    return { bills, loans, borrow, budgets, loading, reload };
+    return { bills, loans, borrow, budgets, banks, loading, reload };
 }
 
 /* ------------------------------------------------------------ messages -- */
