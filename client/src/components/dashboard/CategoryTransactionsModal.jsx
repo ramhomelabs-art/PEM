@@ -1,10 +1,8 @@
-import { createElement, useEffect, useMemo, useState } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ArrowDownUp,
-    ArrowUpRight,
     Briefcase,
-    Calendar,
     Car,
     Coffee,
     CreditCard,
@@ -16,7 +14,6 @@ import {
     Layers,
     Maximize2,
     Minimize2,
-    PieChart as PieIcon,
     ReceiptText,
     Search,
     ShoppingBag,
@@ -26,10 +23,13 @@ import {
     Zap,
 } from 'lucide-react';
 import { cx } from '../ui/cx';
-import { formatCurrency, formatDate, formatPercent } from '../../utils/currency';
+import { formatCurrency, formatDate } from '../../utils/currency';
 import { getCategoryColor } from '../../utils/theme';
 import { exportTransactionsCsv } from '../../utils/exportDashboard';
 
+/**
+ * Maps category names to representative Lucide icons.
+ */
 const getCategoryIcon = (category = '') => {
     const c = String(category).toLowerCase();
     if (c.includes('shop')) return ShoppingBag;
@@ -44,6 +44,17 @@ const getCategoryIcon = (category = '') => {
     return Tag;
 };
 
+/**
+ * Maps payment modes to representative Lucide icons for inline display.
+ */
+const getPaymentMethodIcon = (mode = '') => {
+    const m = String(mode).toLowerCase();
+    if (m.includes('card') || m.includes('credit') || m.includes('debit')) return CreditCard;
+    if (m.includes('cash')) return ReceiptText;
+    if (m.includes('bank') || m.includes('net') || m.includes('upi')) return Zap;
+    return Wallet;
+};
+
 const RANGE_LABELS = {
     '1m': 'This Month',
     '3m': 'Last 3 Months',
@@ -52,11 +63,581 @@ const RANGE_LABELS = {
     custom: 'Custom Range',
 };
 
-function CategoryBadgeIcon({ category, size = 20 }) {
-    const Icon = getCategoryIcon(category);
-    return createElement(Icon, { size, 'aria-hidden': 'true' });
+/**
+ * Resolves a clean transaction title without repeating the category name.
+ */
+export function getTransactionTitle(t) {
+    const cat = String(t.category || '').trim().toLowerCase();
+    const desc = String(t.description || '').trim();
+    const merchant = String(t.merchant || '').trim();
+    const note = String(t.note || '').trim();
+
+    if (merchant && merchant.toLowerCase() !== cat) return merchant;
+    if (desc && desc.toLowerCase() !== cat) return desc;
+    if (note && note.toLowerCase() !== cat) return note;
+    if (merchant) return merchant;
+    if (desc) return desc;
+    if (note) return note;
+    return 'Expense';
 }
 
+/**
+ * Human-friendly date grouping label.
+ */
+function getDateHeaderLabel(dateStr) {
+    if (!dateStr) return 'Recent';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((today - target) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return formatDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Category icon container following Rule 6:
+ * 36px rounded square at 12% opacity of the category colour, 18px icon.
+ */
+function CategoryIconBadge({ category, color, isAll = false }) {
+    const Icon = isAll ? Layers : getCategoryIcon(category);
+    return (
+        <span
+            className="w-[36px] h-[36px] rounded-[10px] flex items-center justify-center shrink-0 transition-colors"
+            style={{
+                backgroundColor: `${color}1f`, // ~12% opacity
+                color: color,
+            }}
+            aria-hidden="true"
+        >
+            <Icon size={18} />
+        </span>
+    );
+}
+
+/**
+ * Header component: Icon + title + subtitle; single close & expand button.
+ * Divides from body with the ONLY allowed 1px divider line.
+ */
+export function ReportHeader({
+    title,
+    subtitle,
+    category,
+    categoryColor,
+    isAll,
+    isExpanded,
+    onToggleExpand,
+    onClose,
+}) {
+    return (
+        <header className="flex items-center justify-between gap-4 px-6 py-4 shrink-0 border-b border-[var(--divider)]">
+            <div className="flex items-center gap-3.5 min-w-0">
+                <CategoryIconBadge category={category} color={categoryColor} isAll={isAll} />
+                <div className="min-w-0">
+                    <h2
+                        id="report-modal-title"
+                        className="text-[20px] font-semibold text-[var(--text-primary)] leading-tight truncate"
+                    >
+                        {title}
+                    </h2>
+                    <p className="text-[13px] text-[var(--text-secondary)] mt-0.5 truncate">
+                        {subtitle}
+                    </p>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={onToggleExpand}
+                    aria-label={isExpanded ? 'Collapse report' : 'Expand report'}
+                    title={isExpanded ? 'Collapse report' : 'Expand report'}
+                    className="w-[36px] h-[36px] rounded-[12px] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+                >
+                    {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close dialog"
+                    title="Close"
+                    className="w-[36px] h-[36px] rounded-[12px] bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+                >
+                    <X size={18} />
+                </button>
+            </div>
+        </header>
+    );
+}
+
+/**
+ * SummaryStrip: Borderless summary metrics separated by spacing only.
+ */
+export function SummaryStrip({ totalSpent, avgTx, maxTx, currency }) {
+    return (
+        <section aria-label="Spending Summary" className="px-6 pt-4 pb-2 shrink-0">
+            <div className="flex items-center gap-8 sm:gap-12">
+                <div>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] block">
+                        Spent
+                    </span>
+                    <span className="text-[22px] font-semibold text-[var(--danger)] tabular-nums leading-none block mt-1">
+                        {formatCurrency(totalSpent, currency)}
+                    </span>
+                </div>
+                <div>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] block">
+                        Average
+                    </span>
+                    <span className="text-[22px] font-semibold text-[var(--text-primary)] tabular-nums leading-none block mt-1">
+                        {formatCurrency(avgTx, currency)}
+                    </span>
+                </div>
+                <div>
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)] block">
+                        Highest
+                    </span>
+                    <span className="text-[22px] font-semibold text-[var(--text-primary)] tabular-nums leading-none block mt-1">
+                        {formatCurrency(maxTx, currency)}
+                    </span>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/**
+ * FilterBar: Segmented control, borderless search input, and sort dropdown.
+ */
+export function FilterBar({
+    scope,
+    onScopeChange,
+    periodLabel,
+    allCount,
+    hasScopeToggle,
+    search,
+    onSearchChange,
+    onClearSearch,
+    sortBy,
+    onSortChange,
+    placeholder = 'Search expenses...',
+}) {
+    return (
+        <div className="px-6 py-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            {hasScopeToggle ? (
+                <div
+                    role="tablist"
+                    aria-label="Time Scope"
+                    className="bg-[var(--surface)] p-1 rounded-[12px] flex items-center shrink-0"
+                >
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={scope === 'period'}
+                        onClick={() => onScopeChange('period')}
+                        className={cx(
+                            'px-3 py-1.5 text-[13px] rounded-[8px] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none',
+                            scope === 'period'
+                                ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] font-semibold shadow-xs'
+                                : 'text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]'
+                        )}
+                    >
+                        {periodLabel}
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={scope === 'all'}
+                        onClick={() => onScopeChange('all')}
+                        className={cx(
+                            'px-3 py-1.5 text-[13px] rounded-[8px] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none',
+                            scope === 'all'
+                                ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] font-semibold shadow-xs'
+                                : 'text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]'
+                        )}
+                    >
+                        All Time ({allCount})
+                    </button>
+                </div>
+            ) : null}
+
+            <div className="relative flex-1 bg-[var(--surface)] rounded-[12px] flex items-center focus-within:ring-2 focus-within:ring-[var(--accent)] transition-all">
+                <Search
+                    size={18}
+                    className="absolute left-3 text-[var(--text-muted)] pointer-events-none"
+                    aria-hidden="true"
+                />
+                <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    placeholder={placeholder}
+                    className="border-none bg-transparent py-2 pl-9 pr-8 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none w-full"
+                />
+                {search ? (
+                    <button
+                        type="button"
+                        onClick={onClearSearch}
+                        aria-label="Clear search query"
+                        className="absolute right-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1"
+                    >
+                        <X size={14} />
+                    </button>
+                ) : null}
+            </div>
+
+            <button
+                type="button"
+                onClick={onSortChange}
+                aria-label={`Sort transactions. Current: ${
+                    sortBy === 'date-desc' ? 'Latest' : sortBy === 'amount-desc' ? 'Highest' : 'Lowest'
+                }`}
+                title={`Sort: ${
+                    sortBy === 'date-desc' ? 'Latest date' : sortBy === 'amount-desc' ? 'Highest amount' : 'Lowest amount'
+                }`}
+                className="bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-[12px] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center gap-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none shrink-0"
+            >
+                <ArrowDownUp size={18} aria-hidden="true" />
+                <span>
+                    {sortBy === 'date-desc'
+                        ? 'Latest'
+                        : sortBy === 'amount-desc'
+                        ? 'Highest'
+                        : 'Lowest'}
+                </span>
+            </button>
+        </div>
+    );
+}
+
+/**
+ * CategoryChips: Horizontally scrollable chips with hidden scrollbar and edge fade masks.
+ * Keyboard accessible with arrow navigation.
+ */
+export function CategoryChips({
+    categories = [],
+    selectedCategory,
+    onSelectCategory,
+    currency,
+}) {
+    const listRef = useRef(null);
+
+    const allCategories = useMemo(() => {
+        return [{ category: 'ALL', isAll: true }, ...categories];
+    }, [categories]);
+
+    const handleKeyDown = (e, index) => {
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            const nextIdx = (index + 1) % allCategories.length;
+            const nextCat = allCategories[nextIdx].category;
+            onSelectCategory(nextCat);
+            const nextBtn = listRef.current?.querySelectorAll('button')[nextIdx];
+            nextBtn?.focus();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const prevIdx = (index - 1 + allCategories.length) % allCategories.length;
+            const prevCat = allCategories[prevIdx].category;
+            onSelectCategory(prevCat);
+            const prevBtn = listRef.current?.querySelectorAll('button')[prevIdx];
+            prevBtn?.focus();
+        }
+    };
+
+    return (
+        <div className="relative px-6 py-2 shrink-0 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_20px,black_calc(100%-20px),transparent)]">
+            <div
+                ref={listRef}
+                role="radiogroup"
+                aria-label="Filter by category"
+                className="no-scrollbar flex items-center gap-2 overflow-x-auto py-1"
+            >
+                {allCategories.map((c, idx) => {
+                    const isAll = c.isAll || c.category === 'ALL';
+                    const isSelected = isAll
+                        ? selectedCategory === 'ALL' || !selectedCategory
+                        : selectedCategory === c.category;
+                    const catColor = isAll ? 'var(--accent)' : getCategoryColor(c.category);
+
+                    return (
+                        <button
+                            key={c.category}
+                            type="button"
+                            role="radio"
+                            aria-checked={isSelected}
+                            tabIndex={isSelected ? 0 : -1}
+                            onClick={() => onSelectCategory(c.category)}
+                            onKeyDown={(e) => handleKeyDown(e, idx)}
+                            style={
+                                isSelected
+                                    ? {
+                                          backgroundColor: `${catColor}26`, // 15% opacity accent tint
+                                          color: catColor,
+                                      }
+                                    : undefined
+                            }
+                            className={cx(
+                                'rounded-[12px] px-3 py-1.5 text-[13px] font-medium flex items-center gap-2 shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none',
+                                isSelected
+                                    ? 'font-semibold'
+                                    : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                            )}
+                        >
+                            {!isAll ? (
+                                <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: catColor }}
+                                    aria-hidden="true"
+                                />
+                            ) : null}
+                            <span>{isAll ? 'All Categories' : c.category}</span>
+                            {!isAll && c.value != null ? (
+                                <span className="text-[12px] text-[var(--text-muted)] tabular-nums">
+                                    {formatCurrency(c.value, currency)}
+                                </span>
+                            ) : null}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * CategoryBreakdown: Left panel without outer border, showing category bars.
+ * Stackable and collapsible on mobile (<768px).
+ */
+export function CategoryBreakdown({
+    categories = [],
+    selectedCategory,
+    onSelectCategory,
+    grandTotal,
+    currency,
+}) {
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    if (!categories.length) return null;
+
+    const content = (
+        <div className="space-y-1.5 modal-thin-scroll max-h-[280px] md:max-h-[460px] overflow-y-auto pr-1">
+            {categories.map((c) => {
+                const pct = grandTotal > 0 ? (c.value / grandTotal) * 100 : 0;
+                const color = getCategoryColor(c.category);
+                const isSelected = selectedCategory === c.category;
+
+                return (
+                    <button
+                        key={c.category}
+                        type="button"
+                        onClick={() => onSelectCategory(c.category)}
+                        style={
+                            isSelected
+                                ? {
+                                      backgroundColor: `${color}26`,
+                                      color: color,
+                                  }
+                                : undefined
+                        }
+                        className={cx(
+                            'w-full text-left rounded-[12px] p-2 transition-colors flex flex-col gap-1.5 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none',
+                            isSelected
+                                ? 'font-semibold'
+                                : 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                        )}
+                    >
+                        <div className="flex items-center justify-between text-[13px]">
+                            <span className="font-medium truncate flex items-center gap-2">
+                                <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                    aria-hidden="true"
+                                />
+                                <span className="truncate">{c.category}</span>
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className="tabular-nums font-semibold">
+                                    {formatCurrency(c.value, currency)}
+                                </span>
+                                <span className="text-[12px] text-[var(--text-muted)] tabular-nums w-8 text-right">
+                                    {pct.toFixed(0)}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="h-1 w-full rounded-full bg-[var(--surface)] overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                    width: `${Math.min(pct, 100)}%`,
+                                    backgroundColor: color,
+                                }}
+                            />
+                        </div>
+                    </button>
+                );
+            })}
+        </div>
+    );
+
+    return (
+        <aside
+            aria-label="Category Breakdown"
+            className="w-full md:w-[280px] lg:w-[320px] shrink-0 p-4 md:p-6 space-y-3"
+        >
+            <div className="flex items-center justify-between">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                    Category Breakdown
+                </span>
+                <span className="text-[12px] text-[var(--text-muted)] tabular-nums">
+                    {categories.length} categories
+                </span>
+            </div>
+
+            {/* Mobile Collapsible Header */}
+            <div className="md:hidden">
+                <button
+                    type="button"
+                    onClick={() => setIsMobileOpen((prev) => !prev)}
+                    className="w-full bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-[12px] px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)] flex items-center justify-between transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+                >
+                    <span>{isMobileOpen ? 'Hide Breakdown' : 'Show Breakdown'}</span>
+                    <span className="text-[12px] text-[var(--text-muted)]">{isMobileOpen ? '▲' : '▼'}</span>
+                </button>
+                {isMobileOpen ? <div className="mt-2">{content}</div> : null}
+            </div>
+
+            {/* Desktop View */}
+            <div className="hidden md:block">{content}</div>
+        </aside>
+    );
+}
+
+/**
+ * TransactionRow: Individual expense row with icon, merchant/description title,
+ * category chip, payment mode muted text, and danger-colored amount.
+ * Never repeats category as title. No borders.
+ */
+export function TransactionRow({ transaction: t, currency }) {
+    const amountNum = Math.abs(Number(t.amount) || 0);
+    const itemCat = t.category || 'Expense';
+    const itemColor = getCategoryColor(itemCat);
+    const rowTitle = getTransactionTitle(t);
+    const PaymentIcon = getPaymentMethodIcon(t.paymentMode);
+
+    return (
+        <li className="group flex items-center justify-between gap-3.5 px-3 py-2.5 rounded-[12px] hover:bg-[var(--surface)] transition-colors">
+            <div className="flex items-center gap-3 min-w-0">
+                <CategoryIconBadge category={itemCat} color={itemColor} />
+                <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-[var(--text-primary)] truncate">
+                        {rowTitle}
+                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+                        <span
+                            className="rounded-[6px] px-1.5 py-0.5 text-[12px] font-medium"
+                            style={{
+                                backgroundColor: `${itemColor}1f`,
+                                color: itemColor,
+                            }}
+                        >
+                            {itemCat}
+                        </span>
+                        {t.paymentMode ? (
+                            <span className="text-[13px] text-[var(--text-muted)] flex items-center gap-1">
+                                <PaymentIcon size={13} aria-hidden="true" />
+                                <span className="capitalize">{t.paymentMode}</span>
+                            </span>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+
+            <div className="text-right shrink-0">
+                <span className="text-[15px] font-semibold text-[var(--danger)] tabular-nums">
+                    -{formatCurrency(amountNum, currency)}
+                </span>
+            </div>
+        </li>
+    );
+}
+
+/**
+ * TransactionGroup: Sticky date-header grouping of transactions.
+ */
+export function TransactionGroup({ label, items = [], currency }) {
+    return (
+        <div className="space-y-1">
+            <div className="sticky top-0 z-10 bg-inherit/90 backdrop-blur-md py-1 px-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                {label}
+            </div>
+            <ul className="space-y-1">
+                {items.map((t, idx) => (
+                    <TransactionRow
+                        key={t.id || t._id || `${t.date}-${t.amount}-${idx}`}
+                        transaction={t}
+                        currency={currency}
+                    />
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/**
+ * Loading Skeletons state.
+ */
+function LoadingSkeleton() {
+    return (
+        <div className="space-y-3 p-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                    key={i}
+                    className="flex items-center justify-between gap-3 p-2.5 rounded-[12px] bg-[var(--surface)] animate-pulse"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-[36px] h-[36px] rounded-[10px] bg-[var(--surface-hover)]" />
+                        <div className="space-y-1.5">
+                            <div className="h-3.5 w-32 rounded-full bg-[var(--surface-hover)]" />
+                            <div className="h-2.5 w-20 rounded-full bg-[var(--surface-hover)]" />
+                        </div>
+                    </div>
+                    <div className="h-4 w-16 rounded-full bg-[var(--surface-hover)]" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Empty State with "Clear filters" action.
+ */
+function EmptyState({ onClearFilters }) {
+    return (
+        <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center px-4">
+            <Inbox size={28} className="text-[var(--text-muted)]" aria-hidden="true" />
+            <p className="text-[15px] font-medium text-[var(--text-primary)]">
+                No expenses match your filters
+            </p>
+            <p className="text-[13px] text-[var(--text-secondary)] max-w-xs">
+                Try searching with a different keyword or resetting your filters.
+            </p>
+            <button
+                type="button"
+                onClick={onClearFilters}
+                className="mt-1 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-[12px] px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+            >
+                Clear filters
+            </button>
+        </div>
+    );
+}
+
+/**
+ * Detailed Spending Report Modal Container.
+ */
 export function CategoryTransactionsModal({
     isOpen,
     onClose,
@@ -76,8 +657,11 @@ export function CategoryTransactionsModal({
     const [search, setSearch] = useState('');
     const [scope, setScope] = useState('period'); // 'period' | 'all'
     const [sortBy, setSortBy] = useState('date-desc'); // 'date-desc' | 'amount-desc' | 'amount-asc'
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Synchronize initial state when modal opens or category prop updates
+    const modalRef = useRef(null);
+
+    // Synchronize initial state when modal opens
     useEffect(() => {
         if (isOpen) {
             setSelectedCategory(initialCategory || category || 'ALL');
@@ -85,15 +669,42 @@ export function CategoryTransactionsModal({
             setSearch('');
             setScope('period');
             setSortBy('date-desc');
+            setIsLoading(false);
         }
     }, [isOpen, initialCategory, category, startExpanded]);
 
-    // Close on Escape key
+    // Close on Escape key & trap focus
     useEffect(() => {
         if (!isOpen) return;
+
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') {
+                onClose();
+                return;
+            }
+
+            // Focus trap
+            if (e.key === 'Tab' && modalRef.current) {
+                const focusableElements = Array.from(
+                    modalRef.current.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    )
+                ).filter((el) => !el.hasAttribute('disabled'));
+
+                if (!focusableElements.length) return;
+                const first = focusableElements[0];
+                const last = focusableElements[focusableElements.length - 1];
+
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
         };
+
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
@@ -143,6 +754,8 @@ export function CategoryTransactionsModal({
             list = list.filter(
                 (t) =>
                     (t.description && t.description.toLowerCase().includes(q)) ||
+                    (t.merchant && t.merchant.toLowerCase().includes(q)) ||
+                    (t.note && t.note.toLowerCase().includes(q)) ||
                     (t.paymentMode && t.paymentMode.toLowerCase().includes(q)) ||
                     (t.category && t.category.toLowerCase().includes(q))
             );
@@ -158,6 +771,26 @@ export function CategoryTransactionsModal({
 
         return list;
     }, [catTransactions, search, sortBy]);
+
+    // Group processed transactions by date
+    const groupedTransactions = useMemo(() => {
+        const groups = [];
+        const map = new Map();
+        processedTransactions.forEach((t) => {
+            const rawDate = t.date ? String(t.date).slice(0, 10) : 'recent';
+            if (!map.has(rawDate)) {
+                const group = {
+                    dateKey: rawDate,
+                    label: getDateHeaderLabel(t.date),
+                    items: [],
+                };
+                map.set(rawDate, group);
+                groups.push(group);
+            }
+            map.get(rawDate).items.push(t);
+        });
+        return groups;
+    }, [processedTransactions]);
 
     // Summary calculations
     const totalSpent = useMemo(() => {
@@ -181,27 +814,9 @@ export function CategoryTransactionsModal({
         return totalSpent / catTransactions.length;
     }, [catTransactions, totalSpent]);
 
-    // Payment method breakdown for analytics
-    const paymentModeBreakdown = useMemo(() => {
-        const map = new Map();
-        catTransactions.forEach((t) => {
-            const mode = (t.paymentMode || 'Other').trim();
-            const val = Math.abs(Number(t.amount) || 0);
-            map.set(mode, (map.get(mode) || 0) + val);
-        });
-        return Array.from(map.entries())
-            .map(([mode, val]) => ({
-                mode,
-                amount: val,
-                pct: totalSpent > 0 ? (val / totalSpent) * 100 : 0,
-            }))
-            .sort((a, b) => b.amount - a.amount);
-    }, [catTransactions, totalSpent]);
-
-    const categoryColor = isAll ? 'var(--pem-brand, #38bdf8)' : getCategoryColor(selectedCategory);
+    const categoryColor = isAll ? 'var(--accent)' : getCategoryColor(selectedCategory);
     const periodLabel = RANGE_LABELS[range] || 'Current Period';
 
-    // Count for all time to show in scope toggle
     const allCount = useMemo(() => {
         if (!allTransactions.length) return catTransactions.length;
         return allTransactions.filter((t) => {
@@ -215,13 +830,20 @@ export function CategoryTransactionsModal({
         }).length;
     }, [selectedCategory, allTransactions, catTransactions.length, isAll]);
 
-    // Share of total spending
-    const shareOfTotal = grandTotal > 0 ? (totalSpent / grandTotal) * 100 : 100;
-
     const handleExport = () => {
         const catName = isAll ? 'all_spending' : selectedCategory.toLowerCase().replace(/\s+/g, '_');
         exportTransactionsCsv(processedTransactions, `category_${catName}_report.csv`);
     };
+
+    const handleClearFilters = () => {
+        setSearch('');
+        setSelectedCategory('ALL');
+    };
+
+    const modalTitle = isAll ? 'Detailed Spending Report' : selectedCategory;
+    const modalSubtitle = `${catTransactions.length} ${
+        catTransactions.length === 1 ? 'transaction' : 'transactions'
+    } · ${scope === 'period' ? periodLabel : 'All Time'}`;
 
     return (
         <AnimatePresence>
@@ -229,8 +851,8 @@ export function CategoryTransactionsModal({
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-labelledby="category-modal-title"
-                    className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6"
+                    aria-labelledby="report-modal-title"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 lg:p-6"
                 >
                     {/* Backdrop */}
                     <motion.div
@@ -243,529 +865,145 @@ export function CategoryTransactionsModal({
                         aria-hidden="true"
                     />
 
-                    {/* Modal Card with Expand / Collapse Transition */}
+                    {/* Modal Card with Strict Design System Tokens */}
                     <motion.div
+                        ref={modalRef}
                         layout
-                        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                        initial={{ opacity: 0, scale: 0.97, y: 14 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: 16 }}
-                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                        exit={{ opacity: 0, scale: 0.97, y: 14 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                            '--surface': 'rgba(255, 255, 255, 0.04)',
+                            '--surface-hover': 'rgba(255, 255, 255, 0.08)',
+                            '--surface-active': 'rgba(20, 184, 166, 0.15)',
+                            '--divider': 'rgba(255, 255, 255, 0.06)',
+                            '--text-primary': '#f8fafc',
+                            '--text-secondary': '#94a3b8',
+                            '--text-muted': '#64748b',
+                            '--accent': '#14b8a6',
+                            '--success': '#10b981',
+                            '--danger': '#f43f5e',
+                            '--warning': '#f59e0b',
+                            '--info': '#38bdf8',
+                        }}
                         className={cx(
-                            'relative z-10 flex flex-col rounded-2xl border border-line-strong bg-surface shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] transition-all duration-300 overflow-hidden',
+                            'relative z-10 flex flex-col bg-surface shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] transition-all duration-300 overflow-hidden w-full h-full md:rounded-[20px]',
                             isExpanded
-                                ? 'h-[90vh] max-h-[90vh] w-[96vw] max-w-5xl'
-                                : 'max-h-[82vh] w-full max-w-xl'
+                                ? 'md:h-[90vh] md:max-h-[900px] md:w-[96vw] md:max-w-5xl'
+                                : 'md:max-h-[84vh] md:w-full md:max-w-2xl'
                         )}
                     >
-                        {/* Header */}
-                        <header className="flex items-start justify-between gap-4 border-b border-line/80 p-4 sm:p-5 shrink-0 bg-surface/95 backdrop-blur-sm">
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <span
-                                    className="grid h-12 w-12 shrink-0 place-items-center rounded-xl shadow-inner transition-transform"
-                                    style={{
-                                        backgroundColor: `${categoryColor}20`,
-                                        color: categoryColor,
-                                        border: `1.5px solid ${categoryColor}40`,
-                                        boxShadow: `0 0 16px ${categoryColor}25`,
-                                    }}
-                                >
-                                    {isAll ? (
-                                        <Layers size={24} />
-                                    ) : (
-                                        <CategoryBadgeIcon category={selectedCategory} size={24} />
-                                    )}
-                                </span>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h2
-                                            id="category-modal-title"
-                                            className="truncate text-xl font-bold tracking-tight text-ink"
-                                        >
-                                            {isAll ? 'Detailed Spending Report' : selectedCategory}
-                                        </h2>
-                                        {!isAll ? (
-                                            <span
-                                                className="h-2 w-2 shrink-0 rounded-full"
-                                                style={{
-                                                    backgroundColor: categoryColor,
-                                                    boxShadow: `0 0 8px ${categoryColor}`,
-                                                }}
-                                            />
-                                        ) : null}
-                                        <span className="hidden sm:inline-flex items-center rounded-pill bg-raised px-2 py-0.5 text-[10px] font-semibold text-ink-muted border border-line/60">
-                                            {isExpanded ? 'Full Report' : 'Compact View'}
-                                        </span>
-                                    </div>
-                                    <p className="mt-0.5 text-xs text-ink-muted flex items-center gap-1.5 flex-wrap">
-                                        <span>{catTransactions.length} {catTransactions.length === 1 ? 'transaction' : 'transactions'}</span>
-                                        <span>·</span>
-                                        <span>{scope === 'period' ? periodLabel : 'All Time'}</span>
-                                        {!isAll && grandTotal > 0 ? (
-                                            <>
-                                                <span>·</span>
-                                                <span className="font-semibold text-brand">
-                                                    {formatPercent(shareOfTotal)} of total spend
-                                                </span>
-                                            </>
-                                        ) : null}
-                                    </p>
-                                </div>
-                            </div>
+                        {/* Header: Title, Subtitle, Close & Expand Button + ONLY 1 Divider Line */}
+                        <ReportHeader
+                            title={modalTitle}
+                            subtitle={modalSubtitle}
+                            category={selectedCategory}
+                            categoryColor={categoryColor}
+                            isAll={isAll}
+                            isExpanded={isExpanded}
+                            onToggleExpand={() => setIsExpanded((prev) => !prev)}
+                            onClose={onClose}
+                        />
 
-                            <div className="flex items-center gap-2.5 shrink-0">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">
-                                        Total Spent
-                                    </p>
-                                    <p className="tnum text-lg font-black tracking-tight text-neg">
-                                        {formatCurrency(totalSpent, currency)}
-                                    </p>
-                                </div>
+                        {/* Summary Metrics Strip (Borderless, Spaced) */}
+                        <SummaryStrip
+                            totalSpent={totalSpent}
+                            avgTx={avgTx}
+                            maxTx={maxTx}
+                            currency={currency}
+                        />
 
-                                {/* Expand / Collapse Toggle Button */}
-                                <button
-                                    type="button"
-                                    onClick={() => setIsExpanded((prev) => !prev)}
-                                    aria-label={isExpanded ? 'Collapse report' : 'Expand detailed report'}
-                                    title={isExpanded ? 'Collapse to compact view' : 'Expand to detailed report'}
-                                    className="inline-flex items-center gap-1.5 rounded-xl border border-line/40 bg-raised/50 px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-raised hover:text-brand"
-                                >
-                                    {isExpanded ? (
-                                        <>
-                                            <Minimize2 size={15} />
-                                            <span className="hidden md:inline">Collapse</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Maximize2 size={15} />
-                                            <span className="hidden md:inline">Expand Report</span>
-                                        </>
-                                    )}
-                                </button>
+                        {/* Filter Bar: Segmented Scope, Search, Sort */}
+                        <FilterBar
+                            scope={scope}
+                            onScopeChange={setScope}
+                            periodLabel={periodLabel}
+                            allCount={allCount}
+                            hasScopeToggle={allTransactions.length > 0 && allCount !== transactions.length}
+                            search={search}
+                            onSearchChange={setSearch}
+                            onClearSearch={() => setSearch('')}
+                            sortBy={sortBy}
+                            onSortChange={() =>
+                                setSortBy((s) =>
+                                    s === 'date-desc'
+                                        ? 'amount-desc'
+                                        : s === 'amount-desc'
+                                        ? 'amount-asc'
+                                        : 'date-desc'
+                                )
+                            }
+                            placeholder={
+                                isAll
+                                    ? 'Search all expenses by description or mode...'
+                                    : `Search ${selectedCategory} transactions...`
+                            }
+                        />
 
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    aria-label="Close dialog"
-                                    className="grid h-8 w-8 place-items-center rounded-full bg-raised/50 text-ink-muted transition hover:bg-raised hover:text-ink border border-line/40"
-                                >
-                                    <X size={16} aria-hidden="true" />
-                                </button>
-                            </div>
-                        </header>
-
-                        {/* Category Selector Bar (Pills) */}
+                        {/* Category Filter Chips (No scrollbar, Fade edge masks) */}
                         {categories.length > 0 ? (
-                            <div className="border-b border-line/50 bg-raised/20 px-4 py-2 shrink-0">
-                                <div className="pem-scroll flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedCategory('ALL')}
-                                        className={cx(
-                                            'shrink-0 rounded-pill px-3 py-1 font-semibold transition-all flex items-center gap-1.5 border',
-                                            isAll
-                                                ? 'bg-brand text-slate-950 font-bold border-brand shadow-[0_0_12px_rgba(20,184,166,0.35)]'
-                                                : 'bg-raised/30 text-ink-muted hover:bg-raised/70 hover:text-ink border-line/30'
-                                        )}
-                                    >
-                                        <Layers size={13} />
-                                        <span>All Categories</span>
-                                        <span className="opacity-80">({categories.length})</span>
-                                    </button>
-
-                                    {categories.map((c) => {
-                                        const isCurrent = !isAll && selectedCategory === c.category;
-                                        const cColor = getCategoryColor(c.category);
-                                        return (
-                                            <button
-                                                key={c.category}
-                                                type="button"
-                                                onClick={() => setSelectedCategory(c.category)}
-                                                style={
-                                                    isCurrent
-                                                        ? {
-                                                              backgroundColor: `${cColor}22`,
-                                                              color: cColor,
-                                                              borderColor: `${cColor}60`,
-                                                              boxShadow: `0 0 10px ${cColor}25`,
-                                                          }
-                                                        : undefined
-                                                }
-                                                className={cx(
-                                                    'shrink-0 rounded-pill px-2.5 py-1 font-medium transition-all flex items-center gap-1.5 border',
-                                                    isCurrent
-                                                        ? 'font-bold'
-                                                        : 'bg-raised/30 text-ink-muted hover:bg-raised/70 hover:text-ink border-line/30'
-                                                )}
-                                            >
-                                                <span
-                                                    className="h-2 w-2 rounded-full shrink-0"
-                                                    style={{ backgroundColor: cColor }}
-                                                />
-                                                <span>{c.category}</span>
-                                                <span className="tnum text-[11px] opacity-75">
-                                                    {formatCurrency(c.value, currency)}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <CategoryChips
+                                categories={categories}
+                                selectedCategory={selectedCategory}
+                                onSelectCategory={setSelectedCategory}
+                                currency={currency}
+                            />
                         ) : null}
 
-                        {/* Top Telemetry / Analytics Metrics */}
-                        <div className="border-b border-line bg-raised/20 px-4 py-2.5 sm:px-6 shrink-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                                {/* Scope Selector */}
-                                {allTransactions.length > 0 && allCount !== transactions.length ? (
-                                    <div className="inline-flex rounded-control border border-line bg-sunken p-0.5 shrink-0 self-start sm:self-auto">
-                                        <button
-                                            type="button"
-                                            onClick={() => setScope('period')}
-                                            className={cx(
-                                                'rounded-[8px] px-2.5 py-1 text-xs font-semibold transition',
-                                                scope === 'period'
-                                                    ? 'bg-surface text-ink shadow-card'
-                                                    : 'text-ink-muted hover:text-ink'
-                                            )}
-                                        >
-                                            {periodLabel}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setScope('all')}
-                                            className={cx(
-                                                'rounded-[8px] px-2.5 py-1 text-xs font-semibold transition',
-                                                scope === 'all'
-                                                    ? 'bg-surface text-ink shadow-card'
-                                                    : 'text-ink-muted hover:text-ink'
-                                            )}
-                                        >
-                                            All Time ({allCount})
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <span className="text-xs font-medium text-ink-muted">
-                                        Period: <strong className="text-ink">{periodLabel}</strong>
-                                    </span>
-                                )}
+                        {/* Body Area: Left Breakdown (in expanded or responsive) + Right Transactions */}
+                        <div
+                            className={cx(
+                                'flex-1 min-h-0 overflow-hidden flex flex-col',
+                                isExpanded ? 'md:flex-row' : ''
+                            )}
+                        >
+                            {/* Left Panel: Category Breakdown */}
+                            {isExpanded && categories.length > 0 ? (
+                                <CategoryBreakdown
+                                    categories={categories}
+                                    selectedCategory={selectedCategory}
+                                    onSelectCategory={setSelectedCategory}
+                                    grandTotal={grandTotal}
+                                    currency={currency}
+                                />
+                            ) : null}
 
-                                {/* Telemetry Cards */}
-                                <div className="grid grid-cols-3 gap-2 sm:gap-2.5 flex-1 sm:max-w-md">
-                                    <div className="rounded-xl border border-neg/25 bg-neg-soft/20 p-2 text-center transition hover:bg-neg-soft/30">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-neg/80">
-                                            Spent
-                                        </p>
-                                        <p className="tnum mt-0.5 text-xs sm:text-sm font-black text-neg truncate">
-                                            {formatCurrency(totalSpent, currency)}
-                                        </p>
+                            {/* Right Panel: Transaction Groups */}
+                            <div className="modal-thin-scroll flex-1 overflow-y-auto px-6 py-2">
+                                {isLoading ? (
+                                    <LoadingSkeleton />
+                                ) : !processedTransactions.length ? (
+                                    <EmptyState onClearFilters={handleClearFilters} />
+                                ) : (
+                                    <div className="space-y-4">
+                                        {groupedTransactions.map((group) => (
+                                            <TransactionGroup
+                                                key={group.dateKey}
+                                                label={group.label}
+                                                items={group.items}
+                                                currency={currency}
+                                            />
+                                        ))}
                                     </div>
-                                    <div className="rounded-xl border border-info/25 bg-info-soft/15 p-2 text-center transition hover:bg-info-soft/25">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-info/80">
-                                            Average
-                                        </p>
-                                        <p className="tnum mt-0.5 text-xs sm:text-sm font-black text-info truncate">
-                                            {formatCurrency(avgTx, currency)}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-xl border border-warn/25 bg-warn-soft/15 p-2 text-center transition hover:bg-warn-soft/25">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-warn/80">
-                                            Highest
-                                        </p>
-                                        <p className="tnum mt-0.5 text-xs sm:text-sm font-black text-warn truncate">
-                                            {formatCurrency(maxTx, currency)}
-                                        </p>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Search, Sort, and Export Bar */}
-                        <div className="flex items-center gap-2 px-4 pt-3 pb-2 sm:px-6 shrink-0">
-                            <div className="relative flex-1">
-                                <Search
-                                    size={15}
-                                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder={
-                                        isAll
-                                            ? 'Search all expenses by description or mode...'
-                                            : `Search ${selectedCategory} transactions...`
-                                    }
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full rounded-xl border border-line/40 bg-sunken py-1.5 pl-9 pr-8 text-xs text-ink placeholder:text-ink-faint focus:border-brand focus:bg-surface focus:outline-none focus:ring-1 focus:ring-brand transition"
-                                />
-                                {search ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearch('')}
-                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                ) : null}
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setSortBy((s) =>
-                                        s === 'date-desc' ? 'amount-desc' : s === 'amount-desc' ? 'amount-asc' : 'date-desc'
-                                    )
-                                }
-                                title={`Sorting: ${
-                                    sortBy === 'date-desc'
-                                        ? 'Latest date'
-                                        : sortBy === 'amount-desc'
-                                        ? 'Highest amount'
-                                        : 'Lowest amount'
-                                }`}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-line/40 bg-raised/40 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-raised hover:text-ink transition shrink-0"
-                            >
-                                <ArrowDownUp size={13} />
-                                <span className="hidden sm:inline">
-                                    {sortBy === 'date-desc'
-                                        ? 'Latest'
-                                        : sortBy === 'amount-desc'
-                                        ? 'Highest'
-                                        : 'Lowest'}
-                                </span>
-                            </button>
-
+                        {/* Footer: Count info + CSV Export Action only (NO duplicate buttons, NO top line) */}
+                        <footer className="flex items-center justify-between px-6 py-4 shrink-0">
+                            <span className="text-[13px] text-[var(--text-muted)]">
+                                Showing {processedTransactions.length} of {catTransactions.length} entries
+                            </span>
                             <button
                                 type="button"
                                 onClick={handleExport}
                                 title="Export transactions to CSV"
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-line/40 bg-raised/40 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-raised hover:text-ink transition shrink-0"
+                                className="bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] rounded-[12px] px-3.5 py-1.5 text-[13px] font-medium flex items-center gap-2 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
                             >
-                                <Download size={13} />
-                                <span className="hidden sm:inline">CSV</span>
+                                <Download size={15} aria-hidden="true" />
+                                <span>Export CSV</span>
                             </button>
-                        </div>
-
-                        {/* Main Content Area - Responsive Layout (Side-by-side in expanded mode) */}
-                        <div className={cx('flex-1 min-h-0 overflow-hidden flex flex-col', isExpanded ? 'md:flex-row' : '')}>
-                            {/* Left Column Analytics (Visible in Expanded Mode) */}
-                            {isExpanded ? (
-                                <div className="w-full md:w-[320px] shrink-0 border-b md:border-b-0 md:border-r border-line bg-raised/20 p-4 space-y-4 overflow-y-auto pem-scroll">
-                                    {/* Category Distribution Breakdown */}
-                                    {categories.length > 0 ? (
-                                        <div className="rounded-2xl border border-line/40 bg-surface/60 backdrop-blur-sm p-3.5">
-                                            <div className="flex items-center justify-between mb-2.5">
-                                                <h3 className="text-xs font-bold text-ink flex items-center gap-1.5">
-                                                    <PieIcon size={14} className="text-brand" />
-                                                    Category Breakdown
-                                                </h3>
-                                                <span className="text-[10px] text-ink-faint">
-                                                    {categories.length} categories
-                                                </span>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                {categories.map((c) => {
-                                                    const pct = grandTotal > 0 ? (c.value / grandTotal) * 100 : 0;
-                                                    const cColor = getCategoryColor(c.category);
-                                                    const isCur = !isAll && selectedCategory === c.category;
-                                                    return (
-                                                        <button
-                                                            key={c.category}
-                                                            type="button"
-                                                            onClick={() => setSelectedCategory(c.category)}
-                                                            style={
-                                                                isCur
-                                                                    ? {
-                                                                          backgroundColor: `${cColor}15`,
-                                                                          borderColor: `${cColor}50`,
-                                                                      }
-                                                                    : undefined
-                                                            }
-                                                            className={cx(
-                                                                'w-full text-left rounded-xl p-2 transition flex flex-col gap-1 border',
-                                                                isCur
-                                                                    ? 'shadow-xs'
-                                                                    : 'border-transparent hover:bg-raised/60'
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className="font-semibold text-ink truncate flex items-center gap-1.5">
-                                                                    <span
-                                                                        className="h-2 w-2 rounded-full shrink-0"
-                                                                        style={{ backgroundColor: cColor }}
-                                                                    />
-                                                                    {c.category}
-                                                                </span>
-                                                                <span className="tnum font-bold text-ink shrink-0">
-                                                                    {formatCurrency(c.value, currency)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-1 flex-1 rounded-pill bg-line/60 overflow-hidden">
-                                                                    <div
-                                                                        className="h-full rounded-pill transition-all"
-                                                                        style={{ width: `${pct}%`, backgroundColor: cColor }}
-                                                                    />
-                                                                </div>
-                                                                <span className="tnum text-[10px] text-ink-faint w-7 text-right">
-                                                                    {pct.toFixed(0)}%
-                                                                </span>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    {/* Payment Modes Distribution */}
-                                    {paymentModeBreakdown.length > 0 ? (
-                                        <div className="rounded-2xl border border-line/40 bg-surface/60 backdrop-blur-sm p-3.5">
-                                            <div className="flex items-center justify-between mb-2.5">
-                                                <h3 className="text-xs font-bold text-ink flex items-center gap-1.5">
-                                                    <Wallet size={14} className="text-brand" />
-                                                    Payment Methods
-                                                </h3>
-                                                <span className="text-[10px] text-ink-faint">
-                                                    {paymentModeBreakdown.length} modes
-                                                </span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {paymentModeBreakdown.map((pm) => (
-                                                    <div key={pm.mode} className="space-y-1">
-                                                        <div className="flex items-center justify-between text-xs">
-                                                            <span className="text-ink-muted capitalize font-medium">
-                                                                {pm.mode}
-                                                            </span>
-                                                            <span className="tnum font-bold text-ink">
-                                                                {formatCurrency(pm.amount, currency)}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-1 flex-1 rounded-pill bg-line/60 overflow-hidden">
-                                                                <div
-                                                                    className="h-full rounded-pill bg-brand transition-all"
-                                                                    style={{ width: `${pm.pct}%` }}
-                                                                />
-                                                            </div>
-                                                            <span className="tnum text-[10px] text-ink-faint w-7 text-right">
-                                                                {pm.pct.toFixed(0)}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ) : null}
-
-                            {/* Right Column / Main Transactions List */}
-                            <div className="pem-scroll flex-1 overflow-y-auto px-4 pb-4 sm:px-6 pt-1">
-                                {!processedTransactions.length ? (
-                                    <div className="flex h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-center">
-                                        <Inbox size={28} className="text-ink-faint" aria-hidden="true" />
-                                        <p className="text-sm font-bold text-ink-muted">
-                                            {search ? 'No matching transactions' : 'No transactions recorded'}
-                                        </p>
-                                        <p className="max-w-xs text-xs text-ink-faint">
-                                            {search
-                                                ? 'Try searching with a different description or keyword.'
-                                                : isAll
-                                                ? 'No expense transactions found for this period.'
-                                                : `No expenses found under ${selectedCategory} for this period.`}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <ul className="space-y-1">
-                                        {processedTransactions.map((t, idx) => {
-                                            const amountNum = Math.abs(Number(t.amount) || 0);
-                                            const itemCat = t.category || selectedCategory || 'Expense';
-                                            const itemColor = getCategoryColor(itemCat);
-
-                                            return (
-                                                <li
-                                                    key={t.id || t._id || `${t.date}-${t.amount}-${idx}`}
-                                                    className="group flex items-center justify-between gap-3.5 rounded-xl border border-transparent hover:border-line/40 bg-raised/20 hover:bg-raised/70 px-3 py-2.5 transition-all duration-150"
-                                                >
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <span
-                                                            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-200 group-hover:scale-105"
-                                                            style={{
-                                                                backgroundColor: `${itemColor}20`,
-                                                                color: itemColor,
-                                                                border: `1px solid ${itemColor}35`,
-                                                                boxShadow: `0 0 10px ${itemColor}20`,
-                                                            }}
-                                                        >
-                                                            <CategoryBadgeIcon category={itemCat} size={16} />
-                                                        </span>
-                                                        <div className="min-w-0">
-                                                            <p className="truncate text-xs sm:text-sm font-semibold text-ink group-hover:text-brand transition-colors">
-                                                                {t.description || itemCat}
-                                                            </p>
-                                                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-ink-faint">
-                                                                <span className="flex items-center gap-1 font-medium">
-                                                                    <Calendar size={11} />
-                                                                    {formatDate(t.date, {
-                                                                        day: 'numeric',
-                                                                        month: 'short',
-                                                                        year: 'numeric',
-                                                                    })}
-                                                                </span>
-                                                                <span
-                                                                    className="rounded-pill px-2 py-0.5 font-semibold text-[10px]"
-                                                                    style={{
-                                                                        backgroundColor: `${itemColor}18`,
-                                                                        color: itemColor,
-                                                                        border: `1px solid ${itemColor}30`,
-                                                                    }}
-                                                                >
-                                                                    {itemCat}
-                                                                </span>
-                                                                {t.paymentMode ? (
-                                                                    <span className="rounded-pill bg-sunken px-2 py-0.5 font-medium capitalize text-ink-muted">
-                                                                        {t.paymentMode}
-                                                                    </span>
-                                                                ) : null}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="text-right shrink-0">
-                                                        <span className="tnum text-sm sm:text-base font-black text-neg">
-                                                            -{formatCurrency(amountNum, currency)}
-                                                        </span>
-                                                    </div>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <footer className="flex items-center justify-between border-t border-line/60 bg-raised/30 px-4 py-2.5 sm:px-6 shrink-0">
-                            <span className="text-xs text-ink-muted">
-                                Showing {processedTransactions.length} of {catTransactions.length} entries
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsExpanded((prev) => !prev)}
-                                    className="rounded-control bg-raised/60 px-3 py-1.5 text-xs font-bold text-ink transition hover:bg-raised border border-line/40"
-                                >
-                                    {isExpanded ? 'Collapse' : 'Expand Report'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="rounded-control bg-brand px-4 py-1.5 text-xs font-bold text-slate-950 transition hover:opacity-90 shadow-[0_0_12px_rgba(20,184,166,0.3)]"
-                                >
-                                    Close
-                                </button>
-                            </div>
                         </footer>
                     </motion.div>
                 </div>

@@ -196,6 +196,36 @@
     background-color: var(--pem-border-strong);
     border-radius: 999px;
   }
+
+  /* Thin dark scrollbar specifically for modal panels */
+  .modal-thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+
+  .modal-thin-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .modal-thin-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .modal-thin-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+
+  /* Hide scrollbar entirely for chip rows */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Animated Background - Standard CSS for reliability */
