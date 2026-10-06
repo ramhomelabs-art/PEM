@@ -42,9 +42,8 @@ import TransactionModal, { categoryIcons } from '../../components/personal_expen
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
-import { Button, StatTile } from '../../components/ui/primitives';
+import { Button } from '../../components/ui/primitives';
 import { cx } from '../../components/ui/cx';
-
 import { useCategories } from '../../context/CategoryContext';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
 import CreditCardTransactionEditModal from '../../components/credit_card/CreditCardTransactionEditModal';
@@ -331,35 +330,6 @@ const Transactions = () => {
                     </Button>
                 </div>
             </header>
-
-            {/* KPI STATS ROW */}
-            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatTile
-                    label="Total Spend"
-                    value={formatCurrency(totalExpense)}
-                    tone="neg"
-                    icon={TrendingDown}
-                />
-                <StatTile
-                    label="Total Income"
-                    value={formatCurrency(totalIncome)}
-                    tone="pos"
-                    icon={TrendingUp}
-                />
-                <StatTile
-                    label="Net Flow"
-                    value={`${netBalance >= 0 ? '+' : ''}${formatCurrency(netBalance)}`}
-                    tone={netBalance >= 0 ? 'pos' : 'neg'}
-                    icon={Wallet}
-                />
-                <StatTile
-                    label="Total Records"
-                    value={filteredTransactions.length}
-                    tone="info"
-                    icon={ReceiptText}
-                    hint={`${transactions.length} total`}
-                />
-            </div>
 
             {/* SEARCH & FILTER BAR */}
             <div className="mb-6 flex flex-col gap-3.5">
