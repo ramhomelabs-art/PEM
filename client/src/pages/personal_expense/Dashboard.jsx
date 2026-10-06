@@ -52,6 +52,7 @@ import BirthdayGreeting from '../../components/personal_expense/BirthdayGreeting
 import { FinancialIntelligenceHub } from '../../components/dashboard/FinancialIntelligenceHub';
 import FinancialTimeMachineModal from '../../components/personal_expense/FinancialTimeMachineModal';
 import FunSavingsJarModal from '../../components/personal_expense/FunSavingsJarModal';
+import FunPotVerificationModal from '../../components/personal_expense/FunPotVerificationModal';
 import WeekendBurnModal from '../../components/personal_expense/WeekendBurnModal';
 import ReceiptScannerModal from '../../components/personal_expense/ReceiptScannerModal';
 
@@ -121,7 +122,26 @@ const Dashboard = () => {
     const [showFunJar, setShowFunJar] = useState(false);
     const [showWeekendBurn, setShowWeekendBurn] = useState(false);
     const [showReceiptScanner, setShowReceiptScanner] = useState(false);
+    const [funJarBalance, setFunJarBalance] = useState(() => {
+        const saved = localStorage.getItem('pem-fun-jar-balance');
+        return saved ? Number(saved) : 0;
+    });
+    const [pendingVerification, setPendingVerification] = useState(null);
     const [messageToast, setMessageToast] = useState(null);
+
+    // Check for unverified physical cash pot deposits from previous day
+    useEffect(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        try {
+            const savedList = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
+            const itemToVerify = savedList.find((item) => item.status === 'pending' && item.dateStr !== todayStr);
+            if (itemToVerify) {
+                setPendingVerification(itemToVerify);
+            }
+        } catch {
+            // ignore JSON error
+        }
+    }, []);
 
     const openAdd = useCallback(
         () => setModal({ open: true, mode: 'add', entry: null }),
@@ -245,6 +265,71 @@ const Dashboard = () => {
             })),
         [transactions]
     );
+
+    const safeToSpendData = useMemo(() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const currentDay = today.getDate();
+        const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
+
+        const isToday = (dateVal) => {
+            if (!dateVal) return false;
+            const d = new Date(dateVal);
+            return (
+                !isNaN(d.getTime()) &&
+                d.getFullYear() === year &&
+                d.getMonth() === month &&
+                d.getDate() === currentDay
+            );
+        };
+
+        const todayExpenseTransactions = (transactions || []).filter(
+            (t) => (t.type === 'expense' || !t.type) && isToday(t.date)
+        );
+        const todaySpent = todayExpenseTransactions.reduce(
+            (sum, t) => sum + Math.abs(Number(t.amount) || 0),
+            0
+        );
+
+        const bankBalanceSum = Array.isArray(banks)
+            ? banks.reduce((sum, b) => sum + (Number(b.balance) || 0), 0)
+            : 0;
+        const liquidCash = bankBalanceSum > 0 ? bankBalanceSum : Math.max(0, kpi.current.balance || 0);
+
+        const upcomingBills = (bills || []).filter((b) => {
+            if (b.status === 'paid') return false;
+            if (!b.dueDate) return true;
+            const due = new Date(b.dueDate);
+            return (
+                due.getMonth() === month &&
+                due.getFullYear() === year &&
+                due.getDate() >= currentDay
+            );
+        });
+        const billsTotal = upcomingBills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+
+        const activeEmis = (loans || []).filter((l) => l.status !== 'closed' && !l.isEmiPaid);
+        const emisTotal = activeEmis.reduce((s, l) => s + (Number(l.emiAmount) || 0), 0);
+
+        const pendingPayables = (borrow || []).filter((w) => w.status !== 'settled' && w.type === 'borrowed');
+        const payablesTotal = pendingPayables.reduce((s, w) => s + (Number(w.amount) || 0), 0);
+
+        const totalObligations = billsTotal + emisTotal + payablesTotal;
+        const safeMonth = Math.max(0, liquidCash - totalObligations);
+        const poolStartOfToday = safeMonth + todaySpent;
+        const dailyTarget = Math.max(0, Math.round(poolStartOfToday / daysRemaining));
+        const safeTodayRemaining = Math.max(0, dailyTarget - todaySpent);
+
+        return {
+            liquidCash,
+            todaySpent,
+            dailyTarget,
+            safeTodayRemaining,
+            totalObligations,
+        };
+    }, [transactions, banks, bills, loans, borrow, kpi.current.balance]);
 
     const loading = txLoading || commitmentsLoading;
 
@@ -495,6 +580,7 @@ const Dashboard = () => {
                         onOpenFunJar={() => setShowFunJar(true)}
                         onOpenWeekendBurn={() => setShowWeekendBurn(true)}
                         onOpenReceiptScanner={() => setShowReceiptScanner(true)}
+                        funJarBalance={funJarBalance}
                         currency={currency}
                     />
                 </motion.div>
@@ -593,15 +679,35 @@ const Dashboard = () => {
             <FinancialTimeMachineModal
                 isOpen={showTimeMachine}
                 onClose={() => setShowTimeMachine(false)}
-                currentBalance={kpi.current.balance || 37500}
-                monthlyIncome={kpi.current.income || 85000}
-                monthlyExpense={kpi.current.expense || 45000}
+                currentBalance={safeToSpendData.liquidCash}
+                monthlyIncome={kpi.current.income}
+                monthlyExpense={kpi.current.expense}
+                activeObligations={safeToSpendData.totalObligations}
                 currency={currency}
             />
 
             <FunSavingsJarModal
                 isOpen={showFunJar}
                 onClose={() => setShowFunJar(false)}
+                todayUnderSpend={safeToSpendData.safeTodayRemaining}
+                todaySpent={safeToSpendData.todaySpent}
+                dailyTarget={safeToSpendData.dailyTarget}
+                currency={currency}
+                user={user}
+                onReloadTransactions={reloadTransactions}
+                onJarUpdate={(newBal) => setFunJarBalance(newBal)}
+            />
+
+            <FunPotVerificationModal
+                isOpen={Boolean(pendingVerification)}
+                verificationItem={pendingVerification}
+                onClose={() => setPendingVerification(null)}
+                onVerified={() => setPendingVerification(null)}
+                onRolledBack={(item, newJar) => {
+                    setFunJarBalance(newJar);
+                    setPendingVerification(null);
+                    reloadTransactions();
+                }}
                 currency={currency}
             />
 

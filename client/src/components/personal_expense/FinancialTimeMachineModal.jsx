@@ -20,6 +20,7 @@ import {
     Info,
     ChevronRight,
     RotateCcw,
+    Wallet,
 } from 'lucide-react';
 import {
     ResponsiveContainer,
@@ -40,14 +41,14 @@ const PRESET_SCENARIOS = [
         title: 'Buy Gadget / Laptop (EMI)',
         icon: Laptop,
         category: 'Purchase',
-        desc: '₹1,20,000 item on 6-month EMI',
+        desc: 'New tech gear on 6-month EMI',
         defaults: {
             name: 'New Laptop / Phone',
             type: 'emi',
-            amount: 120000,
+            amount: 100000,
             months: 6,
             interestRate: 0,
-            downPayment: 20000,
+            downPayment: 15000,
             incomeChange: 0,
             expenseCutPct: 0,
         },
@@ -57,15 +58,15 @@ const PRESET_SCENARIOS = [
         title: 'Dream Vacation Trip',
         icon: Plane,
         category: 'Expense',
-        desc: 'One-off ₹75,000 expense in Month 2',
+        desc: 'One-off holiday spend next month',
         defaults: {
             name: 'Vacation Getaway',
             type: 'upfront',
-            amount: 75000,
-            monthOffset: 2,
+            amount: 50000,
+            monthOffset: 1,
             months: 1,
             interestRate: 0,
-            downPayment: 75000,
+            downPayment: 50000,
             incomeChange: 0,
             expenseCutPct: 0,
         },
@@ -75,7 +76,7 @@ const PRESET_SCENARIOS = [
         title: 'Salary Hike / Promotion',
         icon: Briefcase,
         category: 'Income',
-        desc: '+₹25,000 extra monthly income',
+        desc: 'Extra monthly income increment',
         defaults: {
             name: 'Promotion / New Job',
             type: 'income',
@@ -83,16 +84,16 @@ const PRESET_SCENARIOS = [
             months: 12,
             interestRate: 0,
             downPayment: 0,
-            incomeChange: 25000,
+            incomeChange: 20000,
             expenseCutPct: 0,
         },
     },
     {
         id: 'lifestyle-diet',
-        title: 'Frugal Month (-25% Dining/Shop)',
+        title: 'Discretionary Budget Cut',
         icon: ShoppingBag,
         category: 'Savings',
-        desc: 'Reduce discretionary spend by 25%',
+        desc: 'Reduce monthly lifestyle burn by 20%',
         defaults: {
             name: 'Dining & Shopping Cut',
             type: 'expense_cut',
@@ -101,7 +102,7 @@ const PRESET_SCENARIOS = [
             interestRate: 0,
             downPayment: 0,
             incomeChange: 0,
-            expenseCutPct: 25,
+            expenseCutPct: 20,
         },
     },
 ];
@@ -109,15 +110,21 @@ const PRESET_SCENARIOS = [
 export function FinancialTimeMachineModal({
     isOpen,
     onClose,
-    currentBalance = 37500,
-    monthlyIncome = 85000,
-    monthlyExpense = 45000,
+    currentBalance = 0,
+    monthlyIncome = 0,
+    monthlyExpense = 0,
+    activeObligations = 0,
     currency = 'INR',
 }) {
-    const [scenarioType, setScenarioType] = useState('emi'); // 'upfront', 'emi', 'income', 'expense_cut', 'custom'
+    // Dynamic starting estimates if user is starting fresh or has active data
+    const liveBal = Number(currentBalance) || 0;
+    const liveInc = Number(monthlyIncome) || 0;
+    const liveExp = Number(monthlyExpense) || 0;
+
+    const [scenarioType, setScenarioType] = useState('emi'); // 'upfront', 'emi', 'income', 'expense_cut'
     const [scenarioName, setScenarioName] = useState('Tech Gadget (EMI)');
-    const [purchaseAmount, setPurchaseAmount] = useState(120000);
-    const [downPayment, setDownPayment] = useState(20000);
+    const [purchaseAmount, setPurchaseAmount] = useState(80000);
+    const [downPayment, setDownPayment] = useState(15000);
     const [emiTenure, setEmiTenure] = useState(6);
     const [interestRate, setInterestRate] = useState(0);
     const [incomeDelta, setIncomeDelta] = useState(0);
@@ -135,19 +142,23 @@ export function FinancialTimeMachineModal({
         setExpenseCutPct(preset.defaults.expenseCutPct || 0);
     };
 
-    // Calculate 12-Month Projections
+    // Calculate Real-Time 12-Month Projections
     const simulation = useMemo(() => {
-        const netBaseSavingsPerMonth = monthlyIncome - monthlyExpense;
+        const netBaseSavingsPerMonth = liveInc - liveExp;
         const loanPrincipal = Math.max(0, purchaseAmount - downPayment);
-        const monthlyInterest = interestRate > 0 ? (loanPrincipal * (interestRate / 100)) / emiTenure : 0;
-        const monthlyEmi = emiTenure > 0 && scenarioType === 'emi' ? Math.round((loanPrincipal / emiTenure) + monthlyInterest) : 0;
+        const monthlyInterest = interestRate > 0 && emiTenure > 0
+            ? (loanPrincipal * (interestRate / 100)) / emiTenure
+            : 0;
+        const monthlyEmi = emiTenure > 0 && scenarioType === 'emi'
+            ? Math.round((loanPrincipal / emiTenure) + monthlyInterest)
+            : 0;
 
-        const monthlyCutSavings = (monthlyExpense * (expenseCutPct / 100));
-        const effectiveNetMonthly = netBaseSavingsPerMonth + incomeDelta + monthlyCutSavings;
+        const monthlyCutSavings = Math.round(liveExp * (expenseCutPct / 100));
+        const effectiveNetMonthly = netBaseSavingsPerMonth + incomeDelta + (scenarioType === 'expense_cut' ? monthlyCutSavings : 0);
 
-        let baselineBalance = currentBalance;
-        let simulatedBalance = currentBalance;
-        let lowestSimulatedBalance = currentBalance;
+        let baselineBalance = liveBal;
+        let simulatedBalance = liveBal;
+        let lowestSimulatedBalance = liveBal;
         let dangerMonth = null;
 
         const timeline = [];
@@ -206,12 +217,12 @@ export function FinancialTimeMachineModal({
             finalSimulated,
             netDifference,
             timeline,
-            isFeasible: lowestSimulatedBalance >= 15000,
+            isFeasible: lowestSimulatedBalance >= 10000,
         };
     }, [
-        currentBalance,
-        monthlyIncome,
-        monthlyExpense,
+        liveBal,
+        liveInc,
+        liveExp,
         scenarioType,
         purchaseAmount,
         downPayment,
@@ -244,7 +255,7 @@ export function FinancialTimeMachineModal({
                     className="relative w-full max-w-5xl overflow-hidden rounded-3xl bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
                 >
                     {/* Top ambient highlight */}
-                    <div className="h-[2px] w-full bg-gradient-to-r from-teal-400 via-brand to-violet-500 opacity-90" />
+                    <div className="h-[2px] w-full bg-gradient-to-r from-teal-400 via-emerald-400 to-violet-500 opacity-90" />
 
                     {/* Modal Header */}
                     <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#080e1d] px-5 py-4 sm:px-6">
@@ -260,7 +271,7 @@ export function FinancialTimeMachineModal({
                                     </span>
                                 </h3>
                                 <p className="text-xs text-ink-muted">
-                                    Simulate major purchases, EMIs, salary hikes & lifestyle cuts over 12 months.
+                                    Simulate major purchases, EMIs, salary hikes & lifestyle cuts with live financial data.
                                 </p>
                             </div>
                         </div>
@@ -268,7 +279,7 @@ export function FinancialTimeMachineModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition"
+                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
                         >
                             <X size={17} />
                         </button>
@@ -276,6 +287,35 @@ export function FinancialTimeMachineModal({
 
                     {/* Body */}
                     <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-[#0c1427]">
+                        {/* Live Financial Foundation Banner */}
+                        <div className="rounded-2xl bg-[#080e1d] border border-white/[0.06] p-4 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-2.5 text-xs font-bold text-teal-300">
+                                <span className="h-2.5 w-2.5 rounded-full bg-teal-400 animate-ping" />
+                                <span>Real-Time Baseline Connected:</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs">
+                                <div>
+                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Current Balance</span>
+                                    <span className="font-extrabold text-white tnum">{formatCurrency(liveBal, currency)}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Income</span>
+                                    <span className="font-extrabold text-emerald-400 tnum">+{formatCurrency(liveInc, currency)}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Outflow</span>
+                                    <span className="font-extrabold text-rose-400 tnum">-{formatCurrency(liveExp, currency)}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Net Baseline</span>
+                                    <span className={cx('font-extrabold tnum', liveInc - liveExp >= 0 ? 'text-teal-300' : 'text-amber-400')}>
+                                        {liveInc - liveExp >= 0 ? '+' : ''}{formatCurrency(liveInc - liveExp, currency)}/mo
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* 1. Quick Presets */}
                         <div>
                             <span className="text-xs font-bold uppercase tracking-wider text-ink-faint block mb-2.5">
@@ -291,7 +331,7 @@ export function FinancialTimeMachineModal({
                                             type="button"
                                             onClick={() => applyPreset(preset)}
                                             className={cx(
-                                                'flex flex-col items-start p-3 rounded-2xl transition text-left relative overflow-hidden',
+                                                'flex flex-col items-start p-3 rounded-2xl transition text-left relative overflow-hidden cursor-pointer',
                                                 isSelected
                                                     ? 'bg-gradient-to-br from-teal-500/20 to-[#101a33] border border-teal-500/40 shadow-[0_0_20px_rgba(20,184,166,0.15)]'
                                                     : 'bg-[#101a33] hover:bg-[#152243]'
@@ -336,7 +376,7 @@ export function FinancialTimeMachineModal({
                                             type="button"
                                             onClick={() => setScenarioType(mode.id)}
                                             className={cx(
-                                                'px-3 py-1 text-xs font-bold rounded-lg transition',
+                                                'px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer',
                                                 scenarioType === mode.id
                                                     ? 'bg-teal-500/20 text-teal-300 shadow-sm'
                                                     : 'text-ink-muted hover:text-white'
@@ -354,14 +394,12 @@ export function FinancialTimeMachineModal({
                                     <>
                                         <div className="space-y-1">
                                             <label className="text-[11px] font-semibold text-ink-muted">Purchase Amount</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    value={purchaseAmount}
-                                                    onChange={(e) => setPurchaseAmount(Number(e.target.value) || 0)}
-                                                    className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
-                                                />
-                                            </div>
+                                            <input
+                                                type="number"
+                                                value={purchaseAmount}
+                                                onChange={(e) => setPurchaseAmount(Number(e.target.value) || 0)}
+                                                className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                            />
                                         </div>
 
                                         {scenarioType === 'emi' && (
@@ -491,7 +529,7 @@ export function FinancialTimeMachineModal({
                                             stroke="#64748b"
                                             fontSize={11}
                                             tickLine={false}
-                                            tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                                            tickFormatter={(v) => formatCurrency(v, currency)}
                                         />
                                         <Tooltip
                                             content={({ active, payload }) => {
@@ -528,13 +566,13 @@ export function FinancialTimeMachineModal({
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                                     Lowest Projected Balance
                                 </span>
-                                <p className={cx('text-lg font-black tnum mt-1', simulation.lowestSimulatedBalance < 15000 ? 'text-amber-400' : 'text-emerald-400')}>
+                                <p className={cx('text-lg font-black tnum mt-1', simulation.lowestSimulatedBalance < 10000 ? 'text-amber-400' : 'text-emerald-400')}>
                                     {formatCurrency(simulation.lowestSimulatedBalance, currency)}
                                 </p>
                                 <span className="text-[11px] font-medium text-ink-muted mt-1">
-                                    {simulation.lowestSimulatedBalance < 15000
+                                    {simulation.lowestSimulatedBalance < 10000
                                         ? `⚠️ Danger zone in Month ${simulation.dangerMonth || 1}`
-                                        : '✅ Stays above safety cushion'}
+                                        : '✅ Stays safely above emergency reserve'}
                                 </span>
                             </div>
 
@@ -558,7 +596,7 @@ export function FinancialTimeMachineModal({
                                     {simulation.isFeasible ? (
                                         <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full">
                                             <CheckCircle2 size={13} />
-                                            Safe &amp; Affordable
+                                            Safe &amp; Feasible
                                         </span>
                                     ) : (
                                         <span className="inline-flex items-center gap-1 text-xs font-black text-rose-400 bg-rose-500/20 px-2.5 py-1 rounded-full">

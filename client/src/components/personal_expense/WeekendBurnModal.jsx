@@ -38,17 +38,24 @@ export function WeekendBurnModal({
     transactions = [],
     currency = 'INR',
 }) {
-    const [weekendBudgetCap, setWeekendBudgetCap] = useState(6000);
+    const [weekendBudgetCap, setWeekendBudgetCap] = useState(() => {
+        const saved = localStorage.getItem('pem-weekend-shield-cap');
+        return saved ? Number(saved) : 5000;
+    });
+
+    const handleCapChange = (val) => {
+        setWeekendBudgetCap(val);
+        localStorage.setItem('pem-weekend-shield-cap', String(val));
+    };
 
     const analytics = useMemo(() => {
         const dayTotals = [0, 0, 0, 0, 0, 0, 0]; // 0=Sun, 1=Mon, ..., 6=Sat
         const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+        const uniqueDatesByDay = [new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()];
         const categoryWeekendTotals = {};
 
         let totalWeekdayExpense = 0;
         let totalWeekendExpense = 0;
-        let weekdayCount = 0;
-        let weekendCount = 0;
 
         (transactions || []).forEach((t) => {
             if (t.type === 'expense' || !t.type) {
@@ -57,27 +64,31 @@ export function WeekendBurnModal({
                 const d = new Date(t.date);
                 if (isNaN(d.getTime())) return;
                 const dayIndex = d.getDay();
+                const dateKey = t.date ? String(t.date).slice(0, 10) : '';
 
                 dayTotals[dayIndex] += amt;
                 dayCounts[dayIndex] += 1;
+                if (dateKey) uniqueDatesByDay[dayIndex].add(dateKey);
 
-                const isWeekend = dayIndex === 0 || dayIndex === 6; // Sunday or Saturday (or Friday evening)
+                const isWeekend = dayIndex === 0 || dayIndex === 6; // Sunday or Saturday
                 if (isWeekend) {
                     totalWeekendExpense += amt;
-                    weekendCount += 1;
-                    const cat = t.category || 'Other';
+                    const cat = t.category || 'Discretionary';
                     categoryWeekendTotals[cat] = (categoryWeekendTotals[cat] || 0) + amt;
                 } else {
                     totalWeekdayExpense += amt;
-                    weekdayCount += 1;
                 }
             }
         });
 
+        // Count actual unique days in user data
+        const weekdayDaysCount = Math.max(1, [1, 2, 3, 4, 5].reduce((sum, idx) => sum + uniqueDatesByDay[idx].size, 0));
+        const weekendDaysCount = Math.max(1, [0, 6].reduce((sum, idx) => sum + uniqueDatesByDay[idx].size, 0));
+
         // Avg per weekday vs avg per weekend day
-        const avgWeekdayDaily = weekdayCount > 0 ? Math.round(totalWeekdayExpense / (5 * 4)) : 850; // estimate per day across month
-        const avgWeekendDaily = weekendCount > 0 ? Math.round(totalWeekendExpense / (2 * 4)) : 2900;
-        const burnRatio = avgWeekdayDaily > 0 ? (avgWeekendDaily / avgWeekdayDaily).toFixed(1) : '3.2';
+        const avgWeekdayDaily = Math.round(totalWeekdayExpense / weekdayDaysCount);
+        const avgWeekendDaily = Math.round(totalWeekendExpense / weekendDaysCount);
+        const burnRatio = avgWeekdayDaily > 0 ? (avgWeekendDaily / avgWeekdayDaily).toFixed(1) : (avgWeekendDaily > 0 ? '2.0' : '1.0');
 
         const chartData = [
             { day: 'Mon', amount: Math.round(dayTotals[1]), isWeekend: false },
@@ -94,7 +105,7 @@ export function WeekendBurnModal({
             .sort((a, b) => b.amount - a.amount)
             .slice(0, 4);
 
-        const totalWeekendSpentPerWeekend = Math.round(totalWeekendExpense / 4);
+        const totalWeekendSpentPerWeekend = Math.round(totalWeekendExpense / Math.max(1, Math.ceil(weekendDaysCount / 2)));
         const isExceedingWeekendCap = totalWeekendSpentPerWeekend > weekendBudgetCap;
 
         return {
@@ -142,13 +153,13 @@ export function WeekendBurnModal({
                             </span>
                             <div>
                                 <h3 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
-                                    Weekend Burn &amp; Behavioral Detector
+                                    Weekend Burn &amp; Impulse Detector
                                     <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 px-2.5 py-0.5 rounded-full">
                                         Behavioral AI
                                     </span>
                                 </h3>
                                 <p className="text-xs text-ink-muted">
-                                    Analyze day-of-week spending patterns and guard your weekend budget from impulse leaks.
+                                    Real-time velocity check: Detects weekend surges & protects your financial momentum.
                                 </p>
                             </div>
                         </div>
@@ -156,76 +167,83 @@ export function WeekendBurnModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition"
+                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
                         >
                             <X size={17} />
                         </button>
                     </div>
 
-                    {/* Body */}
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 bg-[#0c1427]">
-                        {/* 1. Core Burn Summary KPIs */}
+                    {/* Body Content */}
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-[#0c1427]">
+                        {/* Highlights Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner flex flex-col justify-between">
+                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-                                    Weekend Velocity Ratio
+                                    Weekend Burn Velocity
                                 </span>
-                                <div className="mt-1 flex items-baseline gap-2">
-                                    <span className="text-2xl font-black text-orange-400 tnum">
-                                        {analytics.burnRatio}x
-                                    </span>
-                                    <span className="text-xs font-semibold text-ink-muted">vs weekdays</span>
-                                </div>
-                                <span className="text-[11px] text-ink-muted mt-1">
-                                    Spends {formatCurrency(analytics.avgWeekendDaily, currency)}/day on Sat/Sun vs {formatCurrency(analytics.avgWeekdayDaily, currency)} on Mon-Fri.
-                                </span>
-                            </div>
-
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner flex flex-col justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-                                    Average Spend Per Weekend
-                                </span>
-                                <p className="text-2xl font-black text-white tnum mt-1">
-                                    {formatCurrency(analytics.totalWeekendSpentPerWeekend, currency)}
+                                <p className="text-2xl font-black text-orange-400 tracking-tight tnum mt-1">
+                                    {analytics.burnRatio}x Weekdays
                                 </p>
-                                <span className="text-[11px] text-ink-muted mt-1">
-                                    Friday night through Sunday night total.
+                                <span className="text-[11px] font-medium text-ink-muted mt-1">
+                                    Avg weekend daily spend: {formatCurrency(analytics.avgWeekendDaily, currency)} vs weekday {formatCurrency(analytics.avgWeekdayDaily, currency)}
                                 </span>
                             </div>
 
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner flex flex-col justify-between">
+                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                                    Total Weekend Outflows
+                                </span>
+                                <p className="text-2xl font-black text-white tracking-tight tnum mt-1">
+                                    {formatCurrency(analytics.totalWeekendExpense, currency)}
+                                </p>
+                                <span className="text-[11px] font-medium text-ink-muted mt-1">
+                                    Across all logged Saturday &amp; Sunday transactions
+                                </span>
+                            </div>
+
+                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                                     Weekend Shield Status
                                 </span>
-                                <div className="mt-1 flex items-center gap-1.5">
-                                    {!analytics.isExceedingWeekendCap ? (
-                                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full">
-                                            <CheckCircle2 size={13} />
-                                            Shield Protected
+                                <div className="mt-1">
+                                    {analytics.isExceedingWeekendCap ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-black">
+                                            <AlertTriangle size={13} />
+                                            Exceeding Shield Cap
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs font-black text-rose-400 bg-rose-500/20 px-2.5 py-1 rounded-full">
-                                            <AlertTriangle size={13} />
-                                            Exceeds Cap
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black">
+                                            <CheckCircle2 size={13} />
+                                            Within Shield Limit
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-[11px] text-ink-muted mt-1">
-                                    Cap set to {formatCurrency(weekendBudgetCap, currency)} / weekend.
+                                <span className="text-[11px] font-medium text-ink-muted mt-1">
+                                    Shield Target: {formatCurrency(weekendBudgetCap, currency)} / weekend
                                 </span>
                             </div>
                         </div>
 
-                        {/* 2. Day-of-Week Spending Heatmap Chart */}
+                        {/* Day of Week Spend Velocity Chart */}
                         <div className="rounded-2xl bg-[#101a33] p-4 sm:p-5 shadow-inner space-y-3">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-                                        Day-of-Week Expense Distribution
+                                        Day-of-Week Spend Velocity
                                     </h4>
                                     <p className="text-[11px] text-ink-muted">
-                                        Saturday and Sunday spikes highlighted in orange
+                                        Real spend by day of week across your transactions
                                     </p>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs font-bold">
+                                    <span className="flex items-center gap-1.5 text-slate-400">
+                                        <span className="h-2 w-2 rounded-full bg-slate-500" />
+                                        Weekday
+                                    </span>
+                                    <span className="flex items-center gap-1.5 text-orange-400">
+                                        <span className="h-2 w-2 rounded-full bg-orange-500" />
+                                        Weekend
+                                    </span>
                                 </div>
                             </div>
 
@@ -238,17 +256,17 @@ export function WeekendBurnModal({
                                             stroke="#64748b"
                                             fontSize={11}
                                             tickLine={false}
-                                            tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                                            tickFormatter={(v) => formatCurrency(v, currency)}
                                         />
                                         <Tooltip
                                             content={({ active, payload }) => {
                                                 if (active && payload && payload.length) {
                                                     const d = payload[0].payload;
                                                     return (
-                                                        <div className="rounded-xl bg-[#080e1d] p-2.5 shadow-2xl border border-white/[0.08] text-xs">
-                                                            <p className="font-extrabold text-white">{d.day}</p>
-                                                            <p className={cx('font-bold', d.isWeekend ? 'text-orange-400' : 'text-teal-300')}>
-                                                                Total: {formatCurrency(d.amount, currency)}
+                                                        <div className="rounded-xl bg-[#080e1d] p-3 shadow-2xl border border-white/[0.08] text-xs space-y-1">
+                                                            <p className="font-extrabold text-white">{d.day} ({d.isWeekend ? 'Weekend' : 'Weekday'})</p>
+                                                            <p className="text-orange-400 font-bold">
+                                                                Total Spend: {formatCurrency(d.amount, currency)}
                                                             </p>
                                                         </div>
                                                     );
@@ -256,11 +274,11 @@ export function WeekendBurnModal({
                                                 return null;
                                             }}
                                         />
-                                        <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
+                                        <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                                             {analytics.chartData.map((entry, index) => (
                                                 <Cell
                                                     key={`cell-${index}`}
-                                                    fill={entry.isWeekend ? '#f97316' : '#14b8a6'}
+                                                    fill={entry.isWeekend ? '#f97316' : '#475569'}
                                                 />
                                             ))}
                                         </Bar>
@@ -269,71 +287,62 @@ export function WeekendBurnModal({
                             </div>
                         </div>
 
-                        {/* 3. Top Weekend Leaks & Weekend Shield Configuration */}
+                        {/* Weekend Leak Categories & Shield Settings */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Top Categories */}
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner space-y-3">
-                                <span className="text-xs font-bold uppercase tracking-wider text-ink-faint block">
-                                    Top Weekend Spending Categories
-                                </span>
-                                <div className="space-y-2">
-                                    {analytics.topWeekendCats.length > 0 ? (
-                                        analytics.topWeekendCats.map((cat, i) => (
-                                            <div
-                                                key={cat.category}
-                                                className="flex items-center justify-between p-2.5 rounded-xl bg-[#080e1d] text-xs"
-                                            >
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-400/20 text-orange-400 font-extrabold text-[11px]">
+                            {/* Top Weekend Leak Categories */}
+                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-3 flex items-center gap-2">
+                                    <Zap size={14} className="text-orange-400" />
+                                    Top Weekend Leak Categories
+                                </h4>
+                                {analytics.topWeekendCats.length === 0 ? (
+                                    <p className="text-xs text-ink-muted">No weekend expenses recorded yet.</p>
+                                ) : (
+                                    <div className="space-y-2.5">
+                                        {analytics.topWeekendCats.map((item, i) => (
+                                            <div key={item.category} className="flex items-center justify-between text-xs font-semibold">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="h-6 w-6 grid place-items-center rounded-lg bg-orange-500/10 text-orange-400 text-[11px] font-bold">
                                                         #{i + 1}
                                                     </span>
-                                                    <span className="font-bold text-white">{cat.category}</span>
+                                                    <span className="text-white">{item.category}</span>
                                                 </div>
-                                                <span className="font-extrabold text-white tnum">
-                                                    {formatCurrency(cat.amount, currency)}
+                                                <span className="font-bold text-orange-400 tnum">
+                                                    {formatCurrency(item.amount, currency)}
                                                 </span>
                                             </div>
-                                        ))
-                                    ) : (
-                                        <div className="p-4 text-center text-xs text-ink-muted">
-                                            No weekend transaction leaks detected.
-                                        </div>
-                                    )}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Weekend Shield Slider */}
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner space-y-3 flex flex-col justify-between">
-                                <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
-                                            <Shield size={13} className="text-teal-400" />
-                                            Weekend Shield Guard
-                                        </span>
-                                        <span className="text-xs font-extrabold text-teal-300 tnum">
-                                            {formatCurrency(weekendBudgetCap, currency)} / weekend
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-ink-muted leading-relaxed">
-                                        Set a custom cap for Friday–Sunday. When Safe-to-Spend calculates allowance, this reserves your weekend buffer.
-                                    </p>
-
-                                    <input
-                                        type="range"
-                                        min="2000"
-                                        max="20000"
-                                        step="500"
-                                        value={weekendBudgetCap}
-                                        onChange={(e) => setWeekendBudgetCap(Number(e.target.value))}
-                                        className="w-full accent-teal-400 cursor-pointer mt-3"
-                                    />
-                                </div>
-
-                                <div className="rounded-xl bg-[#080e1d] p-2.5 text-[11px] text-ink-muted flex items-center gap-2">
-                                    <Zap size={14} className="text-amber-400 shrink-0" />
-                                    <span>
-                                        Setting a ₹{weekendBudgetCap} weekend shield automatically stabilizes your weekday safe allowance to ₹1,250/day.
+                            {/* Weekend Shield Guard Config */}
+                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                                        <Shield size={14} className="text-teal-400" />
+                                        Weekend Shield Budget Guard
+                                    </h4>
+                                    <span className="text-xs font-black text-teal-300 tnum">
+                                        {formatCurrency(weekendBudgetCap, currency)}
                                     </span>
+                                </div>
+                                <p className="text-[11px] text-ink-muted leading-relaxed">
+                                    Set your maximum acceptable burn rate for Friday night through Sunday.
+                                </p>
+                                <input
+                                    type="range"
+                                    min="1000"
+                                    max="30000"
+                                    step="500"
+                                    value={weekendBudgetCap}
+                                    onChange={(e) => handleCapChange(Number(e.target.value))}
+                                    className="w-full accent-teal-400 cursor-pointer mt-2"
+                                />
+                                <div className="flex justify-between text-[10px] text-ink-faint font-semibold">
+                                    <span>{formatCurrency(1000, currency)}</span>
+                                    <span>{formatCurrency(15000, currency)}</span>
+                                    <span>{formatCurrency(30000, currency)}</span>
                                 </div>
                             </div>
                         </div>
