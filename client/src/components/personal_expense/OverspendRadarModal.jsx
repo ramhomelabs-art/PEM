@@ -1,382 +1,460 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Radar,
-    TrendingUp,
-    AlertTriangle,
-    ShieldAlert,
+    X,
+    ChevronDown,
+    ChevronUp,
+    SlidersHorizontal,
+    AlertCircle,
     CheckCircle2,
-    Calendar,
-    Zap,
-    ArrowUpRight,
-    Sparkles,
-    Gauge,
-    Info,
+    PieChart,
+    ExternalLink,
 } from 'lucide-react';
-import { Modal } from '../ui/Modal';
-import { Badge, Button, IconBadge, Progress } from '../ui/primitives';
-import { formatCurrency, formatPercent } from '../../utils/currency';
+import { useAuth } from '../../context/personal_expense/AuthContext';
+import { API_URL } from '../../config';
 import { cx } from '../ui/cx';
+import { generateMacroForecast } from '../../utils/forecastEngine';
+import ForecastSummary from './forecast/ForecastSummary';
+import ForecastHeroChart from './forecast/ForecastHeroChart';
+import RadarAlert from './forecast/RadarAlert';
+import CategoryForecastCard from './forecast/CategoryForecastCard';
+import MethodPopover from './forecast/MethodPopover';
 
 /**
- * Month-End Expense Forecast & Overspend Radar
- * Calculates month-end spend velocity projections per category based on days elapsed,
- * alerts on impending budget bursts, and recommends exact daily burn caps to stay safe.
+ * Month-End Expense Forecast & Overspend Radar Modal
+ * Redesigned with pure Asia/Kolkata forecast modeling, single scroll container,
+ * zero duplicate metrics/legends/actions, and sleek modern fintech aesthetics.
  */
 export function OverspendRadarModal({
     isOpen,
     onClose,
     budgets = [],
     transactions = [],
+    bills: propsBills,
+    loans: propsLoans,
     currency = 'INR',
+    onNavigateBudgets,
 }) {
-    const [selectedCategory, setSelectedCategory] = useState(null);
-    const [throttleAdjustment, setThrottleAdjustment] = useState({}); // { category: adjustmentPercent }
+    const { user } = useAuth();
 
-    const forecastData = useMemo(() => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const currentDay = Math.min(now.getDate(), daysInMonth);
-        const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
-        const monthProgressPercent = Math.round((currentDay / daysInMonth) * 100);
+    // Data states for bills & loans if not supplied via props
+    const [bills, setBills] = useState(propsBills || []);
+    const [loans, setLoans] = useState(propsLoans || []);
+    const [loadingObligations, setLoadingObligations] = useState(false);
 
-        // Filter current month expenses
-        const currentMonthExpenses = (transactions || []).filter((t) => {
-            if (t.type !== 'expense' && t.type) return false;
-            if (!t.date) return false;
-            const d = new Date(t.date);
-            return d.getFullYear() === year && d.getMonth() === month;
-        });
+    // Manual one-off transaction ID overrides
+    const [manualOneOffIds, setManualOneOffIds] = useState(new Set());
 
-        // Group actual spend by category
-        const categorySpendMap = new Map();
-        for (const t of currentMonthExpenses) {
-            const cat = t.category || 'General';
-            const amt = Math.abs(Number(t.amount) || 0);
-            categorySpendMap.set(cat, (categorySpendMap.get(cat) || 0) + amt);
+    // Filter tab: 'all' | 'exceeded' | 'risk' | 'on_track'
+    const [activeFilter, setActiveFilter] = useState('all');
+
+    // On-track collapsible section open state
+    const [isOnTrackExpanded, setIsOnTrackExpanded] = useState(false);
+
+    // Fetch commitments if needed
+    useEffect(() => {
+        if (!isOpen || !user?.id) return;
+
+        if (propsBills && propsLoans) {
+            setBills(propsBills);
+            setLoans(propsLoans);
+            return;
         }
 
-        let totalBudget = 0;
-        let totalCurrentSpend = 0;
-        let totalProjected = 0;
+        let isMounted = true;
+        async function fetchCommitments() {
+            setLoadingObligations(true);
+            try {
+                const [billsRes, loansRes] = await Promise.all([
+                    fetch(`${API_URL}/bills/user/${user.id}`, {
+                        headers: { Authorization: `Bearer ${user.token}` },
+                    }),
+                    fetch(`${API_URL}/loans/user/${user.id}`, {
+                        headers: { Authorization: `Bearer ${user.token}` },
+                    }),
+                ]);
 
-        const categoriesList = budgets.map((b) => {
-            const category = b.category;
-            const limit = Number(b.amountLimit) || 0;
-            const spent = categorySpendMap.get(category) || 0;
+                if (!isMounted) return;
 
-            totalBudget += limit;
-            totalCurrentSpend += spent;
-
-            // Current burn rate velocity
-            const dailyBurnRate = currentDay > 0 ? spent / currentDay : 0;
-
-            // Forecast at month end (Day 30/31)
-            const projectedMonthEnd = Math.round(dailyBurnRate * daysInMonth);
-            totalProjected += projectedMonthEnd;
-
-            // Projected Variance
-            const projectedVariance = projectedMonthEnd - limit;
-            const projectedVariancePercent = limit > 0 ? Math.round((projectedVariance / limit) * 100) : 0;
-
-            // Remaining budget allowance for the rest of this month
-            const remainingBudget = Math.max(0, limit - spent);
-            const recommendedDailyCap = Math.round(remainingBudget / daysRemaining);
-
-            // Breach Status
-            let riskLevel = 'safe'; // 'safe' | 'warning' | 'breach'
-            let riskLabel = 'On Track';
-            let riskTone = 'pos';
-
-            if (spent >= limit) {
-                riskLevel = 'breach';
-                riskLabel = 'Budget Exceeded';
-                riskTone = 'neg';
-            } else if (projectedMonthEnd > limit * 1.15) {
-                riskLevel = 'breach';
-                riskLabel = 'High Overspend Risk';
-                riskTone = 'neg';
-            } else if (projectedMonthEnd > limit) {
-                riskLevel = 'warning';
-                riskLabel = 'Pacing Ahead';
-                riskTone = 'warn';
+                if (billsRes.ok) {
+                    const bData = await billsRes.json();
+                    setBills(Array.isArray(bData) ? bData : []);
+                }
+                if (loansRes.ok) {
+                    const lData = await loansRes.json();
+                    setLoans(Array.isArray(lData) ? lData : []);
+                }
+            } catch (err) {
+                console.warn('Failed to load commitments for forecast modal:', err);
+            } finally {
+                if (isMounted) setLoadingObligations(false);
             }
+        }
 
-            return {
-                id: b.id,
-                category,
-                limit,
-                spent,
-                currentPercent: limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 100,
-                dailyBurnRate: Math.round(dailyBurnRate),
-                projectedMonthEnd,
-                projectedVariance,
-                projectedVariancePercent,
-                remainingBudget,
-                recommendedDailyCap,
-                riskLevel,
-                riskLabel,
-                riskTone,
-            };
-        });
-
-        // Sort: highest risk first
-        categoriesList.sort((a, b) => {
-            if (a.riskLevel === 'breach' && b.riskLevel !== 'breach') return -1;
-            if (b.riskLevel === 'breach' && a.riskLevel !== 'breach') return 1;
-            return b.projectedVariance - a.projectedVariance;
-        });
-
-        const highRiskCount = categoriesList.filter((c) => c.riskLevel === 'breach').length;
-        const warningCount = categoriesList.filter((c) => c.riskLevel === 'warning').length;
-        const netProjectedOvershoot = Math.max(0, totalProjected - totalBudget);
-
-        const monthName = now.toLocaleString(undefined, { month: 'long' });
-        const monthShort = now.toLocaleString(undefined, { month: 'short' });
-        const todayFormatted = now.toLocaleDateString(undefined, {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
-
-        return {
-            currentDay,
-            daysInMonth,
-            daysRemaining,
-            monthName,
-            monthShort,
-            todayFormatted,
-            monthProgressPercent,
-            totalBudget,
-            totalCurrentSpend,
-            totalProjected,
-            netProjectedOvershoot,
-            highRiskCount,
-            warningCount,
-            categoriesList,
+        fetchCommitments();
+        return () => {
+            isMounted = false;
         };
-    }, [budgets, transactions]);
+    }, [isOpen, user, propsBills, propsLoans]);
 
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Month-End Expense Forecast &amp; Overspend Radar"
-            subtitle={`Real-time calendar pace for ${forecastData.monthName} (1 ${forecastData.monthShort} – ${forecastData.daysInMonth} ${forecastData.monthShort}) · Today is ${forecastData.todayFormatted}`}
-            icon={Radar}
-            size="xl"
-            bodyClassName="p-0 overflow-hidden"
+    // Handle Esc key to close modal
+    useEffect(() => {
+        function handleKeyDown(e) {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
+    // Toggle one-off status on transactions
+    const handleToggleOneOff = (txId) => {
+        if (!txId) return;
+        setManualOneOffIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(txId)) {
+                next.delete(txId);
+            } else {
+                next.add(txId);
+            }
+            return next;
+        });
+    };
+
+    // Generate pure mathematical macro forecast
+    const macroData = useMemo(() => {
+        if (!isOpen) return null;
+        return generateMacroForecast({
+            budgets,
+            transactions,
+            bills,
+            loans,
+            manualOneOffIds,
+            now: new Date(),
+        });
+    }, [isOpen, budgets, transactions, bills, loans, manualOneOffIds]);
+
+    if (!isOpen) return null;
+
+    const {
+        asOfSubtitle,
+        categoryForecasts = [],
+        counts,
+        alertMessage,
+        timeInfo,
+        unbudgetedSpent,
+    } = macroData || {};
+
+    // Filter categories based on segmented control
+    const filteredCategories = categoryForecasts.filter((c) => {
+        if (activeFilter === 'exceeded') {
+            return c.state === 'exceeded' || c.state === 'at_limit';
+        }
+        if (activeFilter === 'risk') {
+            return c.state === 'projected_breach' || c.state === 'watch';
+        }
+        if (activeFilter === 'on_track') {
+            return c.state === 'on_track' || c.state === 'insufficient_data';
+        }
+        return true;
+    });
+
+    // In 'all' view, partition into urgent/attention vs on-track categories
+    const attentionCategories = categoryForecasts.filter(
+        (c) => c.state === 'exceeded' || c.state === 'at_limit' || c.state === 'projected_breach' || c.state === 'watch'
+    );
+    const onTrackCategories = categoryForecasts.filter(
+        (c) => c.state === 'on_track' || c.state === 'insufficient_data'
+    );
+
+    const handleAdjustBudgets = () => {
+        onClose();
+        if (onNavigateBudgets) {
+            onNavigateBudgets();
+        } else {
+            // Default hash or push
+            window.location.hash = '#/budgets';
+        }
+    };
+
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 lg:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="forecast-modal-title"
         >
-            <div className="flex flex-col max-h-[80vh] bg-[#0c1427]">
-                {/* Top Macro Forecast Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-b border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-4">
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-ink-muted">
-                            <span>Calendar Timeline</span>
-                            <span className="text-brand font-bold">{forecastData.monthShort} 1–{forecastData.daysInMonth}</span>
-                        </div>
-                        <div className="mt-1 text-base font-extrabold text-ink tnum">
-                            Day {forecastData.currentDay} of {forecastData.daysInMonth}
-                        </div>
-                        <div className="text-[10px] text-ink-faint mt-0.5">
-                            {forecastData.daysRemaining} days left ({forecastData.monthProgressPercent}% passed)
-                        </div>
-                    </div>
+            {/* Backdrop */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={onClose}
+                className="fixed inset-0 bg-black/80 backdrop-blur-md"
+            />
 
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
-                        <span className="text-[11px] font-semibold text-ink-muted">Projected Month-End Spend</span>
-                        <div className="mt-1 text-base font-extrabold text-ink tnum">
-                            {formatCurrency(forecastData.totalProjected, currency)}
-                        </div>
-                        <div className="text-[10px] text-ink-faint mt-0.5">
-                            Based on {forecastData.currentDay}-day real burn rate
-                        </div>
-                    </div>
+            {/* Modal Container: Single scroll container with sticky header & summary */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 12 }}
+                transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="relative z-10 my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] bg-[#0c1427] shadow-[0_32px_96px_rgba(0,0,0,0.92)] text-ink"
+            >
+                {/* Top Subtle Ambient Indicator */}
+                <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
-                        <span className="text-[11px] font-semibold text-ink-muted">Net Projected Overshoot</span>
-                        <div className={cx('mt-1 text-base font-extrabold tnum', forecastData.netProjectedOvershoot > 0 ? 'text-neg' : 'text-emerald-400')}>
-                            {forecastData.netProjectedOvershoot > 0
-                                ? `+${formatCurrency(forecastData.netProjectedOvershoot, currency)}`
-                                : 'Within Budget'}
-                        </div>
-                        <div className="text-[10px] text-ink-faint mt-0.5">
-                            vs {formatCurrency(forecastData.totalBudget, currency)} total limit
-                        </div>
-                    </div>
-
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
-                        <span className="text-[11px] font-semibold text-ink-muted">Categories at Risk</span>
-                        <div className="mt-1 text-base font-extrabold text-amber-400 tnum">
-                            {forecastData.highRiskCount + forecastData.warningCount} / {forecastData.categoriesList.length}
-                        </div>
-                        <div className="text-[10px] text-ink-faint mt-0.5">
-                            {forecastData.highRiskCount} breach · {forecastData.warningCount} caution
-                        </div>
-                    </div>
-                </div>
-
-                {/* Radar Alert Warning Banner */}
-                {forecastData.highRiskCount > 0 && (
-                    <div className="flex items-center gap-2.5 bg-rose-500/10 px-4 py-2.5 border-b border-rose-500/15 text-xs text-rose-400">
-                        <ShieldAlert size={16} className="shrink-0" />
-                        <span>
-                            <strong>Early Overspend Alert:</strong> {forecastData.highRiskCount} categories are burning faster than the month's timeline and will burst budget without throttling.
+                {/* 1. STICKY HEADER */}
+                <header className="sticky top-0 z-30 flex items-start justify-between gap-4 border-b border-white/[0.06] bg-[#0c1427]/95 px-5 py-4 backdrop-blur-xl sm:px-6">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                            <Radar size={20} aria-hidden="true" />
                         </span>
-                    </div>
-                )}
-
-                {/* Category Projection Cards */}
-                <div className="overflow-y-auto p-4 space-y-3">
-                    {forecastData.categoriesList.length === 0 ? (
-                        <div className="py-12 text-center text-ink-muted">
-                            <Gauge size={32} className="mx-auto mb-2 text-brand opacity-60" />
-                            <p className="text-sm font-semibold">No active category budgets set</p>
-                            <p className="text-xs text-ink-faint mt-0.5">
-                                Set budget limits for your categories to enable automatic month-end velocity forecasting.
+                        <div className="min-w-0">
+                            <h2 id="forecast-modal-title" className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">
+                                Month-End Expense Forecast & Overspend Radar
+                            </h2>
+                            <p className="mt-0.5 truncate text-xs text-ink-muted">
+                                {asOfSubtitle || 'Loading forecast model...'}
                             </p>
                         </div>
+                    </div>
+
+                    {/* ONLY CLOSE BUTTON (No footer close) */}
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close dialog"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-ink-muted transition hover:bg-white/[0.08] hover:text-ink active:scale-95"
+                    >
+                        <X size={16} aria-hidden="true" />
+                    </button>
+                </header>
+
+                {/* 2. SINGLE SCROLL BODY */}
+                <div className="custom-dark-scrollbar flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-5">
+                    {/* Empty State */}
+                    {budgets.length === 0 ? (
+                        <div className="my-12 flex flex-col items-center justify-center text-center">
+                            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/[0.04] text-ink-muted">
+                                <PieChart size={24} />
+                            </div>
+                            <h3 className="mt-4 text-sm font-bold text-ink">No budgets set</h3>
+                            <p className="mt-1 max-w-xs text-xs text-ink-muted">
+                                Create category budgets to activate intelligent run-rate velocity and overspend radar.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleAdjustBudgets}
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand/90 active:scale-95"
+                            >
+                                Set Up Budgets
+                            </button>
+                        </div>
                     ) : (
-                        forecastData.categoriesList.map((item) => {
-                            return (
-                                <div
-                                    key={item.id || item.category}
-                                    className={cx(
-                                        'rounded-xl p-4 transition-all duration-200 shadow-sm',
-                                        item.riskLevel === 'breach'
-                                            ? 'bg-rose-950/20'
-                                            : item.riskLevel === 'warning'
-                                            ? 'bg-amber-950/20'
-                                            : 'bg-[#101a33]'
-                                    )}
-                                >
-                                    {/* Header Row */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2.5">
-                                            <div
-                                                className={cx(
-                                                    'grid h-8 w-8 place-items-center rounded-lg font-bold text-xs',
-                                                    item.riskLevel === 'breach'
-                                                        ? 'bg-rose-500/20 text-rose-400'
-                                                        : item.riskLevel === 'warning'
-                                                        ? 'bg-amber-500/20 text-amber-400'
-                                                        : 'bg-emerald-500/20 text-emerald-400'
-                                                )}
-                                            >
-                                                {item.riskLevel === 'breach' ? (
-                                                    <AlertTriangle size={15} />
-                                                ) : (
-                                                    <CheckCircle2 size={15} />
-                                                )}
-                                            </div>
+                        <>
+                            {/* Summary Row (4 compact macro KPIs) */}
+                            <ForecastSummary macroData={macroData} currency={currency} />
 
-                                            <div>
-                                                <h4 className="text-sm font-bold text-ink">{item.category}</h4>
-                                                <span className="text-[11px] text-ink-muted">
-                                                    Spent {formatCurrency(item.spent, currency)} of {formatCurrency(item.limit, currency)} limit
-                                                </span>
-                                            </div>
-                                        </div>
+                            {/* Single Actionable Alert Banner (Dismissible) */}
+                            {alertMessage && <RadarAlert message={alertMessage} />}
 
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className={cx(
-                                                    'rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
-                                                    item.riskLevel === 'breach'
-                                                        ? 'bg-rose-500/15 text-rose-400'
-                                                        : item.riskLevel === 'warning'
-                                                        ? 'bg-amber-500/15 text-amber-400'
-                                                        : 'bg-emerald-500/15 text-emerald-400'
-                                                )}
-                                            >
-                                                {item.riskLabel}
-                                            </span>
+                            {/* Hero Cumulative Forecast Chart (with modal's single unified legend) */}
+                            <ForecastHeroChart macroData={macroData} currency={currency} />
 
-                                            <div className="text-right">
-                                                <div className="text-xs font-bold text-ink tnum">
-                                                    Projected: {formatCurrency(item.projectedMonthEnd, currency)}
-                                                </div>
-                                                {item.projectedVariance > 0 ? (
-                                                    <div className="text-[10px] font-semibold text-neg tnum">
-                                                        +{formatCurrency(item.projectedVariance, currency)} (+{item.projectedVariancePercent}%)
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-[10px] font-medium text-emerald-400 tnum">
-                                                        Under limit by {formatCurrency(Math.abs(item.projectedVariance), currency)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Pace Progress Bar */}
-                                    <div className="mt-3">
-                                        <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1">
-                                            <span>Current Spend Pace ({item.currentPercent}% used)</span>
-                                            <span>Timeline Pace ({forecastData.monthProgressPercent}% elapsed)</span>
-                                        </div>
-                                        <div className="relative h-2 w-full overflow-hidden rounded-full bg-[#080e1d]">
-                                            {/* Spend bar */}
-                                            <div
-                                                className={cx(
-                                                    'h-full rounded-full transition-all duration-300',
-                                                    item.riskLevel === 'breach'
-                                                        ? 'bg-rose-500'
-                                                        : item.riskLevel === 'warning'
-                                                        ? 'bg-amber-400'
-                                                        : 'bg-emerald-400'
-                                                )}
-                                                style={{ width: `${Math.min(100, item.currentPercent)}%` }}
-                                            />
-                                            {/* Month timeline marker indicator */}
-                                            <div
-                                                className="absolute top-0 bottom-0 w-0.5 bg-white/70 shadow-sm z-10"
-                                                style={{ left: `${forecastData.monthProgressPercent}%` }}
-                                                title={`Current Day ${forecastData.currentDay} Timeline Marker`}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Actionable Throttle & Target Cap */}
-                                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-[#080e1d]/80 p-2.5 text-xs">
-                                        <div className="flex items-center gap-2 text-ink-muted">
-                                            <Sparkles size={13} className="text-brand" />
-                                            <span>
-                                                Current Burn: <strong className="text-ink">{formatCurrency(item.dailyBurnRate, currency)}/day</strong>
-                                            </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-ink-muted font-medium">
-                                                Recommended Cap for Next {forecastData.daysRemaining} Days:
-                                            </span>
-                                            <span className={cx('font-extrabold tnum', item.recommendedDailyCap === 0 ? 'text-neg' : 'text-emerald-400')}>
-                                                {formatCurrency(item.recommendedDailyCap, currency)}/day
-                                            </span>
-                                        </div>
-                                    </div>
+                            {/* Segmented Filter Control */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.04] pt-4">
+                                <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                                    Category Velocity Breakdown
                                 </div>
-                            );
-                        })
+
+                                {/* Segmented Filter: [All | Exceeded | At risk | On track] */}
+                                <div
+                                    role="tablist"
+                                    aria-label="Forecast category filters"
+                                    className="flex items-center rounded-xl bg-surface-raised/70 p-1 text-xs"
+                                >
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeFilter === 'all'}
+                                        onClick={() => setActiveFilter('all')}
+                                        className={cx(
+                                            'rounded-lg px-2.5 py-1 font-medium transition',
+                                            activeFilter === 'all'
+                                                ? 'bg-brand text-white shadow-sm'
+                                                : 'text-ink-muted hover:text-ink'
+                                        )}
+                                    >
+                                        All ({counts?.all || 0})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeFilter === 'exceeded'}
+                                        onClick={() => setActiveFilter('exceeded')}
+                                        className={cx(
+                                            'rounded-lg px-2.5 py-1 font-medium transition',
+                                            activeFilter === 'exceeded'
+                                                ? 'bg-negative text-white shadow-sm'
+                                                : 'text-ink-muted hover:text-ink'
+                                        )}
+                                    >
+                                        Exceeded ({counts?.exceeded || 0})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeFilter === 'risk'}
+                                        onClick={() => setActiveFilter('risk')}
+                                        className={cx(
+                                            'rounded-lg px-2.5 py-1 font-medium transition',
+                                            activeFilter === 'risk'
+                                                ? 'bg-warning text-white shadow-sm'
+                                                : 'text-ink-muted hover:text-ink'
+                                        )}
+                                    >
+                                        At risk ({(counts?.projected_breach || 0) + (counts?.watch || 0)})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeFilter === 'on_track'}
+                                        onClick={() => setActiveFilter('on_track')}
+                                        className={cx(
+                                            'rounded-lg px-2.5 py-1 font-medium transition',
+                                            activeFilter === 'on_track'
+                                                ? 'bg-emerald-600 text-white shadow-sm'
+                                                : 'text-ink-muted hover:text-ink'
+                                        )}
+                                    >
+                                        On track ({counts?.on_track || 0})
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Category Cards List */}
+                            <div className="space-y-3">
+                                {activeFilter === 'all' ? (
+                                    <>
+                                        {/* Attention items rendered open/prominently */}
+                                        {attentionCategories.map((c) => (
+                                            <CategoryForecastCard
+                                                key={c.id || c.category}
+                                                categoryForecast={c}
+                                                timeInfo={timeInfo}
+                                                currency={currency}
+                                                onToggleOneOff={handleToggleOneOff}
+                                                manualOneOffIds={manualOneOffIds}
+                                            />
+                                        ))}
+
+                                        {/* On-track categories collapsed into one expandable row */}
+                                        {onTrackCategories.length > 0 && (
+                                            <div className="overflow-hidden rounded-2xl bg-surface-raised/40">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsOnTrackExpanded((prev) => !prev)}
+                                                    aria-expanded={isOnTrackExpanded}
+                                                    className="flex w-full items-center justify-between p-4 text-left transition hover:bg-surface-raised/60"
+                                                >
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="grid h-6 w-6 place-items-center rounded-md bg-emerald-500/10 text-emerald-400">
+                                                            <CheckCircle2 size={14} />
+                                                        </span>
+                                                        <span className="text-xs font-semibold text-ink">
+                                                            {onTrackCategories.length} {onTrackCategories.length === 1 ? 'category' : 'categories'} on track
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-xs text-ink-muted">
+                                                        <span>{isOnTrackExpanded ? 'Hide' : 'Show all'}</span>
+                                                        {isOnTrackExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                    </div>
+                                                </button>
+
+                                                <AnimatePresence>
+                                                    {isOnTrackExpanded && (
+                                                        <motion.div
+                                                            initial={{ height: 0, opacity: 0 }}
+                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                            exit={{ height: 0, opacity: 0 }}
+                                                            transition={{ duration: 0.2 }}
+                                                            className="space-y-3 p-3 pt-0"
+                                                        >
+                                                            {onTrackCategories.map((c) => (
+                                                                <CategoryForecastCard
+                                                                    key={c.id || c.category}
+                                                                    categoryForecast={c}
+                                                                    timeInfo={timeInfo}
+                                                                    currency={currency}
+                                                                    onToggleOneOff={handleToggleOneOff}
+                                                                    manualOneOffIds={manualOneOffIds}
+                                                                />
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    filteredCategories.map((c) => (
+                                        <CategoryForecastCard
+                                            key={c.id || c.category}
+                                            categoryForecast={c}
+                                            timeInfo={timeInfo}
+                                            currency={currency}
+                                            onToggleOneOff={handleToggleOneOff}
+                                            manualOneOffIds={manualOneOffIds}
+                                        />
+                                    ))
+                                )}
+
+                                {filteredCategories.length === 0 && (
+                                    <div className="rounded-xl bg-surface-raised/40 py-8 text-center text-xs text-ink-muted">
+                                        No categories match the selected filter.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Unbudgeted Spend Clarification Callout (Explicit separation) */}
+                            {unbudgetedSpent > 0 && (
+                                <div className="flex items-center justify-between rounded-xl bg-surface-sunken/40 px-4 py-2.5 text-xs text-ink-muted">
+                                    <span>Unbudgeted category spending this month:</span>
+                                    <span className="font-semibold text-ink tabular-nums">
+                                        ₹{Math.round(unbudgetedSpent).toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
 
-                {/* Footer Insight */}
-                <div className="border-t border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-ink-faint">
-                        <Zap size={13} className="text-brand" />
-                        Radar recalculates dynamic daily spend velocity on every new transaction recorded.
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={onClose}>
-                        Close
-                    </Button>
-                </div>
-            </div>
-        </Modal>
+                {/* 3. CLEAN FOOTER (Only "How is this calculated?" popover & "Adjust budgets" action) */}
+                <footer className="flex items-center justify-between border-t border-white/[0.06] bg-[#090f1e]/90 px-5 py-3.5 backdrop-blur-md sm:px-6">
+                    {/* Popover explaining forecast engine */}
+                    <MethodPopover />
+
+                    {/* Single Adjust Budgets Action */}
+                    <button
+                        type="button"
+                        onClick={handleAdjustBudgets}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.06] px-3.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-white/[0.1] active:scale-95"
+                    >
+                        <span>Adjust budgets</span>
+                        <ExternalLink size={12} aria-hidden="true" />
+                    </button>
+                </footer>
+            </motion.div>
+        </div>,
+        document.body
     );
 }
 
+// Named alias for RadarModal compatibility
+export { OverspendRadarModal as RadarModal };
 export default OverspendRadarModal;
