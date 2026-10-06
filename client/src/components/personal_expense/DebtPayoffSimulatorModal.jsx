@@ -162,14 +162,14 @@ export function DebtPayoffSimulatorModal({
             ) : (
                 <div className="space-y-4">
                     {/* Strategy Switcher */}
-                    <div className="grid grid-cols-2 gap-2 rounded-control bg-sunken p-1">
+                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#080e1d] p-1.5">
                         <button
                             type="button"
                             onClick={() => setStrategy('avalanche')}
                             className={cx(
-                                'flex items-center justify-center gap-2 rounded-control py-2 text-xs font-bold transition active:scale-98',
+                                'flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition active:scale-98',
                                 strategy === 'avalanche'
-                                    ? 'bg-brand text-slate-950 shadow-sm'
+                                    ? 'bg-brand text-slate-950 shadow-md'
                                     : 'text-ink-muted hover:text-ink'
                             )}
                         >
@@ -181,9 +181,9 @@ export function DebtPayoffSimulatorModal({
                             type="button"
                             onClick={() => setStrategy('snowball')}
                             className={cx(
-                                'flex items-center justify-center gap-2 rounded-control py-2 text-xs font-bold transition active:scale-98',
+                                'flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition active:scale-98',
                                 strategy === 'snowball'
-                                    ? 'bg-brand text-slate-950 shadow-sm'
+                                    ? 'bg-brand text-slate-950 shadow-md'
                                     : 'text-ink-muted hover:text-ink'
                             )}
                         >
@@ -193,7 +193,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Strategy Description Banner */}
-                    <div className="rounded-control bg-surface p-3.5 text-xs leading-relaxed text-ink-muted">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 text-xs leading-relaxed text-ink-muted shadow-sm">
                         {strategy === 'avalanche' ? (
                             <p>
                                 <strong>Avalanche Focus:</strong> Targets debts with the{' '}
@@ -210,7 +210,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Extra Monthly Payment Slider / Input */}
-                    <div className="rounded-card bg-surface p-4 space-y-3">
+                    <div className="rounded-xl bg-[#101a33] p-4 space-y-3 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
                                 <label className="text-xs font-bold uppercase tracking-wider text-ink-faint">
@@ -246,10 +246,10 @@ export function DebtPayoffSimulatorModal({
                                     type="button"
                                     onClick={() => setExtraPayment(preset)}
                                     className={cx(
-                                        'rounded-control px-2.5 py-1 text-xs font-bold transition',
+                                        'rounded-lg px-2.5 py-1 text-xs font-bold transition',
                                         extraPayment === preset
                                             ? 'bg-brand/20 text-brand'
-                                            : 'bg-sunken text-ink-muted hover:text-ink'
+                                            : 'bg-[#080e1d] text-ink-muted hover:text-ink'
                                     )}
                                 >
                                     +{formatCurrency(preset, currency)}
@@ -260,7 +260,7 @@ export function DebtPayoffSimulatorModal({
 
                     {/* Payoff Comparison Summary Cards */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="rounded-card bg-surface p-3.5">
+                        <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Months to Debt-Free
                             </span>
@@ -277,7 +277,7 @@ export function DebtPayoffSimulatorModal({
                             )}
                         </div>
 
-                        <div className="rounded-card bg-surface p-3.5">
+                        <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Total Interest Paid
                             </span>
@@ -291,7 +291,7 @@ export function DebtPayoffSimulatorModal({
                             </p>
                         </div>
 
-                        <div className="rounded-card bg-emerald-500/10 p-3.5">
+                        <div className="rounded-xl bg-emerald-500/10 p-3.5 shadow-sm">
                             <span className="text-[11px] font-bold uppercase text-emerald-400">
                                 Total Interest Saved
                             </span>
@@ -307,7 +307,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Roadmap: Sequence of Payoff */}
-                    <div className="rounded-card bg-surface p-4">
+                    <div className="rounded-xl bg-[#101a33] p-4 shadow-sm">
                         <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-ink">
                             Target Payoff Sequence
                         </h4>
@@ -316,7 +316,7 @@ export function DebtPayoffSimulatorModal({
                                 activePlan.sequence.map((item, idx) => (
                                     <div
                                         key={item.id}
-                                        className="flex items-center justify-between rounded-control bg-sunken/80 px-3 py-2 text-xs"
+                                        className="flex items-center justify-between rounded-lg bg-[#080e1d] px-3 py-2.5 text-xs"
                                     >
                                         <div className="flex items-center gap-2.5">
                                             <span className="grid h-5 w-5 place-items-center rounded-full bg-brand/20 text-[10px] font-extrabold text-brand">
@@ -341,8 +341,8 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     <div className="flex justify-end pt-1">
-                        <Button variant="secondary" onClick={onClose} className="border-0 bg-surface hover:bg-raised">
-                            Close Simulator
+                        <Button variant="ghost" onClick={onClose}>
+                            Close
                         </Button>
                     </div>
                 </div>

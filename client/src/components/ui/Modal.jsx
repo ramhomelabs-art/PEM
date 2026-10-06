@@ -41,7 +41,7 @@ export function Modal({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                        className="fixed inset-0 bg-black/75 backdrop-blur-md"
                     />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -49,14 +49,17 @@ export function Modal({
                         exit={{ opacity: 0, scale: 0.96, y: 12 }}
                         transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                         className={cx(
-                            'relative z-10 my-auto flex max-h-[90vh] w-full flex-col overflow-hidden rounded-card border border-line bg-surface shadow-raised',
+                            'relative z-10 my-auto flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.85)]',
                             MODAL_SIZES[size]
                         )}
                     >
-                        <header className="flex items-start justify-between gap-3 border-b border-line p-5">
+                        {/* Top ambient highlight line */}
+                        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-brand/50 to-transparent opacity-60" />
+
+                        <header className="flex items-start justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] bg-[#0c1427]/80 p-5">
                             <div className="flex min-w-0 items-center gap-3">
                                 {Icon ? (
-                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-brand-soft text-brand">
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand shadow-[0_0_12px_rgba(20,184,166,0.15)]">
                                         <Icon size={18} aria-hidden="true" />
                                     </span>
                                 ) : null}
@@ -75,7 +78,7 @@ export function Modal({
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Close dialog"
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-control border border-line text-ink-muted transition hover:bg-raised hover:text-ink"
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-ink-muted transition hover:bg-white/[0.08] hover:text-ink active:scale-95"
                             >
                                 <X size={16} aria-hidden="true" />
                             </button>
@@ -85,7 +88,11 @@ export function Modal({
                             {children}
                         </div>
 
-                        {footer ? <footer className="border-t border-line p-4">{footer}</footer> : null}
+                        {footer ? (
+                            <footer className="border-t border-[rgba(255,255,255,0.06)] bg-[#090f1e]/80 p-4">
+                                {footer}
+                            </footer>
+                        ) : null}
                     </motion.div>
                 </div>
             ) : null}

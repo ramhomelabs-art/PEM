@@ -152,16 +152,16 @@ export function OverspendRadarModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Month-End Expense Forecast & Overspend Radar"
-            subtitle="Predict which categories will overshoot budget by month-end & daily corrective limits"
+            title="Month-End Expense Forecast &amp; Overspend Radar"
+            subtitle="Predict which categories will overshoot budget by month-end &amp; daily corrective limits"
             icon={Radar}
             size="xl"
             bodyClassName="p-0 overflow-hidden"
         >
-            <div className="flex flex-col max-h-[80vh]">
+            <div className="flex flex-col max-h-[80vh] bg-[#0c1427]">
                 {/* Top Macro Forecast Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-b border-line/60 bg-sunken/40 p-4">
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-b border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-4">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-ink-muted">
                             <span>Month Velocity</span>
                             <span className="text-brand font-bold">Day {forecastData.currentDay}/{forecastData.daysInMonth}</span>
@@ -172,14 +172,14 @@ export function OverspendRadarModal({
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Projected Month-End Spend</span>
                         <div className="mt-1 text-base font-extrabold text-ink tnum">
                             {formatCurrency(forecastData.totalProjected, currency)}
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Net Projected Overshoot</span>
                         <div className={cx('mt-1 text-base font-extrabold tnum', forecastData.netProjectedOvershoot > 0 ? 'text-neg' : 'text-emerald-400')}>
                             {forecastData.netProjectedOvershoot > 0
@@ -188,7 +188,7 @@ export function OverspendRadarModal({
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Categories at Risk</span>
                         <div className="mt-1 text-base font-extrabold text-amber-400 tnum">
                             {forecastData.highRiskCount + forecastData.warningCount} / {forecastData.categoriesList.length}
@@ -198,7 +198,7 @@ export function OverspendRadarModal({
 
                 {/* Radar Alert Warning Banner */}
                 {forecastData.highRiskCount > 0 && (
-                    <div className="flex items-center gap-2.5 bg-rose-500/10 px-4 py-2.5 border-b border-rose-500/20 text-xs text-rose-400">
+                    <div className="flex items-center gap-2.5 bg-rose-500/10 px-4 py-2.5 border-b border-rose-500/15 text-xs text-rose-400">
                         <ShieldAlert size={16} className="shrink-0" />
                         <span>
                             <strong>Early Overspend Alert:</strong> {forecastData.highRiskCount} categories are burning faster than the month's timeline and will burst budget without throttling.
@@ -218,18 +218,16 @@ export function OverspendRadarModal({
                         </div>
                     ) : (
                         forecastData.categoriesList.map((item) => {
-                            const isSelected = selectedCategory === item.category;
-
                             return (
                                 <div
                                     key={item.id || item.category}
                                     className={cx(
-                                        'rounded-control border p-4 transition-all duration-200',
+                                        'rounded-xl p-4 transition-all duration-200 shadow-sm',
                                         item.riskLevel === 'breach'
-                                            ? 'bg-rose-950/10 border-rose-500/30'
+                                            ? 'bg-rose-950/20'
                                             : item.riskLevel === 'warning'
-                                            ? 'bg-amber-950/10 border-amber-500/30'
-                                            : 'bg-surface border-line/50 hover:border-line'
+                                            ? 'bg-amber-950/20'
+                                            : 'bg-[#101a33]'
                                     )}
                                 >
                                     {/* Header Row */}
@@ -297,7 +295,7 @@ export function OverspendRadarModal({
                                             <span>Current Spend Pace ({item.currentPercent}% used)</span>
                                             <span>Timeline Pace ({forecastData.monthProgressPercent}% elapsed)</span>
                                         </div>
-                                        <div className="relative h-2 w-full overflow-hidden rounded-full bg-sunken">
+                                        <div className="relative h-2 w-full overflow-hidden rounded-full bg-[#080e1d]">
                                             {/* Spend bar */}
                                             <div
                                                 className={cx(
@@ -320,7 +318,7 @@ export function OverspendRadarModal({
                                     </div>
 
                                     {/* Actionable Throttle & Target Cap */}
-                                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-control bg-sunken/60 p-2.5 text-xs">
+                                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-[#080e1d]/80 p-2.5 text-xs">
                                         <div className="flex items-center gap-2 text-ink-muted">
                                             <Sparkles size={13} className="text-brand" />
                                             <span>
@@ -344,7 +342,7 @@ export function OverspendRadarModal({
                 </div>
 
                 {/* Footer Insight */}
-                <div className="border-t border-line/40 bg-sunken/30 p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
+                <div className="border-t border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-ink-faint">
                         <Zap size={13} className="text-brand" />
                         Radar recalculates dynamic daily spend velocity on every new transaction recorded.

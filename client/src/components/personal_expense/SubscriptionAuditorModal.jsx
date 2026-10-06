@@ -215,16 +215,16 @@ export function SubscriptionAuditorModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Subscription & Recurring Expense Auditor"
+            title="Subscription &amp; Recurring Expense Auditor"
             subtitle="Auto-detect silent recurring payments, price hikes, and annual leaks"
             icon={RefreshCw}
             size="xl"
             bodyClassName="p-0 overflow-hidden"
         >
-            <div className="flex flex-col max-h-[80vh]">
+            <div className="flex flex-col max-h-[80vh] bg-[#0c1427]">
                 {/* Metric Summary Cards */}
-                <div className="grid grid-cols-2 gap-3 border-b border-line/60 bg-sunken/40 p-4 sm:grid-cols-4">
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                <div className="grid grid-cols-2 gap-3 border-b border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-4 sm:grid-cols-4">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Monthly Bleed</span>
                         <div className="mt-1 text-base font-extrabold text-ink tnum">
                             {formatCurrency(metrics.totalMonthlyBleed, currency)}
@@ -232,7 +232,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Annualized Impact</span>
                         <div className="mt-1 text-base font-extrabold text-amber-400 tnum">
                             {formatCurrency(metrics.totalAnnualBleed, currency)}
@@ -240,7 +240,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Untracked in Bills</span>
                         <div className="mt-1 text-base font-extrabold text-violet tnum">
                             {metrics.untrackedCount}{' '}
@@ -248,7 +248,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-control bg-surface p-3 border border-line/40">
+                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Price Increases</span>
                         <div className="mt-1 text-base font-extrabold text-neg tnum">
                             {metrics.hikeCount}{' '}
@@ -262,7 +262,7 @@ export function SubscriptionAuditorModal({
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="flex items-center justify-between bg-emerald-500/10 px-4 py-2.5 border-b border-emerald-500/20 text-xs text-emerald-400"
+                        className="flex items-center justify-between bg-emerald-500/10 px-4 py-2.5 border-b border-emerald-500/15 text-xs text-emerald-400"
                     >
                         <div className="flex items-center gap-2">
                             <Sparkles size={15} />
@@ -285,7 +285,7 @@ export function SubscriptionAuditorModal({
                 )}
 
                 {/* Filter and Search Bar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-line/40 px-4 py-3 bg-surface">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.05)] px-4 py-3 bg-[#0c1427]">
                     <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
                         {[
                             { id: 'all', label: `All (${auditedSubscriptions.length})` },
@@ -297,10 +297,10 @@ export function SubscriptionAuditorModal({
                                 type="button"
                                 onClick={() => setFilterTab(t.id)}
                                 className={cx(
-                                    'rounded-control px-2.5 py-1 text-xs font-semibold transition',
+                                    'rounded-lg px-2.5 py-1 text-xs font-semibold transition',
                                     filterTab === t.id
-                                        ? 'bg-brand/15 text-brand shadow-sm'
-                                        : 'bg-sunken text-ink-muted hover:text-ink'
+                                        ? 'bg-brand/20 text-brand shadow-sm'
+                                        : 'bg-[#101a33] text-ink-muted hover:text-ink'
                                 )}
                             >
                                 {t.label}
@@ -315,13 +315,13 @@ export function SubscriptionAuditorModal({
                             placeholder="Search subscriptions..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-control border border-line bg-sunken pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink-faint outline-none focus:border-brand"
+                            className="w-full rounded-lg bg-[#101a33] pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink-faint outline-none focus:ring-1 focus:ring-brand"
                         />
                     </div>
                 </div>
 
                 {/* Subscription List */}
-                <div className="overflow-y-auto p-4 space-y-2.5 divide-y-0">
+                <div className="overflow-y-auto p-4 space-y-2.5">
                     {filteredList.length === 0 ? (
                         <div className="py-12 text-center text-ink-muted">
                             <CheckCircle2 size={32} className="mx-auto mb-2 text-emerald-400 opacity-60" />
@@ -339,10 +339,10 @@ export function SubscriptionAuditorModal({
                                     key={sub.id}
                                     layout
                                     className={cx(
-                                        'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-control p-3.5 border transition-all duration-200',
+                                        'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-3.5 transition-all duration-200',
                                         isCancelled
-                                            ? 'opacity-40 bg-sunken/40 border-line/30 line-through'
-                                            : 'bg-surface hover:bg-raised border-line/50 hover:border-line'
+                                            ? 'opacity-40 bg-[#080e1d] line-through'
+                                            : 'bg-[#101a33]/90 hover:bg-[#152243] shadow-sm'
                                     )}
                                 >
                                     {/* Left: Info */}
@@ -385,7 +385,7 @@ export function SubscriptionAuditorModal({
                                     </div>
 
                                     {/* Right: Cost & Quick Actions */}
-                                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-line/30">
+                                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.04)]">
                                         <div className="text-left sm:text-right">
                                             <div className="text-sm font-extrabold text-ink tnum">
                                                 {formatCurrency(sub.latestAmount, currency)}
@@ -420,10 +420,10 @@ export function SubscriptionAuditorModal({
                                                 type="button"
                                                 onClick={() => toggleSimulateCancel(sub.id)}
                                                 className={cx(
-                                                    'rounded-control px-2.5 py-1 text-xs font-semibold transition',
+                                                    'rounded-lg px-2.5 py-1 text-xs font-semibold transition',
                                                     isCancelled
                                                         ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                                                        : 'bg-sunken text-ink-muted hover:text-neg hover:bg-neg/10'
+                                                        : 'bg-white/[0.04] text-ink-muted hover:text-neg hover:bg-neg/10'
                                                 )}
                                                 title={isCancelled ? 'Re-enable subscription' : 'Simulate cancellation to test runway savings'}
                                             >
@@ -438,7 +438,7 @@ export function SubscriptionAuditorModal({
                 </div>
 
                 {/* Footer Insight */}
-                <div className="border-t border-line/40 bg-sunken/30 p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
+                <div className="border-t border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-ink-faint">
                         <Zap size={13} className="text-brand" />
                         Auditor continuously scans all incoming transactions for repeating billing cycles.
