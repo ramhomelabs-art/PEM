@@ -153,6 +153,15 @@ export function FunSavingsJarModal({
     const [loadingAction, setLoadingAction] = useState(false);
     const [toastMessage, setToastMessage] = useState(null);
 
+    const [pendingHold, setPendingHold] = useState(() => {
+        try {
+            const list = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
+            return list.find((item) => item.status === 'pending') || null;
+        } catch {
+            return null;
+        }
+    });
+
     // Custom Goal Form State
     const [showAddGoal, setShowAddGoal] = useState(false);
     const [showEditTarget, setShowEditTarget] = useState(false);
@@ -183,6 +192,93 @@ export function FunSavingsJarModal({
     const goalProgressPct = selectedGoal && selectedGoal.target > 0
         ? Math.min(100, Math.round((jarBalance / selectedGoal.target) * 100))
         : 0;
+
+    const handleConfirmHoldDirectly = async (holdItem) => {
+        if (!holdItem) return;
+        setLoadingAction(true);
+        try {
+            if (holdItem.transactionId) {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                await fetch(`${API_URL}/transactions/manual/${holdItem.transactionId}`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify({ source: 'manual' }),
+                });
+            }
+
+            const list = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
+            const updated = list.map((item) =>
+                item.id === holdItem.id || item.transactionId === holdItem.transactionId
+                    ? { ...item, status: 'confirmed' }
+                    : item
+            );
+            localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify(updated));
+            setPendingHold(null);
+
+            if (onReloadTransactions) onReloadTransactions();
+            setToastMessage(`✅ Confirmed! ${formatCurrency(holdItem.amount, currency)} is permanently locked into your Fun Jar.`);
+            setTimeout(() => setToastMessage(null), 4000);
+        } catch (err) {
+            console.error('Failed to confirm hold:', err);
+        } finally {
+            setLoadingAction(false);
+        }
+    };
+
+    const handleRollbackHoldDirectly = async (holdItem) => {
+        if (!holdItem) return;
+        setLoadingAction(true);
+        try {
+            if (holdItem.transactionId) {
+                const token = localStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                await fetch(`${API_URL}/transactions/manual/${holdItem.transactionId}`, {
+                    method: 'DELETE',
+                    headers,
+                });
+            }
+
+            const newBal = Math.max(0, jarBalance - holdItem.amount);
+            setJarBalance(newBal);
+            localStorage.setItem('pem-fun-jar-balance', String(newBal));
+            if (onJarUpdate) onJarUpdate(newBal);
+
+            const historyList = JSON.parse(localStorage.getItem('pem-fun-jar-history') || '[]');
+            const reversalEntry = {
+                id: String(Date.now()),
+                type: 'withdraw',
+                desc: `Unconfirmed Stash Reversal (${holdItem.goalTitle || 'Fun Pot'})`,
+                amount: holdItem.amount,
+                date: 'Just now (Rolled back to Main)',
+            };
+            setHistory([reversalEntry, ...historyList]);
+
+            const list = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
+            const updated = list.map((item) =>
+                item.id === holdItem.id || item.transactionId === holdItem.transactionId
+                    ? { ...item, status: 'rolled_back' }
+                    : item
+            );
+            localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify(updated));
+            setPendingHold(null);
+
+            setLastStashedDate('');
+            localStorage.removeItem('pem-fun-jar-last-stashed-date');
+
+            if (onReloadTransactions) onReloadTransactions();
+            setToastMessage(`🔄 Rolled back ${formatCurrency(holdItem.amount, currency)}! Funds restored to your Main Balance.`);
+            setTimeout(() => setToastMessage(null), 4500);
+        } catch (err) {
+            console.error('Failed to rollback hold:', err);
+        } finally {
+            setLoadingAction(false);
+        }
+    };
 
     const recordStashTransaction = async (amount, desc, shouldDeduct = true) => {
         const uid = currentUser?.id;
@@ -222,6 +318,7 @@ export function FunSavingsJarModal({
                     status: 'pending',
                 };
                 localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify([newVerification, ...pendingList]));
+                setPendingHold(newVerification);
 
                 if (onReloadTransactions) onReloadTransactions();
                 return txData.id;
@@ -557,6 +654,59 @@ export function FunSavingsJarModal({
                                 </div>
                             )}
                         </div>
+
+                        {/* Physical Pot Confirmation Card inside Pot Modal */}
+                        {pendingHold && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="rounded-2xl bg-gradient-to-r from-amber-500/20 via-[#121c35] to-[#121c35] border border-amber-500/40 p-4 shadow-xl space-y-3"
+                            >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/25 text-amber-300 shrink-0">
+                                            <Clock size={16} />
+                                        </span>
+                                        <div>
+                                            <h4 className="text-xs font-black text-amber-200 uppercase tracking-wide">
+                                                Physical Pot Confirmation Pending
+                                            </h4>
+                                            <p className="text-[11px] text-ink-muted">
+                                                {formatCurrency(pendingHold.amount, currency)} is currently on temporary hold.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="self-start sm:self-auto text-xs font-extrabold text-amber-300 tnum bg-amber-500/15 px-2.5 py-1 rounded-full border border-amber-500/30 shrink-0">
+                                        {formatCurrency(pendingHold.amount, currency)} Hold
+                                    </span>
+                                </div>
+
+                                <p className="text-xs font-medium text-white/90 leading-relaxed">
+                                    Did you put this liquid cash into your physical jar? Confirming makes it a permanent savings record. Rolling back removes the hold and refunds your Main Balance.
+                                </p>
+
+                                <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleConfirmHoldDirectly(pendingHold)}
+                                        disabled={loadingAction}
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black shadow-md transition cursor-pointer disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 size={14} />
+                                        Confirm Stash
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRollbackHoldDirectly(pendingHold)}
+                                        disabled={loadingAction}
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                                    >
+                                        <RotateCcw size={13} />
+                                        Cancel &amp; Roll Back to Main Balance
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {/* Middle Section: Fun Jar Tank + Goals + Actions */}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">

@@ -133,19 +133,35 @@ const Dashboard = () => {
     const [pendingVerification, setPendingVerification] = useState(null);
     const [messageToast, setMessageToast] = useState(null);
 
-    // Check for unverified physical cash pot deposits from previous day
+    // Check for unverified physical cash pot deposits from previous day / pending holds
     useEffect(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
         try {
             const savedList = JSON.parse(localStorage.getItem('pem-fun-jar-pending-verifications') || '[]');
-            const itemToVerify = savedList.find((item) => item.status === 'pending' && item.dateStr !== todayStr);
+            const itemToVerify = savedList.find((item) => item.status === 'pending');
             if (itemToVerify) {
                 setPendingVerification(itemToVerify);
+                return;
+            }
+
+            // Also check directly from transactions if any hold exists
+            if (Array.isArray(transactions) && transactions.length > 0) {
+                const holdTx = transactions.find((t) => t.source === 'fun_jar_hold');
+                if (holdTx) {
+                    setPendingVerification({
+                        id: `verify_${holdTx.id}`,
+                        transactionId: holdTx.id,
+                        amount: holdTx.amount,
+                        goalTitle: holdTx.description || 'Fun Money Goal',
+                        date: holdTx.date,
+                        dateStr: new Date(holdTx.date).toISOString().split('T')[0],
+                        status: 'pending',
+                    });
+                }
             }
         } catch {
             // ignore JSON error
         }
-    }, []);
+    }, [transactions]);
 
     const openAdd = useCallback(
         () => setModal({ open: true, mode: 'add', entry: null }),

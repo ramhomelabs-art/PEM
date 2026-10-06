@@ -129,12 +129,12 @@ export function ActivityList({
                                 </span>
 
                                 <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="truncate text-sm font-semibold text-ink">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="truncate text-xs sm:text-sm font-semibold text-ink">
                                             {t.description || t.category || 'Transaction'}
                                         </p>
                                         {isHold && (
-                                            <span className="rounded-pill bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                                            <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                                                 🕒 Temporary Hold
                                             </span>
                                         )}
@@ -150,11 +150,11 @@ export function ActivityList({
 
                                 <span
                                     className={cx(
-                                        'tnum shrink-0 text-sm font-bold',
-                                        isHold ? 'text-amber-400 font-extrabold' : isIncome ? 'text-pos' : 'text-neg'
+                                        'tnum shrink-0 text-xs sm:text-sm font-black',
+                                        isHold ? 'text-amber-400' : isIncome ? 'text-pos' : 'text-neg'
                                     )}
                                 >
-                                    {isHold ? '🕒 -' : isIncome ? '+' : '-'}
+                                    {isIncome ? '+' : '-'}
                                     {formatCurrency(Math.abs(Number(t.amount) || 0), currency)}
                                 </span>
                             </li>

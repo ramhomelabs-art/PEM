@@ -478,11 +478,11 @@ const Transactions = () => {
                                                 {t.description || t.category}
                                             </h4>
                                             {isHold ? (
-                                                <span className="rounded-pill bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                                                <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
                                                     🕒 TEMPORARY HOLD: POT
                                                 </span>
                                             ) : (
-                                                <span className="rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">
+                                                <span className="shrink-0 whitespace-nowrap rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">
                                                     {t.source ? String(t.source).toUpperCase() : 'MANUAL'}
                                                 </span>
                                             )}
@@ -501,20 +501,14 @@ const Transactions = () => {
                                     <div className="ml-auto flex items-center gap-3 text-right sm:gap-4">
                                         <div>
                                             <div
-                                                className="tnum flex items-center gap-1.5 text-base font-extrabold sm:text-lg"
+                                                className="tnum flex items-center gap-1.5 text-base font-black sm:text-lg"
                                                 style={{ color: isHold ? '#f59e0b' : isIncome ? '#10b981' : '#f43f5e' }}
                                             >
-                                                {isHold ? (
-                                                    <span className="text-amber-400">🕒 -</span>
-                                                ) : isIncome ? (
-                                                    <ArrowDownLeft size={17} />
-                                                ) : (
-                                                    <ArrowUpRight size={17} />
-                                                )}
-                                                {!isIncome && !isHold && '-'} {formatCurrency(t.amount)}
+                                                {isIncome ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
+                                                {!isIncome && '-'} {formatCurrency(t.amount)}
                                             </div>
                                             {isHold && (
-                                                <span className="text-[10px] font-bold text-amber-400/90 block">
+                                                <span className="text-[10px] font-bold text-amber-400 block">
                                                     Pending Confirmation
                                                 </span>
                                             )}
