@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { API_URL, BASE_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
@@ -7,19 +7,23 @@ import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Landmark, CreditCard, Plus, Trash2, Copy, Lock, FileText, Upload, Download,
-    File, Shield, Calendar, Eye, EyeOff
+    File, Shield, Calendar, Eye, EyeOff, ShieldCheck, Sparkles, ChevronDown, ChevronUp, AlertCircle
 } from 'lucide-react';
 import SecurityLock from '../../components/personal_expense/SecurityLock';
 import PDFViewer from '../../components/personal_expense/PDFViewer';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import { formatCurrency } from '../../utils/currency';
 
 const Accounts = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
     const { toast } = useToast();
+    const currency = user?.currency || 'INR';
     const [activeView, setActiveView] = useState('bank'); // 'bank' or 'documents'
     const [banks, setBanks] = useState([]);
     const [documents, setDocuments] = useState([]);
+    const [transactions, setTransactions] = useState([]);
+    const [showRunwayTips, setShowRunwayTips] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [, setLoading] = useState(true);
     const [isBankModalOpen, setIsBankModalOpen] = useState(false);
@@ -57,10 +61,76 @@ const Accounts = () => {
         if (user?.id) {
             fetchBanks();
             fetchDocuments();
+            fetchTransactions();
         }
         // fetchBanks reads selectedBank (and auto-selects the first one), so depending on it would refetch whenever the selection changes. Intentionally runs once per user change.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
+
+    const fetchTransactions = async () => {
+        try {
+            const res = await fetch(`${API_URL}/transactions/user/${user.id}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) setTransactions(data);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const runwayData = useMemo(() => {
+        const totalLiquid = banks.reduce((s, b) => s + (Number(b.balance) || 0), 0);
+
+        // Calculate last 90 days expenses for accurate monthly burn rate
+        const now = new Date();
+        const ninetyDaysAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+
+        const recentExpenses = transactions.filter((t) => {
+            if (t.type !== 'expense') return false;
+            const d = new Date(t.date);
+            return d >= ninetyDaysAgo;
+        });
+
+        const totalExpenseLast90 = recentExpenses.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const monthlyBurn =
+            totalExpenseLast90 > 0
+                ? Math.round(totalExpenseLast90 / 3)
+                : transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0) || 20000;
+
+        const runwayMonths = monthlyBurn > 0 ? totalLiquid / monthlyBurn : 0;
+        const runwayMonthsFormatted = runwayMonths.toFixed(1);
+        const targetGoal = monthlyBurn * 6;
+        const progressPercent = Math.min(100, Math.round((runwayMonths / 6) * 100));
+
+        let badgeText = 'Financial Fortress (6+ Mo Secured)';
+        let badgeColor = 'text-emerald-400 bg-emerald-500/15';
+
+        if (runwayMonths < 1) {
+            badgeText = 'Critical Runway (< 1 Month Buffer)';
+            badgeColor = 'text-rose-400 bg-rose-500/15';
+        } else if (runwayMonths < 3) {
+            badgeText = 'Moderate Runway (1–3 Months)';
+            badgeColor = 'text-amber-400 bg-amber-500/15';
+        } else if (runwayMonths < 6) {
+            badgeText = 'Solid Runway (3–6 Months)';
+            badgeColor = 'text-emerald-400 bg-emerald-500/15';
+        }
+
+        return {
+            totalLiquid,
+            monthlyBurn,
+            runwayMonths,
+            runwayMonthsFormatted,
+            runwayDays: Math.round(runwayMonths * 30),
+            targetGoal,
+            progressPercent,
+            badgeText,
+            badgeColor,
+        };
+    }, [banks, transactions]);
 
     const fetchBanks = async () => {
         try {
@@ -296,7 +366,94 @@ const Accounts = () => {
 
             {/* BANK VIEW */}
             {activeView === 'bank' && (
-                <div style={{ display: 'flex', gap: '40px' }}>
+                <div>
+                    {/* Emergency Fund Runway Metric Card */}
+                    <div className="mb-6 overflow-hidden rounded-card border border-emerald-500/25 bg-gradient-to-r from-emerald-950/20 via-surface to-surface shadow-card">
+                        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80" />
+                        <div className="p-4 sm:p-5">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                {/* Left metric display */}
+                                <div className="flex items-start gap-3.5">
+                                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.22)]">
+                                        <ShieldCheck size={22} strokeWidth={2.4} />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                                                Emergency Fund Runway
+                                            </span>
+                                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${runwayData.badgeColor}`}>
+                                                <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                                                {runwayData.badgeText}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap items-baseline gap-x-2">
+                                            <span className="tnum text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
+                                                {runwayData.runwayMonthsFormatted} Months
+                                            </span>
+                                            <span className="text-xs font-medium text-ink-faint">
+                                                ({runwayData.runwayDays} days survival runway at {formatCurrency(runwayData.monthlyBurn, currency)}/mo burn)
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Target Progress & Toggle Tips */}
+                                <div className="flex flex-col gap-2 min-w-[280px]">
+                                    <div className="flex justify-between text-xs font-semibold">
+                                        <span className="text-ink-muted">6-Month Target Progress</span>
+                                        <span className="text-emerald-400 tnum font-bold">{runwayData.progressPercent}%</span>
+                                    </div>
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-sunken">
+                                        <div
+                                            className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+                                            style={{ width: `${runwayData.progressPercent}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-ink-faint">
+                                        <span>Liquid: {formatCurrency(runwayData.totalLiquid, currency)}</span>
+                                        <span>Target: {formatCurrency(runwayData.targetGoal, currency)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Collapsible Tips Strip */}
+                            <div className="mt-3.5 pt-3 border-t border-line/40 flex items-center justify-between">
+                                <p className="text-xs text-ink-muted flex items-center gap-1.5">
+                                    <Sparkles size={14} className="text-brand" />
+                                    <span>
+                                        {runwayData.runwayMonths >= 6
+                                            ? 'Outstanding! Your liquidity provides complete resilience against unforeseen job loss or emergencies.'
+                                            : `Aim for 6 months buffer. You need ${formatCurrency(Math.max(0, runwayData.targetGoal - runwayData.totalLiquid), currency)} more to achieve complete financial peace of mind.`}
+                                    </span>
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRunwayTips(!showRunwayTips)}
+                                    className="text-xs font-bold text-brand hover:underline inline-flex items-center gap-1 shrink-0 ml-2"
+                                >
+                                    <span>{showRunwayTips ? 'Hide Tips' : 'Runway Advice'}</span>
+                                    {showRunwayTips ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+                            </div>
+
+                            <AnimatePresence>
+                                {showRunwayTips && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-3 overflow-hidden rounded-control bg-sunken/80 p-3 text-xs text-ink-muted space-y-1.5"
+                                    >
+                                        <p><strong>Rule of Thumb:</strong> Financial advisors recommend parking 3–6 months of living expenses in high-yield savings or liquid mutual funds.</p>
+                                        <p><strong>How to grow it:</strong> Set up an automatic sweep into your primary savings account on salary day before allocating to discretionary shopping.</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '40px' }}>
                     {/* LEFT: BANK LIST */}
                     <div style={{ width: '350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -430,6 +587,7 @@ const Accounts = () => {
                         )}
                     </div>
                 </div>
+            </div>
             )}
 
             {/* DOCUMENTS VIEW */}
