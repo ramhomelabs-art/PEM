@@ -35,6 +35,7 @@ import {
 } from '../../components/ui/primitives';
 import { Modal } from '../../components/ui/Modal';
 import { formatCurrency, formatDate } from '../../utils/currency';
+import DebtPayoffSimulatorModal from '../../components/personal_expense/DebtPayoffSimulatorModal';
 
 const LOAN_CATEGORIES = [
     'Personal Loan',
@@ -102,6 +103,9 @@ const Loans = () => {
     const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
     const [selectedLoanBreakdown, setSelectedLoanBreakdown] = useState(null);
     const [breakdownTab, setBreakdownTab] = useState('summary'); // 'summary' | 'schedule' | 'terms'
+
+    // Payoff Strategy Simulator Modal
+    const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
     const [toast, setToast] = useState({ message: '', type: 'success', isVisible: false });
     const [confirmDialog, setConfirmDialog] = useState({
@@ -398,9 +402,19 @@ const Loans = () => {
                         Track active loans, smart EMI generation, interest schedules, and repayment terms.
                     </p>
                 </div>
-                <Button variant="primary" icon={Plus} onClick={() => setIsModalOpen(true)}>
-                    Add New Loan
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        icon={Zap}
+                        className="border-0 bg-surface hover:bg-raised"
+                        onClick={() => setIsSimulatorOpen(true)}
+                    >
+                        Payoff Strategy
+                    </Button>
+                    <Button variant="primary" icon={Plus} onClick={() => setIsModalOpen(true)}>
+                        Add New Loan
+                    </Button>
+                </div>
             </header>
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1146,6 +1160,14 @@ const Loans = () => {
                     <EmptyState icon={History} title="No payment records yet" description="EMI payments recorded through the Pay button will appear here." />
                 )}
             </Modal>
+
+            {/* --- DEBT PAYOFF SIMULATOR MODAL --- */}
+            <DebtPayoffSimulatorModal
+                isOpen={isSimulatorOpen}
+                onClose={() => setIsSimulatorOpen(false)}
+                loans={loans}
+                currency={currency}
+            />
         </div>
     );
 };
