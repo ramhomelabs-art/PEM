@@ -517,7 +517,7 @@ export function SafeToSpendWidget({
                             aria-expanded={isDetailsOpen}
                         >
                             <Calculator size={13} className="text-teal-400" />
-                            <span>Breakdown &amp; Simulator</span>
+                            <span>Real-Time Breakdown &amp; Test</span>
                             {isDetailsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                     </div>
@@ -564,10 +564,10 @@ export function SafeToSpendWidget({
                                                             : calculations.status
                                                     }
                                                     size={96}
-                                                    label={simulationResult ? 'Simulated' : 'Today Safe'}
+                                                    label={simulationResult ? 'Live Safe' : 'Today Safe'}
                                                     sublabel={
                                                         simulationResult
-                                                            ? `${simulationResult.simulatedWaterCapacity}% capacity`
+                                                            ? `${simulationResult.simulatedWaterCapacity}% left today`
                                                             : `${calculations.percentOfDailyRemaining}% allowance left`
                                                     }
                                                 />

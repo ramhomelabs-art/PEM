@@ -467,7 +467,7 @@ export function FinancialTimeMachineModal({
                                     </span>
                                     <span className="flex items-center gap-1.5 text-teal-300">
                                         <span className="h-2 w-2 rounded-full bg-teal-400" />
-                                        Simulated Scenario
+                                        Projected Horizon
                                     </span>
                                 </div>
                             </div>
@@ -501,7 +501,7 @@ export function FinancialTimeMachineModal({
                                                         <div className="rounded-xl bg-[#080e1d] p-3 shadow-2xl border border-white/[0.08] text-xs space-y-1">
                                                             <p className="font-extrabold text-white">{d.label} (Month {d.month})</p>
                                                             <p className="text-teal-300 font-bold">
-                                                                Simulated: {formatCurrency(d.simulated, currency)}
+                                                                Projected: {formatCurrency(d.simulated, currency)}
                                                             </p>
                                                             <p className="text-slate-400">
                                                                 Status Quo: {formatCurrency(d.baseline, currency)}
