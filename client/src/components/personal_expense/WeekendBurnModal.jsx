@@ -247,8 +247,8 @@ export function WeekendBurnModal({
                                 </div>
                             </div>
 
-                            <div className="h-56 w-full pt-2">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-56 w-full pt-2 min-w-0 min-h-[220px]">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220} initialDimension={{ width: 600, height: 220 }}>
                                     <BarChart data={analytics.chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                         <XAxis dataKey="day" stroke="#64748b" fontSize={11} tickLine={false} />

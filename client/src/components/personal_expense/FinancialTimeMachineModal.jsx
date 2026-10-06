@@ -510,8 +510,8 @@ export function FinancialTimeMachineModal({
                                 </div>
                             </div>
 
-                            <div className="h-64 w-full pt-2">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-64 w-full pt-2 min-w-0 min-h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250} initialDimension={{ width: 600, height: 250 }}>
                                     <AreaChart data={simulation.timeline} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
