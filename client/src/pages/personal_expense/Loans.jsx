@@ -403,7 +403,7 @@ const Loans = () => {
                 </Button>
             </header>
 
-            <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile
                     label="Outstanding"
                     value={money(totalOutstanding)}
@@ -703,7 +703,7 @@ const Loans = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div>
                             <label className="mb-1.5 block text-xs font-bold text-ink-muted">
                                 Disbursal Date
@@ -957,8 +957,8 @@ const Loans = () => {
                                     <span>Month-by-month principal vs interest reducing balance schedule</span>
                                     <span className="font-semibold">EMI Due Day: {selectedLoanBreakdown.emiDay || 'Monthly'}</span>
                                 </div>
-                                <div className="max-h-[380px] overflow-y-auto rounded-control border border-line">
-                                    <table className="w-full text-left text-xs">
+                                <div className="table-scroll max-h-[380px] overflow-y-auto rounded-control border border-line">
+                                    <table className="w-full min-w-[640px] text-left text-xs">
                                         <thead className="sticky top-0 bg-surface border-b border-line text-ink-faint uppercase font-bold text-[10px]">
                                             <tr>
                                                 <th className="py-2.5 px-3">#</th>

@@ -99,7 +99,7 @@ const CreditCardTransactions = () => {
     return (
         <div className="mx-auto max-w-[1200px] p-6 md:p-10">
             <header className="mb-8">
-                <h1 className="text-3xl font-black tracking-tight text-ink">Transactions</h1>
+                <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">Transactions</h1>
                 <p className="mt-1 text-sm text-ink-muted">View and manage your credit card transactions.</p>
             </header>
 

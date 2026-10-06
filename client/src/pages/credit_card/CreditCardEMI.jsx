@@ -91,7 +91,7 @@ const CreditCardEMI = () => {
     return (
         <div className="mx-auto max-w-[1400px] p-6 md:p-10">
             <header className="mb-8">
-                <h1 className="text-3xl font-black tracking-tight text-ink">EMI Management</h1>
+                <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">EMI Management</h1>
                 <p className="mt-1 text-sm text-ink-muted">Convert purchases to EMI and manage payment schedules.</p>
             </header>
 

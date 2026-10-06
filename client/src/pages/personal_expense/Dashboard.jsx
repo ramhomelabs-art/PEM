@@ -311,7 +311,26 @@ const Dashboard = () => {
                 onOpenContacts={() => setShowContacts(true)}
                 onOpenMessages={() => setShowMessages(true)}
                 onOpenShare={() => setShowShare(true)}
-                onOpenNotifications={() => setShowNotifications(true)}
+                onOpenNotifications={() => setShowNotifications((prev) => !prev)}
+                notificationSlot={
+                    <NotificationCenter
+                        isOpen={showNotifications}
+                        onClose={() => setShowNotifications(false)}
+                        activeReminders={{
+                            bills: activeObligations.filter((o) => o.kind === 'bill'),
+                            loans: activeObligations.filter((o) => o.kind === 'emi'),
+                            borrow: activeObligations.filter((o) => o.kind === 'borrow'),
+                            notes: [],
+                        }}
+                        budgetAlerts={activeBudgetAlerts}
+                        historyData={historyFeed}
+                        messages={conversations}
+                        onDismiss={dismiss}
+                        onOpenMessages={() => {
+                            setShowMessages(true);
+                        }}
+                    />
+                }
                 onExportCsv={handleExportCsv}
                 onExportPdf={printDashboard}
             />
@@ -474,24 +493,6 @@ const Dashboard = () => {
                 onCancel={() => setConfirm({ open: false, id: null })}
                 title="Delete transaction"
                 message="This permanently removes the entry. This cannot be undone."
-            />
-
-            <NotificationCenter
-                isOpen={showNotifications}
-                onClose={() => setShowNotifications(false)}
-                activeReminders={{
-                    bills: activeObligations.filter((o) => o.kind === 'bill'),
-                    loans: activeObligations.filter((o) => o.kind === 'emi'),
-                    borrow: activeObligations.filter((o) => o.kind === 'borrow'),
-                    notes: [],
-                }}
-                budgetAlerts={activeBudgetAlerts}
-                historyData={historyFeed}
-                messages={conversations}
-                onDismiss={dismiss}
-                onOpenMessages={() => {
-                    setShowMessages(true);
-                }}
             />
 
             <CalculatorPanel isOpen={showCalculator} onClose={() => setShowCalculator(false)} />

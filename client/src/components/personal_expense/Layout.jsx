@@ -18,6 +18,8 @@ import {
     ChevronLeft,
     ChevronRight,
     TrendingUp,
+    Moon,
+    Sun,
 } from 'lucide-react';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
@@ -174,7 +176,7 @@ function LogoutButton({ onLogout, compact = false }) {
 
 const Layout = ({ children }) => {
     const { user, logout } = useAuth();
-    const { theme, mode } = useTheme();
+    const { theme, mode, isDark, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -214,7 +216,7 @@ const Layout = ({ children }) => {
             {mode === 'dark' ? <div className="animated-bg" /> : null}
 
             {/* Mobile top bar */}
-            <div className="no-print z-30 flex items-center gap-3 border-b border-line bg-surface px-4 py-2 md:hidden">
+            <div className="no-print safe-top z-30 flex shrink-0 items-center gap-3 border-b border-line bg-surface px-4 py-2 md:hidden">
                 <button
                     type="button"
                     onClick={() => setDrawerOpen(true)}
@@ -224,14 +226,29 @@ const Layout = ({ children }) => {
                     <Menu size={18} aria-hidden="true" />
                 </button>
                 <Brand />
-                <button
-                    type="button"
-                    onClick={logout}
-                    aria-label="Logout"
-                    className="ml-auto grid h-9 w-9 place-items-center rounded-control border border-line text-neg"
-                >
-                    <LogOut size={17} aria-hidden="true" />
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={toggleTheme}
+                        title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                        aria-label="Toggle colour theme"
+                        className="grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted"
+                    >
+                        {isDark ? (
+                            <Sun size={17} aria-hidden="true" />
+                        ) : (
+                            <Moon size={17} aria-hidden="true" />
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={logout}
+                        aria-label="Logout"
+                        className="grid h-9 w-9 place-items-center rounded-control border border-line text-neg"
+                    >
+                        <LogOut size={17} aria-hidden="true" />
+                    </button>
+                </div>
             </div>
 
             {/* Desktop / tablet sidebar (collapsible) */}

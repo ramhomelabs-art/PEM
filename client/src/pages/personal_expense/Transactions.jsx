@@ -288,78 +288,54 @@ const Transactions = () => {
                 }}
             />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '50px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <motion.button whileHover={{ x: -5 }} onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer' }}><ArrowLeft size={30} /></motion.button>
-                    <h2 style={{ fontSize: '32px', fontWeight: '900', color: theme.text }}>Transaction History</h2>
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-3 sm:mb-12">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+                    <motion.button whileHover={{ x: -5 }} onClick={() => navigate('/')} className="shrink-0 border-none bg-none text-ink-muted cursor-pointer"><ArrowLeft size={28} /></motion.button>
+                    <h2 className="text-2xl font-black tracking-tight sm:text-3xl" style={{ color: theme.text }}>Transaction History</h2>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '900', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '5px 12px', borderRadius: '100px', letterSpacing: '2px' }}>{filteredTransactions.length} RECORDS</span>
+                <div className="flex gap-2.5">
+                    <span className="whitespace-nowrap rounded-pill bg-brand-soft px-3 py-1.5 text-[11px] font-black tracking-[2px] text-brand">{filteredTransactions.length} RECORDS</span>
                 </div>
             </div>
 
             {/* SEARCH & FILTER BAR */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '40px' }}>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                <div className="flex flex-wrap gap-3 sm:gap-5">
+                    <div className="relative min-w-0 flex-1 basis-[220px]">
+                        <Search size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint" />
                         <input
                             type="text"
                             placeholder="Search by description or category..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full rounded-2xl border py-4 pl-[52px] pr-4 text-[15px] font-bold outline-none"
                             style={{
-                                width: '100%',
                                 backgroundColor: theme.inputBg,
-                                border: `1px solid ${theme.border}`,
-                                borderRadius: '16px',
-                                padding: '16px 16px 16px 52px',
+                                borderColor: theme.border,
                                 color: theme.text,
-                                fontSize: '15px',
-                                fontWeight: '700',
-                                outline: 'none'
                             }}
                         />
                     </div>
                     <button
                         onClick={exportToPDF}
                         disabled={isExporting || filteredTransactions.length === 0}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '16px',
-                            padding: '0 25px',
-                            fontWeight: '900',
-                            cursor: (isExporting || filteredTransactions.length === 0) ? 'not-allowed' : 'pointer',
-                            opacity: (isExporting || filteredTransactions.length === 0) ? 0.5 : 1,
-                            boxShadow: '0 10px 20px rgba(16,185,129,0.2)'
-                        }}
+                        className="flex items-center gap-2.5 rounded-2xl bg-brand px-5 py-4 font-black text-white shadow-[0_10px_20px_rgba(16,185,129,0.2)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        <FileDown size={20} /> {isExporting ? 'Generating...' : 'Export PDF'}
+                        <FileDown size={20} /> <span className="whitespace-nowrap">{isExporting ? 'Generating...' : 'Export PDF'}</span>
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-                    <div style={{ display: 'flex', backgroundColor: theme.inputBg, borderRadius: '16px', padding: '4px', border: `1px solid ${theme.border}` }}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border p-1" style={{ backgroundColor: theme.inputBg, borderColor: theme.border }}>
                         {['all', 'day', 'week', 'month', 'year', 'custom'].map(p => (
                             <button
                                 key={p}
                                 onClick={() => setTimeFilter(p)}
+                                className="whitespace-nowrap rounded-xl border-none px-3 py-2 text-[11px] font-black uppercase transition"
                                 style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    fontSize: '11px',
-                                    fontWeight: '900',
-                                    textTransform: 'uppercase',
-                                    cursor: 'pointer',
                                     backgroundColor: timeFilter === p ? '#10b981' : 'transparent',
                                     color: timeFilter === p ? 'white' : '#64748b',
-                                    transition: 'all 0.2s'
+                                    cursor: 'pointer',
                                 }}
                             >
                                 {p}
@@ -367,22 +343,16 @@ const Transactions = () => {
                         ))}
                     </div>
 
-                    <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-2xl border p-1" style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
                         {['all', 'expense', 'income'].map(t => (
                             <button
                                 key={t}
                                 onClick={() => setFilterType(t)}
+                                className="whitespace-nowrap rounded-xl border-none px-3 py-2 text-[11px] font-black uppercase transition"
                                 style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    fontSize: '11px',
-                                    fontWeight: '900',
-                                    textTransform: 'uppercase',
-                                    cursor: 'pointer',
                                     backgroundColor: filterType === t ? (t === 'expense' ? '#f43f5e' : t === 'income' ? '#10b981' : '#1e293b') : 'transparent',
                                     color: filterType === t ? 'white' : '#64748b',
-                                    transition: 'all 0.2s'
+                                    cursor: 'pointer',
                                 }}
                             >
                                 {t}
@@ -392,14 +362,14 @@ const Transactions = () => {
                 </div>
 
                 {timeFilter === 'custom' && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', gap: '15px', alignItems: 'center', backgroundColor: 'rgba(16,185,129,0.05)', padding: '15px', borderRadius: '16px', border: '1px solid rgba(16,185,129,0.1)' }}>
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand/10 bg-brand-soft/5 p-4">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <label style={{ fontSize: '12px', fontWeight: '900', color: '#10b981' }}>START:</label>
-                            <input type="date" value={customDates.start} onChange={e => setCustomDates({ ...customDates, start: e.target.value })} style={{ backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, padding: '5px 10px', borderRadius: '8px', cursor: 'pointer' }} />
+                            <input type="date" value={customDates.start} onChange={e => setCustomDates({ ...customDates, start: e.target.value })} className="min-w-0 rounded-lg border px-2.5 py-1.5" style={{ backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text, cursor: 'pointer' }} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <label style={{ fontSize: '12px', fontWeight: '900', color: '#10b981' }}>END:</label>
-                            <input type="date" value={customDates.end} onChange={e => setCustomDates({ ...customDates, end: e.target.value })} style={{ backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, padding: '5px 10px', borderRadius: '8px', cursor: 'pointer' }} />
+                            <input type="date" value={customDates.end} onChange={e => setCustomDates({ ...customDates, end: e.target.value })} className="min-w-0 rounded-lg border px-2.5 py-1.5" style={{ backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text, cursor: 'pointer' }} />
                         </div>
                     </motion.div>
                 )}
@@ -428,19 +398,15 @@ const Transactions = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.05 }}
+                                    className="flex flex-wrap items-center gap-3 rounded-3xl border p-4 sm:gap-5 sm:p-6"
                                     style={{
-                                        padding: '24px',
                                         backgroundColor: theme.card,
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: '24px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '20px',
+                                        borderColor: theme.border,
                                         cursor: 'pointer'
                                     }}
                                     whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 10 }}
                                 >
-                                    <div style={{
+                                    <div className="shrink-0" style={{
                                         width: '56px',
                                         height: '56px',
                                         backgroundColor: catData?.color ? `${catData.color}20` : (t.type === 'income' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)'),
@@ -451,43 +417,37 @@ const Transactions = () => {
                                     }}>
                                         <Icon size={24} color={catData?.color || (t.type === 'income' ? '#10b981' : '#f43f5e')} />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <h4 style={{ fontSize: '18px', fontWeight: '900', margin: 0, color: theme.text }}>{t.description || t.category}</h4>
-                                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#64748b', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '100px' }}>{(t.source ? String(t.source).toUpperCase() : 'MANUAL')}</span>
+                                    <div className="min-w-[170px] flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h4 className="m-0 text-base font-black sm:text-lg" style={{ color: theme.text }}>{t.description || t.category}</h4>
+                                            <span className="rounded-pill bg-white/5 px-2 py-0.5 text-[9px] font-black text-ink-faint">{(t.source ? String(t.source).toUpperCase() : 'MANUAL')}</span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
-                                            <Calendar size={12} />
-                                            <span style={{ color: 'white', fontWeight: '700' }}>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                                            <Calendar size={12} className="shrink-0" />
+                                            <span className="font-bold text-ink">
                                                 {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: getIANATimezone() })}, {new Date(t.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: getIANATimezone() })}
                                             </span>
                                             <span>•</span>
-                                            <span style={{ color: '#10b981', fontWeight: 'bold' }}>{t.category}</span>
+                                            <span className="font-bold text-brand">{t.category}</span>
                                             <span>•</span>
-                                            <span style={{ color: '#0ea5e9', fontWeight: '900' }}>{t.paymentMode === 'Other' ? t.otherPaymentMode : t.paymentMode}</span>
+                                            <span className="font-black text-info">{t.paymentMode === 'Other' ? t.otherPaymentMode : t.paymentMode}</span>
                                         </div>
-                                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', fontWeight: '700' }}>
-                                            Added by <span style={{ color: '#94a3b8' }}>{t.User?.fullName || t.User?.username || 'System'}</span>
+                                        <div className="mt-1 hidden text-[10px] font-bold text-ink-faint sm:block">
+                                            Added by <span className="text-ink-muted">{t.User?.fullName || t.User?.username || 'System'}</span>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div className="ml-auto flex items-center gap-3 text-right sm:gap-5">
                                         <div>
-                                            <div style={{
-                                                fontSize: '22px',
-                                                fontWeight: '900',
-                                                color: t.type === 'income' ? '#10b981' : '#f43f5e',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px'
-                                            }}>
+                                            <div className="flex items-center gap-2 text-lg font-black sm:text-[22px]"
+                                                style={{ color: t.type === 'income' ? '#10b981' : '#f43f5e' }}>
                                                 {t.type === 'income' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
                                                 {t.type === 'expense' && '-'} {formatCurrency(t.amount)}
                                             </div>
-                                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', marginTop: '4px' }}>SUCCESS</div>
+                                            <div className="mt-1 text-[10px] font-bold text-ink-faint">SUCCESS</div>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '10px', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '20px' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(t); }} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer' }} title="Edit"><Edit2 size={20} /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, transactionId: t.id }); }} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer' }} title="Delete"><Trash2 size={20} /></button>
+                                        <div className="flex gap-2.5 border-l border-white/10 pl-3 sm:gap-2.5 sm:pl-5">
+                                            <button onClick={(e) => { e.stopPropagation(); openEditModal(t); }} className="border-none bg-none text-brand cursor-pointer" title="Edit"><Edit2 size={20} /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, transactionId: t.id }); }} className="border-none bg-none text-neg cursor-pointer" title="Delete"><Trash2 size={20} /></button>
                                         </div>
                                     </div>
                                 </motion.div>

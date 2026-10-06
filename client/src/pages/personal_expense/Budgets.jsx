@@ -236,7 +236,7 @@ const Budgets = () => {
                 </Button>
             </header>
 
-            <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="Total limit" value={formatCurrency(totalLimit, currency)} tone="info" icon={Target} />
                 <StatTile label="Total spent" value={formatCurrency(totalSpent, currency)} tone="warn" icon={Wallet} />
                 <StatTile

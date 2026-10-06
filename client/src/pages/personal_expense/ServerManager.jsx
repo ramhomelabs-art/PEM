@@ -627,7 +627,8 @@ const ServerManager = () => {
                     <div>
                         <h2 className="mb-8 text-2xl font-bold text-ink">User Management</h2>
                         <Panel className="overflow-hidden p-0">
-                        <table className="w-full text-left">
+                        <div className="table-scroll">
+                        <table className="w-full min-w-[560px] text-left">
                             <thead>
                                 <tr className="border-b border-line bg-sunken/50">
                                     <th className="px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Username</th>
@@ -663,6 +664,7 @@ const ServerManager = () => {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                         </Panel>
                     </div>
                 )}

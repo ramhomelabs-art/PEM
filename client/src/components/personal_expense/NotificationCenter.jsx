@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     AlertTriangle,
     Bell,
@@ -8,8 +9,9 @@ import {
     MessageCircle,
     StickyNote,
     X,
+    CreditCard,
+    ArrowUpRight
 } from 'lucide-react';
-import { SlideOver } from '../ui/SlideOver';
 import { cx } from '../ui/cx';
 import { formatCurrency } from '../../utils/currency';
 
@@ -47,16 +49,16 @@ function Row({ tone = 'info', title, meta, onClick, onDismiss }) {
                     : undefined
             }
             className={cx(
-                'group relative flex items-start gap-3 rounded-card border border-line bg-sunken p-3.5 transition',
+                'group relative flex items-start gap-3 rounded-2xl border border-line bg-sunken p-3 transition',
                 onClick && 'cursor-pointer hover:border-line-strong hover:bg-raised'
             )}
         >
-            <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-[10px]', t.wrap)}>
-                <Icon size={16} aria-hidden="true" />
+            <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-xl', t.wrap)}>
+                <Icon size={15} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink">{title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{meta}</p>
+                <p className="truncate text-xs font-bold text-ink">{title}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-ink-muted">{meta}</p>
             </div>
             {onDismiss ? (
                 <button
@@ -66,9 +68,9 @@ function Row({ tone = 'info', title, meta, onClick, onDismiss }) {
                         e.stopPropagation();
                         onDismiss();
                     }}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-control text-ink-faint transition hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-ink-faint transition hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
                 >
-                    <X size={14} aria-hidden="true" />
+                    <X size={13} aria-hidden="true" />
                 </button>
             ) : null}
         </div>
@@ -87,6 +89,7 @@ const NotificationCenter = ({
 }) => {
     const navigate = useNavigate();
     const [tab, setTab] = useState('active');
+    const popoverRef = useRef(null);
 
     const totalActive =
         (activeReminders.bills?.length || 0) +
@@ -96,179 +99,255 @@ const NotificationCenter = ({
         (budgetAlerts?.length || 0) +
         (messages?.length || 0);
 
+    // Close on click outside and escape key
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleOutsideClick = (e) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+                onClose?.();
+            }
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose?.();
+            }
+        };
+
+        // Defer attachment so the triggering click doesn't immediately dismiss
+        const timer = setTimeout(() => {
+            document.addEventListener('mousedown', handleOutsideClick);
+            document.addEventListener('keydown', handleKeyDown);
+        }, 10);
+
+        return () => {
+            clearTimeout(timer);
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
+
     const handleItemClick = (path) => {
         navigate(path);
-        onClose();
+        onClose?.();
     };
 
     const handleMessageClick = (message) => {
         if (onOpenMessages) onOpenMessages(message.sender);
-        onClose();
+        onClose?.();
     };
 
     return (
-        <SlideOver
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Notifications"
-            subtitle={`${totalActive} active`}
-            icon={Bell}
-        >
-            <div className="mb-4 inline-flex rounded-control border border-line bg-sunken p-0.5">
-                {['active', 'history'].map((t) => (
-                    <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTab(t)}
-                        className={cx(
-                            'rounded-[8px] px-3 py-1 text-xs font-semibold capitalize transition',
-                            tab === t
-                                ? 'bg-surface text-ink shadow-card'
-                                : 'text-ink-muted hover:text-ink'
-                        )}
-                    >
-                        {t}
-                        {t === 'active' ? ` (${totalActive})` : ''}
-                    </button>
-                ))}
-            </div>
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    ref={popoverRef}
+                    initial={{ opacity: 0, scale: 0.94, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.94, y: 8 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                    className="absolute right-0 top-full mt-2.5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-32px)] overflow-hidden rounded-3xl border border-line bg-surface/95 backdrop-blur-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] flex flex-col max-h-[min(560px,calc(100vh-80px))]"
+                    role="dialog"
+                    aria-label="Floating Notifications"
+                >
+                    {/* Caret pointing directly to the Bell button */}
+                    <div className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 border-l border-t border-line bg-surface" />
 
-            {tab === 'active' ? (
-                totalActive === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line px-6 py-12 text-center">
-                        <CheckCircle2 size={28} className="text-pos" aria-hidden="true" />
-                        <p className="text-sm font-bold text-ink-muted">You&apos;re all caught up</p>
-                    </div>
-                ) : (
-                    <div className="space-y-2.5">
-                        {messages.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-info">
-                                    Unread messages ({messages.length})
-                                </h3>
-                                {messages.map((msg) => (
-                                    <Row
-                                        key={msg.id}
-                                        tone="info"
-                                        title={`New message from ${msg.sender?.fullName || msg.sender?.username || 'someone'}`}
-                                        meta={msg.message}
-                                        onClick={() => handleMessageClick(msg)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-
-                        {budgetAlerts.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-neg">
-                                    Budget alerts ({budgetAlerts.length})
-                                </h3>
-                                {budgetAlerts.map((budget, i) => (
-                                    <Row
-                                        key={`budget-${i}`}
-                                        tone="neg"
-                                        title={`Budget exceeded: ${budget.category}`}
-                                        meta={`Spent ${formatCurrency(budget.spent)} of ${formatCurrency(budget.amountLimit)}`}
-                                        onClick={() => handleItemClick('/budgets')}
-                                        onDismiss={() => onDismiss && onDismiss(`budget-${budget.category}`)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-
-                        {activeReminders.bills?.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-warn">
-                                    Bills due ({activeReminders.bills.length})
-                                </h3>
-                                {activeReminders.bills.map((bill) => (
-                                    <Row
-                                        key={`bill-${bill.id}`}
-                                        tone="warn"
-                                        title={`Bill due: ${bill.name}`}
-                                        meta={`${formatCurrency(bill.amount)} · due ${safeDate(bill.dueDate)}`}
-                                        onClick={() => handleItemClick('/bills')}
-                                        onDismiss={() => onDismiss && onDismiss(`bill-${bill.id}`)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-
-                        {activeReminders.loans?.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-neg">
-                                    EMIs due ({activeReminders.loans.length})
-                                </h3>
-                                {activeReminders.loans.map((loan) => (
-                                    <Row
-                                        key={`loan-${loan.id}`}
-                                        tone="neg"
-                                        title={`EMI due: ${loan.name}`}
-                                        meta={`${formatCurrency(loan.emiAmount)} · ${safeDate(loan.nextEmiDate)}`}
-                                        onClick={() => handleItemClick('/loans')}
-                                        onDismiss={() => onDismiss && onDismiss(`loan-${loan.id}`)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-
-                        {activeReminders.borrow?.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-pos">
-                                    Debt settling ({activeReminders.borrow.length})
-                                </h3>
-                                {activeReminders.borrow.map((item) => (
-                                    <Row
-                                        key={`borrow-${item.id}`}
-                                        tone="pos"
-                                        title={`Debt settling: ${item.person}`}
-                                        meta={`${formatCurrency(item.amount)} · due ${safeDate(item.dueDate)}`}
-                                        onClick={() => handleItemClick('/borrow')}
-                                        onDismiss={() => onDismiss && onDismiss(`borrow-${item.id}`)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-
-                        {activeReminders.notes?.length > 0 ? (
-                            <section className="space-y-2">
-                                <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-violet">
-                                    Reminders ({activeReminders.notes.length})
-                                </h3>
-                                {activeReminders.notes.map((note) => (
-                                    <Row
-                                        key={`note-${note.id}`}
-                                        tone="violet"
-                                        title={`Reminder: ${note.title}`}
-                                        meta={`${note.message || ''}${note.due ? ` · ${new Date(note.due).toLocaleString()}` : ''}`}
-                                        onDismiss={() => onDismiss && onDismiss(`note-${note.id}`)}
-                                    />
-                                ))}
-                            </section>
-                        ) : null}
-                    </div>
-                )
-            ) : historyData.length === 0 ? (
-                <div className="rounded-card border border-dashed border-line px-6 py-12 text-center text-sm text-ink-faint">
-                    No recent history.
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    {historyData.map((item) => (
-                        <div
-                            key={item.id}
-                            className="rounded-card border border-line bg-sunken p-3.5"
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <p className="truncate text-sm font-bold text-ink">{item.title}</p>
-                                <span className="shrink-0 text-xs text-ink-faint">{item.time}</span>
+                    {/* Popover Header */}
+                    <div className="flex items-center justify-between border-b border-line px-4 py-3.5 sm:px-5">
+                        <div className="flex items-center gap-2.5">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-soft text-brand">
+                                <Bell size={16} aria-hidden="true" />
+                            </span>
+                            <div>
+                                <h3 className="text-sm font-bold tracking-tight text-ink">Notifications</h3>
+                                <p className="text-[11px] font-semibold text-ink-muted">
+                                    {totalActive} active alert{totalActive !== 1 ? 's' : ''}
+                                </p>
                             </div>
-                            <p className="mt-0.5 text-xs text-ink-muted">{item.desc}</p>
                         </div>
-                    ))}
-                </div>
+
+                        <div className="flex items-center gap-2">
+                            {/* Tab Switcher */}
+                            <div className="inline-flex rounded-xl border border-line bg-sunken p-0.5">
+                                {['active', 'history'].map((t) => (
+                                    <button
+                                        key={t}
+                                        type="button"
+                                        onClick={() => setTab(t)}
+                                        className={cx(
+                                            'rounded-[8px] px-2.5 py-1 text-[11px] font-semibold capitalize transition',
+                                            tab === t
+                                                ? 'bg-surface text-ink shadow-sm'
+                                                : 'text-ink-muted hover:text-ink'
+                                        )}
+                                    >
+                                        {t}
+                                        {t === 'active' && totalActive > 0 ? ` (${totalActive})` : ''}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                aria-label="Close notifications"
+                                className="grid h-7 w-7 place-items-center rounded-lg text-ink-muted hover:bg-raised hover:text-ink transition"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Notification Content Body */}
+                    <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3">
+                        {tab === 'active' ? (
+                            totalActive === 0 ? (
+                                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-6 py-10 text-center">
+                                    <CheckCircle2 size={26} className="text-pos" aria-hidden="true" />
+                                    <p className="text-xs font-bold text-ink">You&apos;re all caught up!</p>
+                                    <p className="text-[11px] text-ink-muted">No pending bills, loan EMIs, or messages.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {/* Unread Messages */}
+                                    {messages.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-info">
+                                                Unread messages ({messages.length})
+                                            </h4>
+                                            {messages.map((msg) => (
+                                                <Row
+                                                    key={msg.id}
+                                                    tone="info"
+                                                    title={`New message from ${msg.sender?.fullName || msg.sender?.username || 'User'}`}
+                                                    meta={msg.message}
+                                                    onClick={() => handleMessageClick(msg)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+
+                                    {/* Budget Alerts */}
+                                    {budgetAlerts.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-neg">
+                                                Budget alerts ({budgetAlerts.length})
+                                            </h4>
+                                            {budgetAlerts.map((budget, i) => (
+                                                <Row
+                                                    key={`budget-${i}`}
+                                                    tone="neg"
+                                                    title={`Budget exceeded: ${budget.category}`}
+                                                    meta={`Spent ${formatCurrency(budget.spent)} of ${formatCurrency(budget.amountLimit)}`}
+                                                    onClick={() => handleItemClick('/budgets')}
+                                                    onDismiss={() => onDismiss && onDismiss(`budget-${budget.category}`)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+
+                                    {/* Bills Due */}
+                                    {activeReminders.bills?.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-warn">
+                                                Bills due ({activeReminders.bills.length})
+                                            </h4>
+                                            {activeReminders.bills.map((bill) => (
+                                                <Row
+                                                    key={`bill-${bill.id}`}
+                                                    tone="warn"
+                                                    title={`Bill due: ${bill.name}`}
+                                                    meta={`${formatCurrency(bill.amount)} · due ${safeDate(bill.dueDate)}`}
+                                                    onClick={() => handleItemClick('/bills')}
+                                                    onDismiss={() => onDismiss && onDismiss(`bill-${bill.id}`)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+
+                                    {/* EMIs Due */}
+                                    {activeReminders.loans?.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-neg">
+                                                EMIs due ({activeReminders.loans.length})
+                                            </h4>
+                                            {activeReminders.loans.map((loan) => (
+                                                <Row
+                                                    key={`loan-${loan.id}`}
+                                                    tone="neg"
+                                                    title={`EMI due: ${loan.name}`}
+                                                    meta={`${formatCurrency(loan.emiAmount)} · ${safeDate(loan.nextEmiDate)}`}
+                                                    onClick={() => handleItemClick('/loans')}
+                                                    onDismiss={() => onDismiss && onDismiss(`loan-${loan.id}`)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+
+                                    {/* Borrow / Debt Settling */}
+                                    {activeReminders.borrow?.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-pos">
+                                                Debt settling ({activeReminders.borrow.length})
+                                            </h4>
+                                            {activeReminders.borrow.map((item) => (
+                                                <Row
+                                                    key={`borrow-${item.id}`}
+                                                    tone="pos"
+                                                    title={`Debt settling: ${item.person}`}
+                                                    meta={`${formatCurrency(item.amount)} · due ${safeDate(item.dueDate)}`}
+                                                    onClick={() => handleItemClick('/borrow')}
+                                                    onDismiss={() => onDismiss && onDismiss(`borrow-${item.id}`)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+
+                                    {/* Smart Reminders */}
+                                    {activeReminders.notes?.length > 0 && (
+                                        <section className="space-y-1.5">
+                                            <h4 className="px-1 text-[10px] font-extrabold uppercase tracking-wider text-violet">
+                                                Reminders ({activeReminders.notes.length})
+                                            </h4>
+                                            {activeReminders.notes.map((note) => (
+                                                <Row
+                                                    key={`note-${note.id}`}
+                                                    tone="violet"
+                                                    title={`Reminder: ${note.title}`}
+                                                    meta={`${note.message || ''}${note.due ? ` · ${new Date(note.due).toLocaleString()}` : ''}`}
+                                                    onDismiss={() => onDismiss && onDismiss(`note-${note.id}`)}
+                                                />
+                                            ))}
+                                        </section>
+                                    )}
+                                </div>
+                            )
+                        ) : historyData.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center text-xs text-ink-faint">
+                                No recent history recorded.
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {historyData.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="rounded-2xl border border-line bg-sunken p-3"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="truncate text-xs font-bold text-ink">{item.title}</p>
+                                            <span className="shrink-0 text-[10px] text-ink-faint">{item.time}</span>
+                                        </div>
+                                        <p className="mt-0.5 text-[11px] text-ink-muted">{item.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
             )}
-        </SlideOver>
+        </AnimatePresence>
     );
 };
 

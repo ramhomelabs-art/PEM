@@ -11,7 +11,6 @@ import { ToastProvider } from './context/ToastContext';
 import Layout from './components/personal_expense/Layout';
 import CreditCardLayout from './components/credit_card/CreditCardLayout';
 import SmartNotesPanel from './components/personal_expense/SmartNotesPanel';
-import FloatingNotificationDock from './components/ui/FloatingNotificationDock';
 
 // Eager load core authentication pages
 import Login from './pages/Login';
@@ -75,7 +74,6 @@ function App() {
                 <SmartNotesProvider>
                   <Router>
                     <SmartNotesPanel />
-                    <FloatingNotificationDock />
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/login" element={<Login />} />

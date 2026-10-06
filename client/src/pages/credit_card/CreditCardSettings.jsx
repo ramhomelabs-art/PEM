@@ -122,7 +122,7 @@ const CreditCardSettings = () => {
     return (
         <div className="mx-auto max-w-[1000px] p-6 md:p-10">
             <header className="mb-8">
-                <h1 className="text-3xl font-black tracking-tight text-ink">Credit Card Settings</h1>
+                <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">Credit Card Settings</h1>
                 <p className="mt-1 text-sm text-ink-muted">Manage your credit card preferences and security settings.</p>
             </header>
 

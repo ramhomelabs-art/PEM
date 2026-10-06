@@ -310,24 +310,39 @@ select:focus {
    Responsive Design Utilities 
    ========================================== */
 
-/* Page container with responsive padding */
+/* Page container with fluid padding: shrinks smoothly from a 27" monitor
+   down to phone widths without any breakpoint jumps. */
 .page-container {
   margin: 0 auto;
-  padding: 60px 40px;
+  padding: clamp(20px, 4vh, 60px) clamp(14px, 3vw, 40px);
   box-sizing: border-box;
   transition: padding 0.3s ease;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 640px) {
   .page-container {
-    padding: 30px 20px !important;
+    padding-top: 16px;
+    padding-bottom: 40px;
   }
 }
 
-@media (max-height: 850px) {
-  .page-container {
-    padding: 30px 20px !important;
-  }
+/* Horizontally scrollable region for wide tables on small screens.
+   Keeps the page itself from scrolling sideways. */
+.table-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pem-border-strong) transparent;
+}
+
+.table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--pem-border-strong);
+  border-radius: 999px;
 }
 
 /* Sidebar responsive adjustments */
@@ -730,6 +745,40 @@ div[draggable] .drag-handle:hover {
   .cc-modal-grid {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+}
+
+/* ==========================================
+   Small-screen polish
+   ========================================== */
+
+/* Media can never widen its container and force sideways scrolling. */
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Comfortable one-hand use on phones/tablets. */
+@media (max-width: 640px) {
+  /* Notch / rounded-display safe area for the sticky mobile bars. */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Long headings scale down instead of overflowing narrow cards. */
+  h1,
+  h2,
+  h3 {
+    overflow-wrap: anywhere;
+  }
+
+  /* Inputs keep iOS from zooming the page on focus (never smaller than
+     the surrounding text, but at least 16px). */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
   }
 }
 

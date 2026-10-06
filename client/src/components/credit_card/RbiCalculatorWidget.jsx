@@ -149,7 +149,7 @@ const RbiCalculatorWidget = () => {
 
                         <div>
                             <label className={labelClass}>Repayment Strategy</label>
-                            <div className="grid grid-cols-3 gap-2.5">
+                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                                 {modes.map((mode) => (
                                     <button
                                         key={mode.id}

@@ -108,7 +108,7 @@ export function InvestmentPanel() {
                 </div>
             ) : (
                 <div className="flex flex-1 flex-col">
-                    <p className="tnum text-3xl font-black tracking-tight text-ink">
+                    <p className="tnum text-2xl font-black tracking-tight text-ink sm:text-3xl">
                         {formatCurrency(stats.current, currency)}
                     </p>
                     <p className="mt-1 text-xs text-ink-muted">

@@ -188,7 +188,7 @@ const MfaManager = () => {
             {/* Header */}
             <header className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h2 className="flex items-center gap-3 text-3xl font-black tracking-tight text-ink">
+                    <h2 className="flex items-center gap-3 text-2xl font-black tracking-tight text-ink sm:text-3xl">
                         <IconBadge icon={Shield} tone="brand" size="lg" />
                         MFA Security Center
                     </h2>

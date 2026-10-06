@@ -260,7 +260,7 @@ const Login = () => {
                                         transition={{ delay: 0.15 }}
                                         className="space-y-3 text-center"
                                     >
-                                        <h1 className="text-4xl font-black text-white tracking-wide">SUCCESS!</h1>
+                                        <h1 className="text-3xl font-black sm:text-4xl text-white tracking-wide">SUCCESS!</h1>
 
                                         <div className="space-y-1">
                                             <p className="text-lg text-slate-200 font-medium">
@@ -319,7 +319,7 @@ const Login = () => {
                             </motion.div>
 
                             <div className="space-y-4">
-                                <h2 className="text-4xl font-black text-red-500 uppercase tracking-widest bg-red-500/10 px-6 py-2 rounded-2xl">
+                                <h2 className="text-3xl font-black sm:text-4xl text-red-500 uppercase tracking-widest bg-red-500/10 px-6 py-2 rounded-2xl">
                                     ACCESS DENIED!
                                 </h2>
                                 <div className="text-white text-3xl font-black leading-tight">

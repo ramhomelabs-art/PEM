@@ -471,7 +471,7 @@ const CreditCardAutoStatement = () => {
         <div className="mx-auto max-w-[1400px] p-6 md:p-10">
             {/* Header */}
             <header className="mb-8">
-                <h1 className="text-3xl font-black tracking-tight text-ink">Auto Statement</h1>
+                <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">Auto Statement</h1>
                 <p className="mt-1 text-sm text-ink-muted">
                     Upload PDF statements, extract transactions, and sync to your cards.
                 </p>

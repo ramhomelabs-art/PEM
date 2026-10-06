@@ -58,11 +58,11 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
     const [showCustom, setShowCustom] = useState(false);
 
     return (
-        <div className="relative">
+        <div className="relative min-w-0 max-w-full">
             <div
                 role="group"
                 aria-label="Date range"
-                className="inline-flex items-center rounded-control border border-line bg-sunken p-0.5"
+                className="no-scrollbar inline-flex max-w-full items-center overflow-x-auto rounded-control border border-line bg-sunken p-0.5"
             >
                 {RANGE_PRESETS.map((p) => (
                     <button
@@ -200,6 +200,7 @@ export function DashboardHeader({
     onOpenMessages,
     onOpenShare,
     onOpenNotifications,
+    notificationSlot,
     onExportCsv,
     onExportPdf,
 }) {
@@ -208,7 +209,7 @@ export function DashboardHeader({
     return (
         <header className="no-print sticky top-0 z-30 border-b border-line bg-bg backdrop-blur-xl">
             <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-2 gap-y-2 px-4 py-3 sm:px-6">
-                <div className="min-w-[180px] flex-1">
+                <div className="min-w-[140px] flex-1">
                     <h1 className="truncate text-base font-extrabold tracking-tight text-ink">
                         {greetingFor()}, {firstNameOf(user)}
                     </h1>
@@ -281,12 +282,15 @@ export function DashboardHeader({
                     onClick={onOpenMessages}
                     badge={unreadCount}
                 />
-                <IconAction
-                    icon={Bell}
-                    label="Notifications"
-                    onClick={onOpenNotifications}
-                    badge={alertCount}
-                />
+                <div className="relative">
+                    <IconAction
+                        icon={Bell}
+                        label="Notifications"
+                        onClick={onOpenNotifications}
+                        badge={alertCount}
+                    />
+                    {notificationSlot}
+                </div>
 
                 <Button variant="primary" icon={Plus} onClick={onAdd} className="ml-1">
                     <span className="hidden sm:inline">Add entry</span>

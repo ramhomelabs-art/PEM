@@ -360,7 +360,7 @@ const Borrow = () => {
                 </Button>
             </header>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="You owe" value={formatCurrency(totalBorrowed, currency)} tone="neg" icon={ArrowDownLeft} />
                 <StatTile label="Owed to you" value={formatCurrency(totalLent, currency)} tone="pos" icon={ArrowUpRight} />
                 <StatTile label="Borrowed records" value={borrowedRecords.length} tone="warn" icon={Handshake} />
@@ -623,7 +623,7 @@ const Borrow = () => {
             >
                 {selectedRecord ? (
                     <>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <StatTile label="Total" value={formatCurrency(selectedRecord.amount, currency)} />
                             <StatTile
                                 label="Paid"

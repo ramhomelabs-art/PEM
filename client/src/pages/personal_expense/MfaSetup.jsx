@@ -151,7 +151,7 @@ const MfaSetup = () => {
                         {step === 3 && <CheckCircle size={48} className="text-white" />}
                     </motion.div>
 
-                    <h1 className="text-4xl font-black tracking-tighter mb-2" style={{ color: theme.text }}>
+                    <h1 className="text-3xl font-black sm:text-4xl tracking-tighter mb-2" style={{ color: theme.text }}>
                         {step === 1 && "SECURE ACCOUNT"}
                         {step === 2 && "VERIFY DEVICE"}
                         {step === 3 && "ALL SET!"}

@@ -273,7 +273,7 @@ const MfaVerify = () => {
                                         transition={{ delay: 0.15 }}
                                         className="space-y-3 text-center"
                                     >
-                                        <h1 className="text-4xl font-black text-white tracking-wide">SUCCESS!</h1>
+                                        <h1 className="text-3xl font-black sm:text-4xl text-white tracking-wide">SUCCESS!</h1>
 
                                         <div className="space-y-1">
                                             <p className="text-lg text-slate-200 font-medium">
@@ -330,7 +330,7 @@ const MfaVerify = () => {
                                 >
                                     <Shield size={48} className="text-white" />
                                 </motion.div>
-                                <h1 className="text-4xl font-black tracking-tighter mb-2" style={{ color: theme.text }}>SECURITY CHECK</h1>
+                                <h1 className="text-3xl font-black sm:text-4xl tracking-tighter mb-2" style={{ color: theme.text }}>SECURITY CHECK</h1>
                                 <p className="text-lg font-bold uppercase tracking-[0.1em]" style={{ color: theme.textSecondary }}>
                                     Two-Step Verification
                                 </p>

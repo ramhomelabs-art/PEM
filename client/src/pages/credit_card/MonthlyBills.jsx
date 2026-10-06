@@ -190,7 +190,7 @@ const MonthlyBills = () => {
         <div className="mx-auto max-w-[1200px] p-6 md:p-10">
             <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-ink">Monthly Bills</h1>
+                    <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">Monthly Bills</h1>
                     <p className="mt-1 text-sm text-ink-muted">Track and pay your credit card bills.</p>
                 </div>
 
