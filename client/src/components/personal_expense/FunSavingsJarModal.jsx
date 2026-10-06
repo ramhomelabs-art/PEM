@@ -50,7 +50,11 @@ export function FunSavingsJarModal({
 
     const [jarBalance, setJarBalance] = useState(() => {
         const saved = localStorage.getItem('pem-fun-jar-balance');
-        return saved ? Number(saved) : 0;
+        if (!saved || saved === '7101' || saved === '8450') {
+            localStorage.setItem('pem-fun-jar-balance', '0');
+            return 0;
+        }
+        return Number(saved) || 0;
     });
 
     const [selectedGoal, setSelectedGoal] = useState(() => {

@@ -16,7 +16,7 @@ export function FinancialIntelligenceHub({
     onOpenFunJar,
     onOpenWeekendBurn,
     onOpenReceiptScanner,
-    funJarBalance = 8450,
+    funJarBalance = 0,
     currency = 'INR',
 }) {
     const tools = [
