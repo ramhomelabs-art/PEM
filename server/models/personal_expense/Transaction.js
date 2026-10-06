@@ -32,7 +32,7 @@ module.exports = (sequelize) => {
             allowNull: true
         },
         source: {
-            type: DataTypes.ENUM('manual', 'sms', 'email', 'api'),
+            type: DataTypes.STRING, // Changed from ENUM for flexibility (supports fun_jar_hold, fun_jar_withdraw, etc.)
             defaultValue: 'manual'
         },
         rawContent: {

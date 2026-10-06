@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/personal_expense/AuthContext';
 import {
     Sparkles,
     Coins,
@@ -81,10 +82,12 @@ export function FunSavingsJarModal({
     todaySpent = 0,
     dailyTarget = 0,
     currency = 'INR',
-    user,
+    user: userProp,
     onReloadTransactions,
     onJarUpdate,
 }) {
+    const { user: authUser } = useAuth();
+    const currentUser = userProp || authUser || (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null);
     const todayKey = new Date().toISOString().split('T')[0];
 
     const [jarBalance, setJarBalance] = useState(() => {
@@ -181,22 +184,24 @@ export function FunSavingsJarModal({
         ? Math.min(100, Math.round((jarBalance / selectedGoal.target) * 100))
         : 0;
 
-    const recordStashTransaction = async (amount, desc) => {
-        if (!user?.id || !deductFromMainBalance) return null;
+    const recordStashTransaction = async (amount, desc, shouldDeduct = true) => {
+        const uid = currentUser?.id;
+        if (!uid || !shouldDeduct) return null;
 
         try {
+            const token = localStorage.getItem('token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch(`${API_URL}/transactions/manual`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
+                headers,
                 body: JSON.stringify({
                     type: 'expense',
                     amount: parseFloat(amount),
                     category: 'Savings',
                     description: `Fun Money Jar: ${desc}`,
-                    userId: user.id,
+                    userId: uid,
                     paymentMode: 'Cash/Pot Transfer',
                     date: new Date(),
                     source: 'fun_jar_hold',
@@ -220,29 +225,34 @@ export function FunSavingsJarModal({
 
                 if (onReloadTransactions) onReloadTransactions();
                 return txData.id;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Failed to record stash transaction:', res.status, errData);
             }
         } catch (err) {
-            console.error('Failed to record stash transaction:', err);
+            console.error('Failed to record stash transaction network error:', err);
         }
         return null;
     };
 
-    const recordWithdrawalTransaction = async (amount, desc) => {
-        if (!user?.id || !depositBackToMainBalance) return null;
+    const recordWithdrawalTransaction = async (amount, desc, shouldDeposit = true) => {
+        const uid = currentUser?.id;
+        if (!uid || !shouldDeposit) return null;
 
         try {
+            const token = localStorage.getItem('token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch(`${API_URL}/transactions/manual`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
+                headers,
                 body: JSON.stringify({
                     type: 'income',
                     amount: parseFloat(amount),
                     category: 'Savings',
                     description: `Fun Pot Return to Main Balance: ${desc}`,
-                    userId: user.id,
+                    userId: uid,
                     paymentMode: 'Cash/Pot Transfer',
                     date: new Date(),
                     source: 'fun_jar_withdraw',
@@ -253,9 +263,12 @@ export function FunSavingsJarModal({
                 const txData = await res.json();
                 if (onReloadTransactions) onReloadTransactions();
                 return txData.id;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Failed to record withdrawal transaction:', res.status, errData);
             }
         } catch (err) {
-            console.error('Failed to record withdrawal transaction:', err);
+            console.error('Failed to record withdrawal transaction network error:', err);
         }
         return null;
     };
@@ -272,9 +285,9 @@ export function FunSavingsJarModal({
         try {
             let txId = null;
             if (actionTab === 'deposit') {
-                txId = await recordStashTransaction(val, `${selectedGoal?.title || 'Goal'} Stash`);
+                txId = await recordStashTransaction(val, `${selectedGoal?.title || 'Goal'} Stash`, deductFromMainBalance);
             } else if (actionTab === 'withdraw') {
-                txId = await recordWithdrawalTransaction(val, `${selectedGoal?.title || 'Goal'} Withdrawal`);
+                txId = await recordWithdrawalTransaction(val, `${selectedGoal?.title || 'Goal'} Withdrawal`, depositBackToMainBalance);
             }
 
             const newBal = actionTab === 'deposit' ? jarBalance + val : Math.max(0, jarBalance - val);
@@ -309,7 +322,7 @@ export function FunSavingsJarModal({
 
         setLoadingAction(true);
         try {
-            const txId = await recordStashTransaction(todayUnderSpend, `Safe-to-Spend Daily Underspend`);
+            const txId = await recordStashTransaction(todayUnderSpend, `Safe-to-Spend Daily Underspend`, true);
 
             const newBal = jarBalance + todayUnderSpend;
             setJarBalance(newBal);
