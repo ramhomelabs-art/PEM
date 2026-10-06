@@ -49,8 +49,8 @@ function Row({ tone = 'info', title, meta, onClick, onDismiss }) {
                     : undefined
             }
             className={cx(
-                'group relative flex items-start gap-3 rounded-2xl border border-line bg-sunken p-3 transition',
-                onClick && 'cursor-pointer hover:border-line-strong hover:bg-raised'
+                'group relative flex items-start gap-3 rounded-xl bg-[#101a33] p-3 transition shadow-sm',
+                onClick && 'cursor-pointer hover:bg-[#152243]'
             )}
         >
             <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-xl', t.wrap)}>
@@ -68,7 +68,7 @@ function Row({ tone = 'info', title, meta, onClick, onDismiss }) {
                         e.stopPropagation();
                         onDismiss();
                     }}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-ink-faint transition hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-ink-faint transition hover:bg-white/[0.08] hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
                 >
                     <X size={13} aria-hidden="true" />
                 </button>
@@ -147,17 +147,20 @@ const NotificationCenter = ({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.94, y: 8 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                    className="absolute right-0 top-full mt-2.5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-32px)] overflow-hidden rounded-3xl border border-line bg-surface/95 backdrop-blur-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] flex flex-col max-h-[min(560px,calc(100vh-80px))]"
+                    className="absolute right-0 top-full mt-2.5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.9)] flex flex-col max-h-[min(560px,calc(100vh-80px))]"
                     role="dialog"
                     aria-label="Floating Notifications"
                 >
+                    {/* Top ambient highlight line */}
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-brand/50 to-transparent opacity-70" />
+
                     {/* Caret pointing directly to the Bell button */}
-                    <div className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 border-l border-t border-line bg-surface" />
+                    <div className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 border-l border-t border-[rgba(255,255,255,0.08)] bg-[#0c1427]" />
 
                     {/* Popover Header */}
-                    <div className="flex items-center justify-between border-b border-line px-4 py-3.5 sm:px-5">
+                    <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] bg-[#080e1d] px-4 py-3.5 sm:px-5">
                         <div className="flex items-center gap-2.5">
-                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-soft text-brand">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand/10 text-brand shadow-[0_0_10px_rgba(20,184,166,0.15)]">
                                 <Bell size={16} aria-hidden="true" />
                             </span>
                             <div>
@@ -170,16 +173,16 @@ const NotificationCenter = ({
 
                         <div className="flex items-center gap-2">
                             {/* Tab Switcher */}
-                            <div className="inline-flex rounded-xl border border-line bg-sunken p-0.5">
+                            <div className="inline-flex rounded-lg bg-[#101a33] p-0.5">
                                 {['active', 'history'].map((t) => (
                                     <button
                                         key={t}
                                         type="button"
                                         onClick={() => setTab(t)}
                                         className={cx(
-                                            'rounded-[8px] px-2.5 py-1 text-[11px] font-semibold capitalize transition',
+                                            'rounded-md px-2.5 py-1 text-[11px] font-semibold capitalize transition',
                                             tab === t
-                                                ? 'bg-surface text-ink shadow-sm'
+                                                ? 'bg-brand/20 text-brand shadow-sm'
                                                 : 'text-ink-muted hover:text-ink'
                                         )}
                                     >
@@ -193,7 +196,7 @@ const NotificationCenter = ({
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Close notifications"
-                                className="grid h-7 w-7 place-items-center rounded-lg text-ink-muted hover:bg-raised hover:text-ink transition"
+                                className="grid h-7 w-7 place-items-center rounded-lg bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-ink transition"
                             >
                                 <X size={15} />
                             </button>
@@ -201,11 +204,13 @@ const NotificationCenter = ({
                     </div>
 
                     {/* Notification Content Body */}
-                    <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3">
+                    <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 bg-[#0c1427]">
                         {tab === 'active' ? (
                             totalActive === 0 ? (
-                                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-6 py-10 text-center">
-                                    <CheckCircle2 size={26} className="text-pos" aria-hidden="true" />
+                                <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#101a33]/60 px-6 py-10 text-center shadow-inner">
+                                    <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/15 text-emerald-400">
+                                        <CheckCircle2 size={20} aria-hidden="true" />
+                                    </div>
                                     <p className="text-xs font-bold text-ink">You&apos;re all caught up!</p>
                                     <p className="text-[11px] text-ink-muted">No pending bills, loan EMIs, or messages.</p>
                                 </div>
@@ -325,7 +330,7 @@ const NotificationCenter = ({
                                 </div>
                             )
                         ) : historyData.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center text-xs text-ink-faint">
+                            <div className="rounded-xl bg-[#101a33]/60 px-6 py-10 text-center text-xs text-ink-faint">
                                 No recent history recorded.
                             </div>
                         ) : (
@@ -333,7 +338,7 @@ const NotificationCenter = ({
                                 {historyData.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="rounded-2xl border border-line bg-sunken p-3"
+                                        className="rounded-xl bg-[#101a33] p-3 shadow-sm"
                                     >
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="truncate text-xs font-bold text-ink">{item.title}</p>
