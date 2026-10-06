@@ -49,6 +49,11 @@ import ContactsDropdown from '../../components/personal_expense/ContactsDropdown
 import MessagesDropdown from '../../components/personal_expense/MessagesDropdown';
 import ShareDropdown from '../../components/personal_expense/ShareDropdown';
 import BirthdayGreeting from '../../components/personal_expense/BirthdayGreeting';
+import { FinancialIntelligenceHub } from '../../components/dashboard/FinancialIntelligenceHub';
+import FinancialTimeMachineModal from '../../components/personal_expense/FinancialTimeMachineModal';
+import FunSavingsJarModal from '../../components/personal_expense/FunSavingsJarModal';
+import WeekendBurnModal from '../../components/personal_expense/WeekendBurnModal';
+import ReceiptScannerModal from '../../components/personal_expense/ReceiptScannerModal';
 
 const currencyOf = (user) => user?.currency || 'INR';
 
@@ -112,6 +117,10 @@ const Dashboard = () => {
     const [showMessages, setShowMessages] = useState(false);
     const [showShare, setShowShare] = useState(false);
     const [showWeather, setShowWeather] = useState(false);
+    const [showTimeMachine, setShowTimeMachine] = useState(false);
+    const [showFunJar, setShowFunJar] = useState(false);
+    const [showWeekendBurn, setShowWeekendBurn] = useState(false);
+    const [showReceiptScanner, setShowReceiptScanner] = useState(false);
     const [messageToast, setMessageToast] = useState(null);
 
     const openAdd = useCallback(
@@ -369,6 +378,17 @@ const Dashboard = () => {
                     />
                 </motion.div>
 
+                {/* Financial Intelligence & Prediction Hub */}
+                <motion.div {...enter(0)}>
+                    <FinancialIntelligenceHub
+                        onOpenTimeMachine={() => setShowTimeMachine(true)}
+                        onOpenFunJar={() => setShowFunJar(true)}
+                        onOpenWeekendBurn={() => setShowWeekendBurn(true)}
+                        onOpenReceiptScanner={() => setShowReceiptScanner(true)}
+                        currency={currency}
+                    />
+                </motion.div>
+
                 {/* KPI row */}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {kpis.map((k, i) => (
@@ -568,6 +588,42 @@ const Dashboard = () => {
             />
 
             <BirthdayGreeting user={user} />
+
+            {/* Financial Intelligence Modals */}
+            <FinancialTimeMachineModal
+                isOpen={showTimeMachine}
+                onClose={() => setShowTimeMachine(false)}
+                currentBalance={kpi.current.balance || 37500}
+                monthlyIncome={kpi.current.income || 85000}
+                monthlyExpense={kpi.current.expense || 45000}
+                currency={currency}
+            />
+
+            <FunSavingsJarModal
+                isOpen={showFunJar}
+                onClose={() => setShowFunJar(false)}
+                currency={currency}
+            />
+
+            <WeekendBurnModal
+                isOpen={showWeekendBurn}
+                onClose={() => setShowWeekendBurn(false)}
+                transactions={transactions}
+                currency={currency}
+            />
+
+            <ReceiptScannerModal
+                isOpen={showReceiptScanner}
+                onClose={() => setShowReceiptScanner(false)}
+                onSaveTransaction={async (tx) => {
+                    try {
+                        openAdd();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }}
+                currency={currency}
+            />
         </>
     );
 };
