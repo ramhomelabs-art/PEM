@@ -118,8 +118,8 @@ export function CashFlowCard({
               : 1;
 
     return (
-        <section className="pem-card flex h-full flex-col p-6">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <section className="pem-card flex h-full flex-col p-4 sm:p-5">
+            <header className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="flex items-center gap-2 text-base font-bold tracking-tight text-ink">
                         <TrendingUp size={18} className="text-brand" aria-hidden="true" />
@@ -138,12 +138,12 @@ export function CashFlowCard({
             </header>
 
             {loading ? (
-                <div className="mt-4 flex-1 space-y-4">
+                <div className="mt-3 flex-1 space-y-3">
                     <div className="pem-skeleton h-4 w-64" />
-                    <div className="pem-skeleton h-[280px] w-full rounded-card sm:h-[300px]" />
+                    <div className="pem-skeleton h-[180px] w-full rounded-card sm:h-[200px]" />
                 </div>
             ) : isEmpty ? (
-                <div className="mt-4 flex-1">
+                <div className="mt-3 flex-1">
                     <EmptyState
                         icon={Inbox}
                         title="No transactions in this period"
@@ -155,7 +155,7 @@ export function CashFlowCard({
                     />
                 </div>
             ) : (
-                <div className="mt-4 flex flex-1 flex-col">
+                <div className="mt-3 flex flex-1 flex-col">
                     <CashFlowSummary
                         summary={summary}
                         comparison={comparison}
@@ -163,7 +163,7 @@ export function CashFlowCard({
                         currency={currency}
                     />
 
-                    <div className="mt-3.5 flex-1">
+                    <div className="mt-2.5 flex-1">
                         <CashFlowChart
                             data={series}
                             currency={currency}
@@ -175,13 +175,13 @@ export function CashFlowCard({
                     </div>
 
                     {sparse ? (
-                        <p className="mt-2 text-xs text-ink-faint">
+                        <p className="mt-1.5 text-xs text-ink-faint">
                             Tracking active entries. Add more transactions to expand trend resolution.
                         </p>
                     ) : null}
 
                     {/* Advanced Financial Telemetry Strip */}
-                    <footer className="mt-3.5 grid grid-cols-2 gap-2 border-t border-line pt-3 text-xs sm:grid-cols-4">
+                    <footer className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line pt-2 text-xs sm:grid-cols-4">
                         <div className="min-w-0">
                             <p className="text-[11px] font-medium text-ink-faint">Peak Inflow</p>
                             <p className="tnum font-bold text-pos truncate">

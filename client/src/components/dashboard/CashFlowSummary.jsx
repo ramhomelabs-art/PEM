@@ -52,11 +52,11 @@ export function CashFlowSummary({
     const coverage = totalOut > 0 ? totalIn / totalOut : totalIn > 0 ? 99 : 1;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             {/* Top row: Net delta status + Badge + Comparison */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-bold text-ink">
+                    <p className="text-xs sm:text-sm font-bold text-ink">
                         {sentence}
                         <span className="font-normal text-ink-muted"> {periodNoun}</span>
                         {savingsRate !== null ? (
@@ -68,7 +68,7 @@ export function CashFlowSummary({
                     <Badge tone={tone}>{label}</Badge>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                     {comparison !== null ? (
                         <span className="inline-flex items-center gap-0.5 text-xs font-medium text-ink-faint">
                             <RateIcon
@@ -87,8 +87,8 @@ export function CashFlowSummary({
             </div>
 
             {/* Proportional Liquidity Flow Bar */}
-            <div className="rounded-control border border-line bg-surface/50 p-2.5 backdrop-blur-xs">
-                <div className="mb-1.5 flex items-center justify-between text-xs">
+            <div className="rounded-control border border-line bg-surface/50 px-2.5 py-1.5 backdrop-blur-xs">
+                <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5 font-bold text-pos">
                         <span className="h-2 w-2 rounded-full bg-pos shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                         Inflow {inPercent}% ({formatCompact(totalIn, currency)})
@@ -102,7 +102,7 @@ export function CashFlowSummary({
                     </span>
                 </div>
 
-                <div className="relative h-2 w-full overflow-hidden rounded-full bg-line/40">
+                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-line/40">
                     <div
                         className="h-full rounded-l-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
                         style={{ width: `${inPercent}%` }}

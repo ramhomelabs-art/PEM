@@ -133,11 +133,11 @@ export function CashFlowChart({
             </div>
 
             {/* Fluid Chart */}
-            <div className="h-[270px] w-full min-w-0 sm:h-[290px]">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: 290 }}>
+            <div className="h-[180px] w-full min-w-0 sm:h-[200px]">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: 200 }}>
                     <ComposedChart
                         data={chartData}
-                        margin={{ top: 12, right: 12, bottom: 0, left: -6 }}
+                        margin={{ top: 8, right: 8, bottom: 0, left: -10 }}
                     >
                         <defs>
                             <linearGradient id="cf-inflow-glow" x1="0" y1="0" x2="0" y2="1">

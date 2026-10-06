@@ -202,10 +202,10 @@ export function CategoryTransactionsModal({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 16 }}
                         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                        className="relative z-10 flex max-h-[88vh] w-full max-w-xl flex-col rounded-2xl border border-line-strong bg-surface shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)]"
+                        className="relative z-10 flex max-h-[76vh] w-full max-w-lg flex-col rounded-2xl border border-line-strong bg-surface shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)]"
                     >
                         {/* Header */}
-                        <header className="flex items-start justify-between gap-4 border-b border-line/80 p-5 sm:p-6">
+                        <header className="flex items-start justify-between gap-4 border-b border-line/80 p-4 sm:p-5">
                             <div className="flex items-center gap-3.5 min-w-0">
                                 <span
                                     className="grid h-12 w-12 shrink-0 place-items-center rounded-xl shadow-inner transition-transform"
