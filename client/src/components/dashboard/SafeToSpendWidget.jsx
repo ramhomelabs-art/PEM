@@ -15,11 +15,8 @@ import {
     X,
     Clock,
     ArrowRight,
-    TrendingDown,
-    Zap,
-    Sliders,
-    Calendar,
     Compass,
+    TrendingDown,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 import { cx } from '../ui/cx';
@@ -72,7 +69,7 @@ function LiquidWaveGauge({
     const waveY = 100 - clampedPct;
 
     return (
-        <div className="flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center justify-center shrink-0">
             {/* Outer Glow Tank */}
             <div
                 className={cx(
@@ -95,11 +92,11 @@ function LiquidWaveGauge({
                     <defs>
                         <linearGradient id={`grad-front-${status}`} x1="0%" y1="0%" x2="0%" y2="100%">
                             <stop offset="0%" stopColor={waveTheme.frontColor} />
-                            <stop offset="100%" stopColor="rgba(8, 14, 29, 0.9)" />
+                            <stop offset="100%" stopColor="rgba(8, 14, 29, 0.95)" />
                         </linearGradient>
                         <linearGradient id={`grad-back-${status}`} x1="0%" y1="0%" x2="0%" y2="100%">
                             <stop offset="0%" stopColor={waveTheme.backColor} />
-                            <stop offset="100%" stopColor="rgba(8, 14, 29, 0.7)" />
+                            <stop offset="100%" stopColor="rgba(8, 14, 29, 0.75)" />
                         </linearGradient>
                     </defs>
 
@@ -133,7 +130,7 @@ function LiquidWaveGauge({
                 </svg>
 
                 {/* Central Overlay Percentage */}
-                <div className="relative z-10 flex flex-col items-center justify-center text-center p-1 drop-shadow-md">
+                <div className="relative z-10 flex flex-col items-center justify-center text-center p-1 drop-shadow-md select-none">
                     <span className="text-xl sm:text-2xl font-black tracking-tight text-white tnum leading-none">
                         {clampedPct}%
                     </span>
@@ -144,29 +141,10 @@ function LiquidWaveGauge({
             </div>
 
             {sublabel && (
-                <span className="mt-1.5 text-[10px] font-semibold text-ink-muted text-center max-w-[120px]">
+                <span className="mt-1.5 text-[10px] font-semibold text-ink-muted text-center max-w-[120px] truncate">
                     {sublabel}
                 </span>
             )}
-
-            <style>{`
-                @keyframes waveFront {
-                    0% { transform: translateX(0); }
-                    50% { transform: translateX(-25%); }
-                    100% { transform: translateX(-50%); }
-                }
-                @keyframes waveBack {
-                    0% { transform: translateX(-50%); }
-                    50% { transform: translateX(-25%); }
-                    100% { transform: translateX(0); }
-                }
-                .animate-wave-front {
-                    animation: waveFront 4s ease-in-out infinite alternate;
-                }
-                .animate-wave-back {
-                    animation: waveBack 6s ease-in-out infinite alternate;
-                }
-            `}</style>
         </div>
     );
 }
@@ -268,9 +246,6 @@ export function SafeToSpendWidget({
         const percentOfDailySpent = dailyTarget > 0 ? Math.min(100, Math.round((todaySpent / dailyTarget) * 100)) : (todaySpent > 0 ? 100 : 0);
         const percentOfDailyRemaining = Math.max(0, 100 - percentOfDailySpent);
 
-        // Monthly discretionary capacity remaining
-        const percentOfPoolRemaining = poolStartOfToday > 0 ? Math.min(100, Math.max(0, Math.round((safeMonth / poolStartOfToday) * 100))) : 0;
-
         // Status
         let status = 'healthy';
         if (liquidCash === 0) {
@@ -282,11 +257,6 @@ export function SafeToSpendWidget({
         } else if (safeTodayRemaining < 200 && safeTodayRemaining > 0) {
             status = 'tight';
         }
-
-        // Financial Rhythm & Burn rate insights
-        const averageBurnRate = todayCount > 0 ? todaySpent : Math.round(poolStartOfToday / daysRemaining);
-        const burnDaysRunway = averageBurnRate > 0 ? Math.round(liquidCash / averageBurnRate) : daysRemaining;
-        const isRunwaySafe = burnDaysRunway >= daysRemaining;
 
         return {
             daysRemaining,
@@ -308,9 +278,6 @@ export function SafeToSpendWidget({
             overDailyAmount,
             percentOfDailySpent,
             percentOfDailyRemaining,
-            percentOfPoolRemaining,
-            burnDaysRunway,
-            isRunwaySafe,
             status,
         };
     }, [transactions, banks, bills, loans, borrow, kpiBalance]);
@@ -425,11 +392,11 @@ export function SafeToSpendWidget({
     }
 
     return (
-        <section className="mb-4">
+        <section className="mb-4 w-full">
             {/* Primary Safe-to-Spend Banner (Solid Dark Surface, No White Borders) */}
             <div
                 className={cx(
-                    'group relative overflow-hidden rounded-2xl bg-[#0c1427] transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)]',
+                    'group relative w-full overflow-hidden rounded-2xl bg-[#0c1427] transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)]',
                     calculations.status === 'healthy'
                         ? 'shadow-[0_0_24px_rgba(16,185,129,0.06)]'
                         : calculations.status === 'tight'
@@ -564,12 +531,12 @@ export function SafeToSpendWidget({
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.25, ease: 'easeInOut' }}
-                            className="overflow-hidden bg-[#080e1d]"
+                            className="w-full overflow-hidden bg-[#080e1d]"
                         >
-                            <div className="p-4 sm:p-5 space-y-4">
-                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                                    {/* Left (6 cols): Calculation Breakdown + Dynamic Water Wave Gauge */}
-                                    <div className="space-y-3 lg:col-span-6 flex flex-col justify-between">
+                            <div className="p-4 sm:p-5">
+                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                    {/* Left Column: Calculation Breakdown + Dynamic Water Wave Gauge */}
+                                    <div className="flex flex-col justify-between space-y-3">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1.5">
                                                 <Compass size={13} className="text-teal-400" />
@@ -705,7 +672,7 @@ export function SafeToSpendWidget({
                                         </div>
                                     </div>
 
-                                    {/* Right (6 cols): "Can I Afford This?" Live Real-Time Simulator */}
+                                    {/* Right Column: "Can I Afford This?" Live Real-Time Simulator */}
                                     <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between shadow-inner">
                                         <div>
                                             <div className="flex items-center justify-between mb-1">
@@ -793,7 +760,7 @@ export function SafeToSpendWidget({
                                                     </div>
 
                                                     {/* 4-Card Real-Time Prediction Comparison Grid */}
-                                                    <div className="grid grid-cols-2 gap-2">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                         {/* 1. Today's Spend */}
                                                         <div className="rounded-xl bg-[#080e1d] p-2.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">
