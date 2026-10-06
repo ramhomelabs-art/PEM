@@ -118,10 +118,17 @@ export function FunSavingsJarModal({
     }, [goals, selectedGoalId]);
 
     const [lastStashedDate, setLastStashedDate] = useState(() => {
-        return localStorage.getItem('pem-fun-jar-last-stashed-date') || '';
+        const saved = localStorage.getItem('pem-fun-jar-last-stashed-date');
+        const currentBal = Number(localStorage.getItem('pem-fun-jar-balance') || 0);
+        // If balance is 0, auto reset the stash lock
+        if (currentBal === 0) {
+            localStorage.removeItem('pem-fun-jar-last-stashed-date');
+            return '';
+        }
+        return saved || '';
     });
 
-    const isStashedToday = lastStashedDate === todayKey;
+    const isStashedToday = Boolean(lastStashedDate && lastStashedDate === todayKey && jarBalance > 0);
 
     const [history, setHistory] = useState(() => {
         const saved = localStorage.getItem('pem-fun-jar-history');
@@ -381,14 +388,25 @@ export function FunSavingsJarModal({
     const clearJarBalance = () => {
         setJarBalance(0);
         localStorage.setItem('pem-fun-jar-balance', '0');
+        setLastStashedDate('');
+        localStorage.removeItem('pem-fun-jar-last-stashed-date');
         if (onJarUpdate) onJarUpdate(0);
-        setToastMessage('Fun Pot balance has been reset to ₹0.');
+        setToastMessage('Fun Pot balance has been reset to ₹0 & stash lock cleared.');
+        setTimeout(() => setToastMessage(null), 3500);
+    };
+
+    const resetTodayStash = () => {
+        setLastStashedDate('');
+        localStorage.removeItem('pem-fun-jar-last-stashed-date');
+        setToastMessage("Today's stash lock reset! You can now test stashing today's surplus again.");
         setTimeout(() => setToastMessage(null), 3500);
     };
 
     const clearHistory = () => {
         setHistory([]);
         localStorage.removeItem('pem-fun-jar-history');
+        setLastStashedDate('');
+        localStorage.removeItem('pem-fun-jar-last-stashed-date');
     };
 
     if (!isOpen) return null;
@@ -509,10 +527,21 @@ export function FunSavingsJarModal({
                                 </button>
                             )}
                             {isStashedToday && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-300 text-xs font-bold shrink-0">
-                                    <CheckCircle2 size={13} />
-                                    Stashed Today
-                                </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-300 text-xs font-bold">
+                                        <CheckCircle2 size={13} />
+                                        Stashed Today
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={resetTodayStash}
+                                        title="Reset stash lock to test stashing today's amount again"
+                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 px-2.5 py-1.5 rounded-xl transition cursor-pointer"
+                                    >
+                                        <RotateCcw size={11} />
+                                        Reset Lock
+                                    </button>
+                                </div>
                             )}
                         </div>
 
