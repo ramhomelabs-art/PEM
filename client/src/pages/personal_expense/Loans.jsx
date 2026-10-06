@@ -24,6 +24,7 @@ import {
     Percent,
     DollarSign,
     Layers,
+    Zap,
 } from 'lucide-react';
 import {
     Badge,
