@@ -416,9 +416,9 @@ const Loans = () => {
             </div>
 
             {loading ? (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="pem-skeleton h-64 rounded-card" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="pem-skeleton h-56 rounded-card" />
                     ))}
                 </div>
             ) : loans.length === 0 ? (
@@ -433,7 +433,7 @@ const Loans = () => {
                     }
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <AnimatePresence>
                         {loans.map((loan) => {
                             const progress = loan.totalAmount
@@ -450,7 +450,7 @@ const Loans = () => {
                                     initial={{ opacity: 0, y: 12 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.96 }}
-                                    className="pem-card pem-card-hover flex flex-col gap-4 p-5"
+                                    className="pem-card pem-card-hover flex flex-col gap-3.5 p-4 sm:p-5"
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="flex min-w-0 items-center gap-3">
@@ -468,7 +468,7 @@ const Loans = () => {
                                             {isClosed ? (
                                                 <Badge tone="pos">Closed</Badge>
                                             ) : isEmiPaid ? (
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-pos/10 px-2 py-0.5 text-[11px] font-bold text-pos border border-pos/25">
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-pos/15 px-2.5 py-0.5 text-[11px] font-bold text-pos">
                                                     <CheckCircle2 size={12} /> Cycle Paid
                                                 </span>
                                             ) : isOverdue ? (
@@ -481,18 +481,18 @@ const Loans = () => {
 
                                     <div className="flex items-end justify-between gap-3">
                                         <div>
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
                                                 Outstanding Principal
                                             </p>
-                                            <p className="tnum text-2xl font-extrabold tracking-tight text-ink">
+                                            <p className="tnum text-xl sm:text-2xl font-extrabold tracking-tight text-ink">
                                                 {money(loan.remainingAmount)}
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
                                                 Monthly EMI
                                             </p>
-                                            <p className="tnum text-lg font-extrabold text-neg">
+                                            <p className="tnum text-base sm:text-lg font-extrabold text-neg">
                                                 {money(loan.emiAmount)}
                                             </p>
                                         </div>
@@ -504,7 +504,7 @@ const Loans = () => {
                                             max={loan.totalAmount}
                                             tone="pos"
                                         />
-                                        <div className="mt-1.5 flex justify-between text-xs font-semibold text-ink-muted">
+                                        <div className="mt-1 flex justify-between text-xs font-semibold text-ink-muted">
                                             <span className="tnum">
                                                 {Math.round(progress)}% principal paid
                                             </span>
@@ -515,7 +515,7 @@ const Loans = () => {
                                     </div>
 
                                     {/* Action Bar & Next EMI Info */}
-                                    <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-sunken p-3">
+                                    <div className="flex flex-wrap items-center gap-2 rounded-control bg-sunken/80 p-2.5 sm:p-3">
                                         <CalendarClock size={16} className="text-ink-muted shrink-0" />
                                         <div className="min-w-0 flex-1">
                                             <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
@@ -532,7 +532,7 @@ const Loans = () => {
                                             onClick={() => openBreakdown(loan)}
                                             title="View EMI tenure, principal, interest calculation & terms"
                                             aria-label="View EMI tenure, principal, interest calculation & terms"
-                                            className="grid h-8 w-8 place-items-center rounded-control border border-line bg-raised text-ink-muted transition hover:text-ink hover:border-line-strong"
+                                            className="grid h-8 w-8 place-items-center rounded-control bg-surface hover:bg-raised text-ink-muted hover:text-ink transition active:scale-95"
                                         >
                                             <Calculator size={15} />
                                         </button>
@@ -543,19 +543,19 @@ const Loans = () => {
                                             onClick={() => fetchHistory(loan.id)}
                                             title="View payment history"
                                             aria-label="View payment history"
-                                            className="grid h-8 w-8 place-items-center rounded-control border border-line bg-raised text-ink-muted transition hover:text-ink"
+                                            className="grid h-8 w-8 place-items-center rounded-control bg-surface hover:bg-raised text-ink-muted hover:text-ink transition active:scale-95"
                                         >
                                             <History size={15} />
                                         </button>
 
                                         {/* Dynamic EMI Button: PAID vs PAY EMI */}
                                         {isClosed ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-bold bg-pos/15 text-pos border border-pos/30">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-bold bg-pos/15 text-pos select-none">
                                                 <CheckCircle2 size={14} /> Closed
                                             </span>
                                         ) : isEmiPaid ? (
                                             <span
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-bold bg-pos/15 text-pos border border-pos/30 select-none"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-xs font-bold bg-pos/15 text-pos select-none"
                                                 title={`This month's EMI is already paid. Next EMI is due on ${formatDate(loan.nextEmiDate)}`}
                                             >
                                                 <CheckCircle2 size={14} /> PAID
@@ -564,7 +564,7 @@ const Loans = () => {
                                             <Button
                                                 size="sm"
                                                 variant="danger"
-                                                className="animate-pulse"
+                                                className="border-0 shadow-none animate-pulse"
                                                 onClick={() => confirmPayEMI(loan)}
                                             >
                                                 Pay EMI (Overdue)
@@ -573,6 +573,7 @@ const Loans = () => {
                                             <Button
                                                 size="sm"
                                                 variant="primary"
+                                                className="border-0 shadow-none"
                                                 onClick={() => confirmPayEMI(loan)}
                                             >
                                                 Pay EMI
@@ -584,7 +585,7 @@ const Loans = () => {
                                             onClick={(e) => confirmDeleteLoan(loan.id, e)}
                                             title="Delete loan"
                                             aria-label="Delete loan"
-                                            className="grid h-8 w-8 place-items-center rounded-control border border-line bg-raised text-neg transition hover:bg-neg-soft"
+                                            className="grid h-8 w-8 place-items-center rounded-control bg-surface hover:bg-neg/15 text-neg transition active:scale-95"
                                         >
                                             <Trash2 size={15} />
                                         </button>
@@ -603,7 +604,7 @@ const Loans = () => {
                 title="Add New Loan"
                 subtitle="Configure principal, tenure, interest, and EMI payment day"
                 icon={Calculator}
-                size="lg"
+                size="md"
                 bodyClassName="space-y-4"
             >
                 <form onSubmit={handleAddLoan} className="space-y-4">
@@ -807,7 +808,7 @@ const Loans = () => {
                 title="Loan Breakdown & Schedule"
                 subtitle={selectedLoanBreakdown ? `${selectedLoanBreakdown.name} (${selectedLoanBreakdown.bankProvider})` : ''}
                 icon={Calculator}
-                size="xl"
+                size="lg"
                 bodyClassName="space-y-4"
             >
                 {selectedLoanBreakdown ? (
