@@ -119,13 +119,13 @@ const Toast = ({
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, y: -24, scale: 0.92, filter: 'blur(6px)' }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -20, scale: 0.92, filter: 'blur(4px)', transition: { duration: 0.2 } }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
+            initial={{ opacity: 0, y: -16, x: 28, scale: 0.95, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, x: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: 36, scale: 0.94, filter: 'blur(4px)', transition: { duration: 0.2 } }}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(_, info) => {
-                if (info.offset.y < -25) {
+                if (info.offset.x > 30 || info.offset.y < -25) {
                     onClose?.();
                 }
             }}

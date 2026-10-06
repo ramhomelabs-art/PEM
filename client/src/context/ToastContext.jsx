@@ -123,11 +123,11 @@ export const ToastProvider = ({ children }) => {
         >
             {children}
 
-            {/* Floating Top-Center Dynamic Island / Toast Portal */}
+            {/* Floating Top-Right Toast Portal */}
             <div
                 aria-live="polite"
                 aria-atomic="true"
-                className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] pointer-events-none flex w-full max-w-md flex-col items-center gap-2.5 px-4"
+                className="fixed top-5 right-4 sm:right-6 z-[99999] pointer-events-none flex w-full max-w-sm sm:max-w-md flex-col items-end gap-2.5"
             >
                 <AnimatePresence mode="popLayout">
                     {toasts.map((item) => (
