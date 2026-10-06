@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { API_URL, BASE_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
+import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Landmark, CreditCard, Plus, Trash2, Copy, Lock, FileText, Upload, Download,
@@ -15,6 +16,7 @@ import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
 const Accounts = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
+    const { toast } = useToast();
     const [activeView, setActiveView] = useState('bank'); // 'bank' or 'documents'
     const [banks, setBanks] = useState([]);
     const [documents, setDocuments] = useState([]);
@@ -38,7 +40,11 @@ const Accounts = () => {
 
     const copyToClipboard = (text, label) => {
         navigator.clipboard.writeText(text).then(() => {
-            alert(`${label} copied to clipboard!`);
+            toast.success(`${label} copied to clipboard!`, {
+                title: 'Copied',
+                badge: 'CLIPBOARD',
+                duration: 2500
+            });
         });
     };
 

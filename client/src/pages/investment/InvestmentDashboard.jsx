@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/personal_expense/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import {
     LayoutDashboard,
     CalendarClock,
@@ -105,6 +106,7 @@ const MiniStat = ({ label, value, tone = 'muted' }) => (
 
 const InvestmentDashboard = () => {
     const { user } = useAuth();
+    const { toast } = useToast();
     const [tab, setTab] = useState('overview');
     const [viewMode, setViewMode] = useState('grid');
 
@@ -236,11 +238,13 @@ const InvestmentDashboard = () => {
             if (res.ok) {
                 setInvestments((prev) => prev.filter((i) => i.id !== id));
                 fetchAll();
+                toast.success('Investment deleted successfully');
             } else {
-                window.alert('Failed to delete investment');
+                toast.error('Failed to delete investment');
             }
         } catch (err) {
             console.error(err);
+            toast.error('Network error deleting investment');
         }
     };
 
@@ -254,11 +258,13 @@ const InvestmentDashboard = () => {
             });
             if (res.ok) {
                 setGoals((prev) => prev.filter((g) => g.id !== id));
+                toast.success('Goal deleted successfully');
             } else {
-                window.alert('Failed to delete goal');
+                toast.error('Failed to delete goal');
             }
         } catch (err) {
             console.error(err);
+            toast.error('Network error deleting goal');
         }
     };
 
@@ -273,11 +279,13 @@ const InvestmentDashboard = () => {
             });
             if (res.ok) {
                 fetchAll();
+                toast.success('Plan deleted successfully');
             } else {
-                window.alert('Failed to delete plan');
+                toast.error('Failed to delete plan');
             }
         } catch (err) {
             console.error(err);
+            toast.error('Network error deleting plan');
         }
     };
 

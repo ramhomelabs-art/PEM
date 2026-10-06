@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AlertTriangle,
@@ -63,6 +64,7 @@ const emptyForm = {
 
 const Bills = () => {
     const { user } = useAuth();
+    const { toast } = useToast();
     const currency = user?.currency || 'INR';
     const money = (v) => formatCurrency(v, currency);
 
@@ -153,14 +155,15 @@ const Bills = () => {
                 setSelectedBill(null);
                 setFormData(emptyForm);
                 fetchBills();
+                toast.success(selectedBill ? 'Bill updated successfully' : 'New bill added successfully');
             }
         } catch {
-            alert('Error saving bill');
+            toast.error('Error saving bill');
         }
     };
 
     const handlePayBill = async (billId) => {
-        if (!user || !user.id) return alert('User not identified. Please reload.');
+        if (!user || !user.id) return toast.error('User not identified. Please reload.');
         try {
             const res = await fetch(`${API_URL}/bills/${billId}/pay`, {
                 method: 'POST',
@@ -170,14 +173,19 @@ const Bills = () => {
                 },
                 body: JSON.stringify({ paymentMode: 'NetBanking', userId: user.id }),
             });
-            if (res.ok) fetchBills();
-            else {
+            if (res.ok) {
+                fetchBills();
+                toast.financial('Bill paid successfully! Transaction recorded.', {
+                    title: 'Payment Completed',
+                    badge: 'PAID'
+                });
+            } else {
                 const errData = await res.json();
-                alert(`Payment failed: ${errData.error || 'Unknown error'}`);
+                toast.error(`Payment failed: ${errData.error || 'Unknown error'}`);
             }
         } catch (err) {
             console.error(err);
-            alert('Payment failed due to network error.');
+            toast.error('Payment failed due to network error.');
         }
     };
 
@@ -190,9 +198,10 @@ const Bills = () => {
             if (res.ok) {
                 fetchBills();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
-            } else alert('Failed to delete bill');
+                toast.success('Bill deleted successfully');
+            } else toast.error('Failed to delete bill');
         } catch {
-            alert('Error deleting bill');
+            toast.error('Error deleting bill');
         }
     };
 
@@ -203,9 +212,10 @@ const Bills = () => {
                 if (selectedBillHistory) fetchHistory(selectedBillHistory.id);
                 fetchBills();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
-            } else alert('Failed to delete payment record');
+                toast.success('Payment record deleted');
+            } else toast.error('Failed to delete payment record');
         } catch {
-            alert('Error deleting record');
+            toast.error('Error deleting record');
         }
     };
 
