@@ -195,13 +195,13 @@ router.delete('/:id', async (req, res) => {
         const record = await Borrow.findByPk(req.params.id);
         if (!record) return res.status(404).json({ error: 'Record not found' });
 
-        // Optional: Delete associated payments? 
-        // For now, let's keep it simple and just delete the record. 
-        // Sequelize CASCADE should handle related payments if configured, otherwise we might leave orphans.
-        // Assuming simple deletion is what's requested.
+        // Delete associated payments first to prevent foreign key violations
+        await BorrowPayment.destroy({ where: { borrowId: req.params.id } });
+
         await record.destroy();
-        res.json({ message: 'Record deleted' });
+        res.json({ message: 'Record deleted successfully' });
     } catch (err) {
+        console.error('Error deleting borrow record:', err);
         res.status(500).json({ error: err.message });
     }
 });
