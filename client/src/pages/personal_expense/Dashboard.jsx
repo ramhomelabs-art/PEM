@@ -30,7 +30,8 @@ import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
 import { KpiCard } from '../../components/dashboard/KpiCard';
 import { CashFlowCard } from '../../components/dashboard/CashFlowCard';
 import { CategoryDonut } from '../../components/dashboard/CategoryDonut';
-import { BudgetActualChart, DailySpendChart, WeekdayHeatmap } from '../../components/dashboard/charts';
+import { BudgetActualChart } from '../../components/dashboard/charts';
+import { DailySpendingCard } from '../../components/dashboard/DailySpendingCard';
 import { ActivityList } from '../../components/dashboard/ActivityList';
 import { DueList } from '../../components/dashboard/DueList';
 import { CreditCardsPanel } from '../../components/dashboard/CreditCardsPanel';
@@ -407,16 +408,9 @@ const Dashboard = () => {
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
                     <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
                         <Panel className="h-full">
-                            <PanelHeader
-                                title="Daily Spending"
-                                subtitle={dailyCurrent.label}
-                                icon={TrendingDown}
-                            />
-                            <DailySpendChart
-                                data={dailyCurrent.data}
-                                label={dailyCurrent.label}
-                                compareData={compare ? dailyPrevious.data : null}
-                                compareLabel={dailyPrevious.label}
+                            <DailySpendingCard
+                                transactions={transactions}
+                                budgets={budgets}
                                 currency={currency}
                                 loading={txLoading}
                             />
@@ -435,14 +429,13 @@ const Dashboard = () => {
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
                     <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
                         <Panel className="flex h-full flex-col">
-                            <PanelHeader title="Insights" subtitle="Auto-generated tips" icon={TrendingUp} />
-                            <InsightsCard insights={insights} loading={loading} />
-                            <div className="mt-4 border-t border-line pt-4">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                                    Spend by weekday · 30d
-                                </p>
-                                <WeekdayHeatmap series={heatmapSeries} currency={currency} loading={txLoading} />
-                            </div>
+                            <PanelHeader title="Insights" subtitle="Smart financial alerts" icon={TrendingUp} />
+                            <InsightsCard
+                                transactions={transactions}
+                                budgets={budgets}
+                                currency={currency}
+                                loading={loading}
+                            />
                         </Panel>
                     </motion.div>
 
