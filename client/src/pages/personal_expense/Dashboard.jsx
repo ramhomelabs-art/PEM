@@ -378,17 +378,6 @@ const Dashboard = () => {
                     />
                 </motion.div>
 
-                {/* Financial Intelligence & Prediction Hub */}
-                <motion.div {...enter(0)}>
-                    <FinancialIntelligenceHub
-                        onOpenTimeMachine={() => setShowTimeMachine(true)}
-                        onOpenFunJar={() => setShowFunJar(true)}
-                        onOpenWeekendBurn={() => setShowWeekendBurn(true)}
-                        onOpenReceiptScanner={() => setShowReceiptScanner(true)}
-                        currency={currency}
-                    />
-                </motion.div>
-
                 {/* KPI row */}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {kpis.map((k, i) => (
@@ -498,6 +487,17 @@ const Dashboard = () => {
                         </Panel>
                     </motion.div>
                 </section>
+
+                {/* Financial Intelligence & Prediction Lab */}
+                <motion.div className="mt-4" {...enter(0)}>
+                    <FinancialIntelligenceHub
+                        onOpenTimeMachine={() => setShowTimeMachine(true)}
+                        onOpenFunJar={() => setShowFunJar(true)}
+                        onOpenWeekendBurn={() => setShowWeekendBurn(true)}
+                        onOpenReceiptScanner={() => setShowReceiptScanner(true)}
+                        currency={currency}
+                    />
+                </motion.div>
 
                 {/* 5. Credit cards + investment */}
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
