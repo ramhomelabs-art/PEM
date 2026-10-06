@@ -164,7 +164,7 @@ export function ForecastHeroChart({ macroData, currency = 'INR' }) {
 
             {/* Chart Canvas */}
             <div className="mt-3 h-[220px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 600, height: 220 }}>
                     <ComposedChart
                         data={cumulativeSeries}
                         margin={{ top: 10, right: 10, left: -18, bottom: 0 }}
