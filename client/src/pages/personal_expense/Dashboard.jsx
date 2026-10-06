@@ -72,7 +72,7 @@ const isTypingTarget = (el) =>
 const Dashboard = () => {
     const { user } = useAuth();
     const { cards = [] } = useCreditCards();
-    const { openNotes } = useSmartNotes();
+    const { notes = [], openNotes } = useSmartNotes();
     const navigate = useNavigate();
     const reduceMotion = useReducedMotion();
 
@@ -208,7 +208,22 @@ const Dashboard = () => {
     const activeBudgetAlerts = budgetAlerts.filter(
         (b) => !dismissed.includes(`budget-${b.category}`)
     );
-    const alertCount = activeObligations.length + activeBudgetAlerts.length + unreadCount;
+    const activeNoteReminders = useMemo(() => {
+        return (notes || [])
+            .filter((n) => !n.isTrashed && !n.isArchived && Boolean(n.due))
+            .map((n) => ({
+                id: n.id,
+                title: n.title || 'Smart Keep Note',
+                message: n.content ? (n.content.length > 80 ? n.content.slice(0, 80) + '…' : n.content) : '',
+                due: n.due,
+            }))
+            .filter((n) => !dismissed.includes(`note-${n.id}`));
+    }, [notes, dismissed]);
+    const alertCount =
+        activeObligations.length +
+        activeBudgetAlerts.length +
+        activeNoteReminders.length +
+        unreadCount;
 
     const historyFeed = useMemo(
         () =>
@@ -322,7 +337,7 @@ const Dashboard = () => {
                             bills: activeObligations.filter((o) => o.kind === 'bill'),
                             loans: activeObligations.filter((o) => o.kind === 'emi'),
                             borrow: activeObligations.filter((o) => o.kind === 'borrow'),
-                            notes: [],
+                            notes: activeNoteReminders,
                         }}
                         budgetAlerts={activeBudgetAlerts}
                         historyData={historyFeed}
@@ -331,6 +346,7 @@ const Dashboard = () => {
                         onOpenMessages={() => {
                             setShowMessages(true);
                         }}
+                        onOpenNotes={openNotes}
                     />
                 }
                 onExportCsv={handleExportCsv}

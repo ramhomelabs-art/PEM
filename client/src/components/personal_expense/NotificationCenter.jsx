@@ -86,6 +86,7 @@ const NotificationCenter = ({
     messages = [],
     onDismiss,
     onOpenMessages,
+    onOpenNotes,
 }) => {
     const navigate = useNavigate();
     const [tab, setTab] = useState('active');
@@ -320,8 +321,12 @@ const NotificationCenter = ({
                                                 <Row
                                                     key={`note-${note.id}`}
                                                     tone="violet"
-                                                    title={`Reminder: ${note.title}`}
-                                                    meta={`${note.message || ''}${note.due ? ` · ${new Date(note.due).toLocaleString()}` : ''}`}
+                                                    title={`Reminder: ${note.title || 'Smart Keep Note'}`}
+                                                    meta={`${note.message ? note.message + ' · ' : ''}${safeDate(note.due)}`}
+                                                    onClick={() => {
+                                                        if (onOpenNotes) onOpenNotes(note);
+                                                        onClose?.();
+                                                    }}
                                                     onDismiss={() => onDismiss && onDismiss(`note-${note.id}`)}
                                                 />
                                             ))}
