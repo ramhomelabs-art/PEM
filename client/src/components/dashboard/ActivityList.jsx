@@ -22,7 +22,7 @@ export function ActivityList({
     categoryFilter,
     onClearFilter,
     onViewAll,
-    limit = 8,
+    limit = 6,
 }) {
     const filtered = useMemo(() => {
         const rows = transactions
@@ -95,7 +95,7 @@ export function ActivityList({
                     </p>
                 </div>
             ) : (
-                <ul className="pem-scroll max-h-[340px] space-y-1 overflow-y-auto pr-1">
+                <ul className="pem-scroll max-h-[290px] space-y-1 overflow-y-auto pr-1">
                     {filtered.slice(0, limit).map((t) => {
                         const isIncome = t.type === 'income';
                         return (

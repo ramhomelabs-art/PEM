@@ -347,7 +347,7 @@ const Dashboard = () => {
 
                 {/* 1. Recent activity + Spend by category */}
                 <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-                    <motion.div className="md:col-span-2 xl:col-span-7" {...enter(0)}>
+                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(0)}>
                         <Panel className="flex h-full flex-col">
                             <PanelHeader
                                 title="Recent Activity"
@@ -363,11 +363,12 @@ const Dashboard = () => {
                                 categoryFilter={categoryFilter}
                                 onClearFilter={() => setCategoryFilter(null)}
                                 onViewAll={() => navigate('/transactions')}
+                                limit={6}
                             />
                         </Panel>
                     </motion.div>
 
-                    <motion.div className="md:col-span-2 xl:col-span-5" {...enter(1)}>
+                    <motion.div className="md:col-span-2 xl:col-span-7" {...enter(1)}>
                         <Panel className="flex h-full flex-col">
                             <PanelHeader
                                 title="Spend by Category"
