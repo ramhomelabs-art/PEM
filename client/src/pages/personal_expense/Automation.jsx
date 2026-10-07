@@ -171,8 +171,8 @@ const Automation = () => {
         }
     };
 
-    const handleVerifyCode = async () => {
-        const cleanCode = verifyCode.trim();
+    const handleVerifyCodeDirect = async (codeToVerify) => {
+        const cleanCode = (codeToVerify || verifyCode).trim();
         if (cleanCode.length !== 6) {
             notify('Please enter a valid 6-digit TOTP code', 'error');
             return;
@@ -199,6 +199,16 @@ const Automation = () => {
         }
     };
 
+    const handleCodeInputChange = (e) => {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+        setVerifyCode(val);
+        if (val.length === 6 && !verifyingCode) {
+            setTimeout(() => {
+                handleVerifyCodeDirect(val);
+            }, 100);
+        }
+    };
+
     useEffect(() => {
         fetchConfig();
         fetchPending();
@@ -207,10 +217,16 @@ const Automation = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // Active polling and QR generation when on connect tab
     useEffect(() => {
         if (activeTab === 'connect') {
             fetchConfig();
             fetchQrCode();
+            // Poll for device binding if not yet approved
+            const connectPoll = setInterval(() => {
+                fetchConfig();
+            }, 4000);
+            return () => clearInterval(connectPoll);
         }
     }, [activeTab]);
 
@@ -1052,11 +1068,11 @@ const Automation = () => {
                                                     maxLength={6}
                                                     placeholder="123456"
                                                     value={verifyCode}
-                                                    onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                                                    onChange={handleCodeInputChange}
                                                     className="flex-1 px-4 py-3 bg-slate-900 border-2 border-slate-700 focus:border-emerald-500 rounded-xl text-center text-xl font-mono font-black tracking-widest text-emerald-400 outline-none"
                                                 />
                                                 <button
-                                                    onClick={handleVerifyCode}
+                                                    onClick={() => handleVerifyCodeDirect()}
                                                     disabled={verifyingCode || verifyCode.trim().length !== 6}
                                                     className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                                                 >
