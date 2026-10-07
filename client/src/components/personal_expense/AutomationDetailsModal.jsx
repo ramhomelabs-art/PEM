@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, X, MessageSquare, Calendar, CreditCard, Tag, User, Smartphone, Clock, FileText } from 'lucide-react';
+import {
+    Check, X, MessageSquare, Calendar, CreditCard, Tag,
+    User, Smartphone, Clock, FileText, ArrowDownRight, ArrowUpRight
+} from 'lucide-react';
+import { useTheme } from '../../context/personal_expense/ThemeContext';
 
 const buildInitialFormData = (data) => {
     if (!data) return null;
@@ -16,44 +20,45 @@ const buildInitialFormData = (data) => {
         initialDate = new Date().toISOString().slice(0, 16);
     }
 
-    // Detect transaction type from multiple sources
+    // Detect transaction type
     let transactionType = data.transaction_type;
     if (!transactionType) {
         if (data.type && typeof data.type === 'string') {
             const typeStr = data.type.toLowerCase();
-            if (typeStr.includes('debit') || typeStr.includes('expense') || typeStr.includes('sent') || typeStr.includes('spent') || typeStr.includes('paid')) transactionType = 'debit';
-            else if (typeStr.includes('credit') || typeStr.includes('income') || typeStr.includes('received')) transactionType = 'credit';
+            if (typeStr.includes('debit') || typeStr.includes('expense') || typeStr.includes('sent') || typeStr.includes('spent') || typeStr.includes('paid')) {
+                transactionType = 'debit';
+            } else if (typeStr.includes('credit') || typeStr.includes('income') || typeStr.includes('received')) {
+                transactionType = 'credit';
+            }
         }
     }
-    // Default to debit if still not set
     if (!transactionType) transactionType = 'debit';
 
     return {
         ...data,
         date: initialDate,
         transaction_type: transactionType,
-        merchant: data.merchant || data.provider || data.description || 'Unknown',
-        paymentMethod: data.paymentMethod || data.mode || (data.extractor === 'ml_bert_ner' ? 'Transfer' : 'Card')
+        merchant: data.merchant || data.provider || data.account || data.description || 'Unknown',
+        category: data.category || 'General',
+        paymentMethod: data.paymentMethod || data.mode || (data.extractor === 'ml_bert_ner' ? 'Transfer' : 'UPI')
     };
 };
 
 const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = [], user }) => {
+    const { isDarkMode } = useTheme();
     const [formData, setFormData] = useState(() => buildInitialFormData(data));
 
-    // Sync the editable form state when the opened record changes. This modal is mounted
-    // by parents in other files, so it cannot be remounted via a `key` prop from here.
     useEffect(() => {
         if (isOpen && data) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setFormData(buildInitialFormData(data));
         }
     }, [isOpen, data]);
 
+    if (!isOpen || !formData) return null;
+
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
-
-    if (!isOpen || !formData) return null;
 
     const isManualEntry = formData.source === 'MANUAL_ENTRY' || formData.type === 'MANUAL';
     const currentType = formData.transaction_type === 'credit' ? 'income' : 'expense';
@@ -62,198 +67,230 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
     const currencySymbol = (formData.currency === 'INR' || user?.currency === 'INR') ? '₹' : '$';
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <div onClick={onClose} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }} />
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            {/* Backdrop */}
             <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.15 }}
-                style={{
-                    width: '100%',
-                    maxWidth: '550px',
-                    backgroundColor: '#1e293b',
-                    borderRadius: '20px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    zIndex: 10
-                }}>
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity"
+            />
 
-                {/* Header */}
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(139,92,246,0.1) 100%)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {/* Modal Card */}
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 text-slate-100 shadow-2xl overflow-hidden z-10 my-auto"
+            >
+                {/* Header with gradient accent */}
+                <div className="relative px-6 py-5 border-b border-slate-800 bg-gradient-to-r from-blue-900/30 via-slate-900 to-indigo-900/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${isManualEntry ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                            {isManualEntry ? <Smartphone className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                        </div>
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                                {isManualEntry ? <Smartphone size={20} color="#8b5cf6" /> : <MessageSquare size={20} color="#3b82f6" />}
-                                <h2 style={{ color: 'white', fontSize: '18px', fontWeight: '800', margin: 0 }}>
-                                    {isManualEntry ? 'Manual Entry' : 'SMS Transaction'}
-                                </h2>
-                            </div>
-                            <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>
-                                Review and confirm details
+                            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                                {isManualEntry ? 'Manual App Transaction' : 'Automated SMS Record'}
+                                <span className={`text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full font-bold ${
+                                    isManualEntry 
+                                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                }`}>
+                                    {formData.extractor || (isManualEntry ? 'Mobile App' : 'Parser')}
+                                </span>
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                Verify and categorize before committing to ledger
                             </p>
                         </div>
-                        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }}
-                            onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
-                            onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}>
-                            <X size={20} />
-                        </button>
                     </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+                        aria-label="Close modal"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
-                {/* Content */}
-                <div style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>
+                {/* Body Content */}
+                <div className="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
+                    {/* Transaction Direction Segmented Switch */}
+                    <div className="grid grid-cols-2 gap-2 p-1.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleChange('transaction_type', 'debit');
+                                const firstCat = safeCategories.filter(c => c.type === 'expense' || c.type === 'both')[0];
+                                if (firstCat) handleChange('category', firstCat.name);
+                            }}
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-xs transition-all ${
+                                formData.transaction_type === 'debit'
+                                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25'
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <ArrowDownRight className="w-4 h-4" />
+                            Expense (Debit)
+                        </button>
 
-                    {/* Type Toggle */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-                            {['debit', 'credit'].map(t => (
-                                <button key={t} onClick={() => {
-                                    handleChange('transaction_type', t);
-                                    const newType = t === 'credit' ? 'income' : 'expense';
-                                    const firstCat = safeCategories.filter(c => c.type === newType || c.type === 'both')[0];
-                                    if (firstCat) handleChange('category', firstCat.name);
-                                }} style={{
-                                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none', fontWeight: '700', textTransform: 'uppercase', fontSize: '12px',
-                                    backgroundColor: formData.transaction_type === t ? (t === 'debit' ? '#ef4444' : '#10b981') : 'transparent',
-                                    color: formData.transaction_type === t ? 'white' : '#64748b', cursor: 'pointer', transition: 'all 0.2s'
-                                }}>
-                                    {t === 'debit' ? '💸 Expense' : '💰 Income'}
-                                </button>
-                            ))}
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleChange('transaction_type', 'credit');
+                                const firstCat = safeCategories.filter(c => c.type === 'income' || c.type === 'both')[0];
+                                if (firstCat) handleChange('category', firstCat.name);
+                            }}
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-xs transition-all ${
+                                formData.transaction_type === 'credit'
+                                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <ArrowUpRight className="w-4 h-4" />
+                            Income (Credit)
+                        </button>
                     </div>
 
-                    {/* Amount - Large and Prominent */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '8px', display: 'block', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount</label>
-                        <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '22px', top: '50%', transform: 'translateY(-50%)', color: '#10b981', fontSize: '28px', fontWeight: '900' }}>{currencySymbol}</span>
+                    {/* Amount Input Display */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                            Transaction Amount
+                        </label>
+                        <div className="relative flex items-center">
+                            <span className="absolute left-4 text-2xl font-black text-emerald-400">
+                                {currencySymbol}
+                            </span>
                             <input
                                 type="number"
+                                step="any"
                                 value={formData.amount}
-                                onChange={(e) => handleChange('amount', parseFloat(e.target.value))}
-                                style={{
-                                    width: '100%',
-                                    padding: '18px 18px 18px 52px',
-                                    fontSize: '32px',
-                                    fontWeight: '900',
-                                    borderRadius: '14px',
-                                    border: '2px solid rgba(16,185,129,0.3)',
-                                    backgroundColor: 'rgba(16,185,129,0.05)',
-                                    color: '#10b981',
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
-                                }}
+                                onChange={(e) => handleChange('amount', parseFloat(e.target.value) || 0)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-slate-950/80 border-2 border-slate-800 focus:border-emerald-500 rounded-xl text-3xl font-extrabold text-emerald-400 outline-none transition-all placeholder:text-slate-600"
+                                placeholder="0.00"
                             />
                         </div>
                     </div>
 
-                    {/* Merchant & Category - Compact Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                    {/* Merchant & Category */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '6px', display: 'block', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Merchant</label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Merchant / Beneficiary
+                            </label>
+                            <div className="relative">
+                                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                                 <input
                                     type="text"
                                     value={formData.merchant}
                                     onChange={(e) => handleChange('merchant', e.target.value)}
-                                    style={{ width: '100%', padding: '12px 12px 12px 36px', fontSize: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+                                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-blue-500 rounded-xl text-sm text-slate-100 outline-none"
+                                    placeholder="Merchant name"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '6px', display: 'block', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</label>
-                            <div style={{ position: 'relative' }}>
-                                <Tag size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 1 }} />
+                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Category
+                            </label>
+                            <div className="relative">
+                                <Tag className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <select
                                     value={formData.category}
                                     onChange={(e) => handleChange('category', e.target.value)}
-                                    style={{ width: '100%', padding: '12px 12px 12px 36px', fontSize: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', outline: 'none', appearance: 'none', boxSizing: 'border-box' }}
+                                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-blue-500 rounded-xl text-sm text-slate-100 outline-none cursor-pointer"
                                 >
                                     {!availableCategories.find(c => c.name === formData.category) && (
-                                        <option value={formData.category}>{formData.category}</option>
+                                        <option value={formData.category} className="bg-slate-900 text-white">
+                                            {formData.category}
+                                        </option>
                                     )}
                                     {availableCategories.map(c => (
-                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                        <option key={c.id || c.name} value={c.name} className="bg-slate-900 text-white">
+                                            {c.name}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
                         </div>
                     </div>
 
-                    {/* Date & Payment Mode - Compact Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                    {/* Date & Payment Method */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '6px', display: 'block', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date & Time</label>
-                            <div style={{ position: 'relative' }}>
-                                <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Timestamp
+                            </label>
+                            <div className="relative">
+                                <Calendar className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="datetime-local"
                                     value={formData.date}
                                     onChange={(e) => handleChange('date', e.target.value)}
-                                    style={{ width: '100%', padding: '12px 12px 12px 36px', fontSize: '13px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+                                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-blue-500 rounded-xl text-xs text-slate-100 outline-none"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '11px', marginBottom: '6px', display: 'block', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payment</label>
-                            <div style={{ position: 'relative' }}>
-                                <CreditCard size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                Payment Mode
+                            </label>
+                            <div className="relative">
+                                <CreditCard className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="text"
                                     value={formData.paymentMethod}
                                     onChange={(e) => handleChange('paymentMethod', e.target.value)}
-                                    style={{ width: '100%', padding: '12px 12px 12px 36px', fontSize: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+                                    className="w-full pl-10 pr-3 py-2.5 bg-slate-950/60 border border-slate-800 focus:border-blue-500 rounded-xl text-sm text-slate-100 outline-none"
+                                    placeholder="UPI / Card / NetBanking"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Source Info - Compact Badge */}
-                    <div style={{ padding: '12px 16px', backgroundColor: isManualEntry ? 'rgba(139,92,246,0.1)' : 'rgba(59,130,246,0.1)', borderRadius: '10px', border: `1px solid ${isManualEntry ? 'rgba(139,92,246,0.2)' : 'rgba(59,130,246,0.2)'}` }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <FileText size={14} color={isManualEntry ? '#8b5cf6' : '#3b82f6'} />
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: isManualEntry ? '#8b5cf6' : '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                {isManualEntry ? 'App Entry' : 'SMS Parsed'}
+                    {/* Raw Source SMS Payload Preview */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                            <span className="flex items-center gap-1.5 text-blue-400">
+                                <FileText className="w-3.5 h-3.5" />
+                                Raw Extracted Payload
                             </span>
-                        </div>
-                        {/* Show full raw message if available, otherwise description */}
-                        {(formData.raw_message || formData.description) && (
-                            <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, lineHeight: '1.5', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                {formData.raw_message || formData.description}
-                            </p>
-                        )}
-                        {formData.received_at && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                <Clock size={12} color="#64748b" />
-                                <span style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>
-                                    {new Date(formData.received_at).toLocaleString()}
+                            {formData.received_at && (
+                                <span className="flex items-center gap-1 font-mono text-slate-500">
+                                    <Clock className="w-3 h-3" />
+                                    {new Date(formData.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
-                            </div>
-                        )}
+                            )}
+                        </div>
+                        <p className="text-xs font-mono text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                            {formData.raw_message || formData.description || 'No raw string available'}
+                        </p>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
-                    <button onClick={onClose} style={{ padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: '#94a3b8', fontWeight: '700', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}>
+                {/* Footer Controls */}
+                <div className="px-6 py-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 font-semibold text-xs transition-colors"
+                    >
                         Cancel
                     </button>
-                    <button onClick={() => onSave(formData)} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}
-                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}>
-                        <Check size={16} /> Confirm & Save
+                    <button
+                        type="button"
+                        onClick={() => onSave(formData)}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                    >
+                        <Check className="w-4 h-4" />
+                        Confirm & Save Changes
                     </button>
                 </div>
-
             </motion.div>
         </div>
     );

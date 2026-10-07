@@ -480,4 +480,92 @@ router.put('/update/:id', (req, res) => {
     }
 });
 
+// 5. SIMULATE / TEST SMS PARSER (Called by Frontend Interactive Sandbox)
+router.post('/simulate', authenticateToken, async (req, res) => {
+    try {
+        const { text, sender = 'HDFCBK', pushToQueue = false } = req.body;
+        if (!text || !text.trim()) {
+            return res.status(400).json({ error: 'SMS text is required' });
+        }
+
+        let extracted = [];
+        let extractionSource = 'local_regex';
+        let pythonError = null;
+
+        // Try Python AI Extractor first
+        try {
+            const pyRes = await axios.post('http://localhost:5002/api/extract/text', {
+                text: text.trim(),
+                mode: 'sms'
+            }, { timeout: 2500 });
+
+            if (pyRes.data && pyRes.data.amount > 0) {
+                const pyTx = pyRes.data;
+                extracted = [{
+                    id: Date.now() + Math.random(),
+                    account: pyTx.merchant || 'Bank',
+                    amount: pyTx.amount,
+                    type: pyTx.type || 'expense',
+                    transaction_type: pyTx.type === 'income' ? 'credit' : 'debit',
+                    date: pyTx.date || new Date().toISOString(),
+                    merchant: pyTx.merchant || 'Bank Transaction',
+                    category: pyTx.category || 'General',
+                    description: pyTx.description || text.trim(),
+                    paymentMethod: pyTx.paymentMethod || 'UPI',
+                    extractor: pyTx.extractor || 'bert_ner',
+                    raw_message: text.trim(),
+                    received_at: new Date().toISOString(),
+                    tag: `python_${pyTx.extractor || 'ai'}`,
+                    confidence: 0.96
+                }];
+                extractionSource = `python_${pyTx.extractor || 'bert'}`;
+            }
+        } catch (pyErr) {
+            pythonError = pyErr.message;
+        }
+
+        // Fallback to local rule engine
+        if (extracted.length === 0) {
+            extracted = parseSMS(text.trim(), sender);
+            extractionSource = 'local_regex';
+        }
+
+        // Optionally push to pending queue
+        if (pushToQueue && extracted.length > 0) {
+            const currentPending = getPendingSMS();
+            extracted.forEach(tx => {
+                tx.userId = req.user.id;
+                tx.source = 'SIMULATOR';
+                currentPending.push(tx);
+            });
+            savePendingSMS(currentPending);
+        }
+
+        res.json({
+            success: true,
+            extracted,
+            source: extractionSource,
+            pythonOnline: !pythonError,
+            count: extracted.length,
+            pushedToQueue: pushToQueue && extracted.length > 0
+        });
+    } catch (e) {
+        console.error('[SIMULATE ERROR]', e);
+        res.status(500).json({ error: 'Simulation failed', detail: e.message });
+    }
+});
+
+// 6. BATCH ACTIONS
+router.post('/batch-reject-all', authenticateToken, (req, res) => {
+    try {
+        const userId = req.user.id;
+        let pending = getPendingSMS();
+        pending = pending.filter(p => p.userId !== userId);
+        savePendingSMS(pending);
+        res.json({ success: true, message: 'All pending SMS cleared' });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to clear pending SMS' });
+    }
+});
+
 module.exports = router;
