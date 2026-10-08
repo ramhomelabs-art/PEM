@@ -20,12 +20,19 @@ const authenticateToken = async (req, res, next) => {
             next();
         });
     } else {
-        // Treat as API Key (smsApiKey)
+        // Treat as API Key (smsApiKey) or Device Secret Key
         try {
-            const user = await User.findOne({ where: { smsApiKey: token } });
+            let user = await User.findOne({ where: { smsApiKey: token } });
             if (!user) {
-                console.error('[Auth Middleware] Invalid API Key provided as Bearer token');
-                return res.status(403).json({ error: 'Invalid API Key' });
+                const { MfaDevice } = require('../models');
+                const device = await MfaDevice.findOne({ where: { secretKey: token, isActive: true } });
+                if (device) {
+                    user = await User.findByPk(device.userId);
+                }
+            }
+            if (!user) {
+                console.error('[Auth Middleware] Invalid API Key / Device Key provided as Bearer token');
+                return res.status(403).json({ error: 'Invalid API Key or Device Key' });
             }
             req.user = { id: user.id, username: user.username, role: user.role };
             next();

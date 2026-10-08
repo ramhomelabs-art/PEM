@@ -73,11 +73,19 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
 
         // Check if MFA is configured
         if (!user.mfaEnabled || !user.mfaConfigured) {
+            const setupToken = jwt.sign({
+                id: user.id,
+                username: user.username,
+                role: user.role,
+                purpose: 'mfa_setup'
+            }, JWT_SECRET, { expiresIn: '30m' });
+
             return res.json({
                 success: true,
                 mfaRequired: false,
                 needsSetup: !user.mfaConfigured,
                 userId: user.id,
+                token: setupToken,
                 message: 'MFA setup required. Please scan QR code to bind your device.'
             });
         }
@@ -231,10 +239,28 @@ router.post('/auth/verify-totp', mfaRateLimiter, async (req, res) => {
  * POST /api/mfa/setup/generate-qr
  * Generate QR code for device binding
  */
-router.post('/setup/generate-qr', authenticateToken, setupRateLimiter, async (req, res) => {
+router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLimiter, async (req, res) => {
     try {
         const userId = req.user.id;
-        const currentServerUrl = process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`;
+        const requestedUrl = req.body?.serverUrl;
+        const clientHost = req.headers['x-forwarded-host'] || req.get('host') || '';
+        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? `${req.protocol}://${clientHost}` : 'http://10.10.20.4:5005');
+        if (currentServerUrl.includes(':5174')) {
+            currentServerUrl = currentServerUrl.replace(':5174', ':5005');
+        }
+        
+        // If it resolved to localhost, replace localhost with LAN IP or request host
+        if (currentServerUrl.includes('localhost') || currentServerUrl.includes('127.0.0.1')) {
+            if (req.headers['x-forwarded-host']) {
+                currentServerUrl = `${req.protocol}://${req.headers['x-forwarded-host']}`;
+            } else if (clientHost && !clientHost.includes('localhost')) {
+                currentServerUrl = `${req.protocol}://${clientHost.split(':')[0]}:5005`;
+            } else {
+                currentServerUrl = 'http://10.10.20.4:5005';
+            }
+        }
+        
+        console.log(`[MFA] Generating QR Code with mobile Server URL: ${currentServerUrl}`);
         const qrData = await mfaService.generateQRCodeData(userId, currentServerUrl);
 
         res.json({
@@ -317,8 +343,22 @@ router.post('/setup/totp/verify', authenticateToken, setupRateLimiter, async (re
         const result = await mfaService.verifyTOTP(userId, code, true);
 
         if (result.success) {
+            const user = await User.findByPk(userId);
+            const token = jwt.sign({
+                id: user.id,
+                username: user.username,
+                role: user.role
+            }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
             res.json({
                 success: true,
+                token: token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                },
                 message: 'TOTP verified successfully'
             });
         } else {

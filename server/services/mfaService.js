@@ -33,7 +33,7 @@ class MFAService {
         // Store binding token temporarily (expires in 10 minutes)
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-        const serverUrl = serverUrlOverride || process.env.SERVER_URL || 'https://finance.ramhomelab.com';
+        const serverUrl = (serverUrlOverride || process.env.SERVER_URL || 'http://10.10.20.4:5005').replace(':5174', ':5005');
 
         // Create QR code data
         const qrData = JSON.stringify({
@@ -41,6 +41,7 @@ class MFAService {
             userId: userId,
             bindingToken: bindingToken,
             serverUrl: serverUrl,
+            fallbackUrls: ['http://10.10.30.122:5005', 'http://10.10.20.4:5005'],
             expiresAt: expiresAt.toISOString()
         });
 
@@ -53,7 +54,8 @@ class MFAService {
                 ...user.preferences,
                 pendingMfaBinding: {
                     token: bindingToken,
-                    expiresAt: expiresAt.toISOString()
+                    expiresAt: expiresAt.toISOString(),
+                    serverUrl: serverUrl
                 }
             }
         });
@@ -94,7 +96,8 @@ class MFAService {
         const deviceId = uuidv4();
         const secretKey = crypto.randomBytes(32).toString('hex');
         const encryptionKey = crypto.randomBytes(24).toString('base64').substring(0, 32);
-        const webhookUrl = `${process.env.SERVER_URL || 'https://finance.ramhomelab.com'}/api/sms/webhook/${user.smsApiKey}`;
+        const serverBase = pendingBinding.serverUrl || process.env.SERVER_URL || 'http://10.10.20.4:5005';
+        const webhookUrl = `${serverBase}/api/sms/webhook/${user.smsApiKey}`;
 
         // Create device fingerprint
         const deviceFingerprint = crypto
@@ -385,7 +388,11 @@ class MFAService {
                     email: user.email,
                     fullName: user.fullName,
                     profilePhoto: user.profilePhoto,
-                    role: user.role
+                    role: user.role,
+                    currency: user.currency || 'INR',
+                    country: user.country || 'India',
+                    timezone: user.timezone || 'IST (UTC+5:30)',
+                    preferences: user.preferences
                 }
             };
         }

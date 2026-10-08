@@ -165,11 +165,22 @@ export function useUnreadMessages(enabled, { onNewMessage } = {}) {
 
         const tick = async () => {
             if (!document.hidden) {
+                const token = localStorage.getItem('token');
+                if (!token || token === 'null' || token === 'undefined') {
+                    timer = setTimeout(tick, 15000);
+                    return;
+                }
                 const headers = authHeaders();
-                const [countRes, convRes] = await Promise.all([
-                    fetch(`${API_URL}/messages/unread/count`, { headers }),
-                    fetch(`${API_URL}/messages/conversations`, { headers }),
-                ]);
+                let countRes, convRes;
+                try {
+                    [countRes, convRes] = await Promise.all([
+                        fetch(`${API_URL}/messages/unread/count`, { headers }),
+                        fetch(`${API_URL}/messages/conversations`, { headers }),
+                    ]);
+                } catch (e) {
+                    timer = setTimeout(tick, 30000);
+                    return;
+                }
 
                 if (!cancelled && countRes.ok) {
                     const data = await countRes.json();

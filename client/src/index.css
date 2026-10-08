@@ -384,7 +384,7 @@ select:focus {
 .sidebar-aside {
   transition: width 0.3s cubic-bezier(0.2, 0, 0, 1), padding 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
   will-change: width, padding;
-  contain: paint;
+  overflow: visible !important;
 }
 
 @media (max-height: 850px) {

@@ -21,12 +21,14 @@ const MfaSetup = () => {
         setLoading(true);
         try {
             const authToken = token || localStorage.getItem('token');
+            const mobileServerUrl = `${window.location.protocol}//${window.location.host}`; // Uses port 5174
             const response = await fetch(`${API_URL}/mfa/setup/generate-qr`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${authToken}`
-                }
+                },
+                body: JSON.stringify({ serverUrl: mobileServerUrl })
             });
             if (response.ok) {
                 const data = await response.json();
@@ -68,6 +70,13 @@ const MfaSetup = () => {
             });
 
             if (response.ok) {
+                const data = await response.json();
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                }
                 setStep(3);
             } else {
                 const data = await response.json();
@@ -283,11 +292,11 @@ const MfaSetup = () => {
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => navigate('/login')}
+                                onClick={() => navigate('/')}
                                 style={buttonStyle}
-                                className="bg-slate-800 text-white font-black shadow-2xl hover:bg-slate-700"
+                                className="bg-gradient-to-r from-emerald-600 to-emerald-400 text-white font-black shadow-2xl hover:opacity-90"
                             >
-                                RETURN TO LOGIN
+                                CONTINUE TO DASHBOARD
                             </motion.button>
                         </motion.div>
                     )}

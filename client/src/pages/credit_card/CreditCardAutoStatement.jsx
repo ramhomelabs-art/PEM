@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload, FileText, Lock, Check, X, AlertCircle, MessageSquare,
-    Plus, CheckCircle2, Eye, Pencil, Save, Trash2, DollarSign
+    Plus, CheckCircle2, Eye, EyeOff, Pencil, Save, Trash2, DollarSign,
+    Mail, RefreshCw, Key, ExternalLink, Sparkles, CheckCheck, HelpCircle,
+    Shield, ShieldCheck, Zap, Server, ChevronDown, ChevronUp, Copy,
+    CheckSquare, Calendar, CreditCard, ArrowRight, ArrowDownRight,
+    SlidersHorizontal, Search, Filter, Info, Smartphone, Unlock
 } from 'lucide-react';
-import { Panel, PanelHeader, Button, Badge, EmptyState } from '../../components/ui/primitives';
+import { Badge } from '../../components/ui/primitives';
 import { Modal } from '../../components/ui/Modal';
 import ActionModal from '../../components/credit_card/ActionModal';
-import { cx } from '../../components/ui/cx';
 import { formatCurrency } from '../../utils/currency';
 import { API_URL } from '../../config';
-
-const INPUT_CLASS =
-    'w-full rounded-control border border-line bg-sunken px-4 py-3 text-sm font-semibold text-ink outline-none transition focus:border-line-strong';
 
 const CATEGORY_TONES = {
     Shopping: 'violet',
@@ -28,6 +28,16 @@ const CATEGORY_TONES = {
 
 const categoryTone = (category) => CATEGORY_TONES[category] || 'muted';
 
+const maskEmail = (email) => {
+    if (!email || typeof email !== 'string') return '';
+    const parts = email.split('@');
+    if (parts.length !== 2) return '••••••••';
+    const name = parts[0];
+    const domain = parts[1];
+    if (name.length <= 2) return `${name[0]}•••@${domain}`;
+    return `${name.slice(0, 2)}••••${name.slice(-1)}@${domain}`;
+};
+
 const getLocalISOString = () => {
     const now = new Date();
     const offset = now.getTimezoneOffset();
@@ -38,7 +48,6 @@ const getLocalISOString = () => {
 const formatDate = (dateString) => {
     if (!dateString || dateString === 'N/A') return 'N/A';
 
-    // Handle date-only strings (YYYY-MM-DD) to avoid timezone/time-shift issues
     if (typeof dateString === 'string' && dateString.length === 10 && dateString.includes('-')) {
         const [year, month, day] = dateString.split('-');
         const d = new Date(year, month - 1, day);
@@ -55,24 +64,102 @@ const formatDate = (dateString) => {
     return date.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
+        day: 'numeric'
+    });
+};
+
+const formatFullDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
     });
 };
 
+const SUPPORTED_BANKS = [
+    { name: 'HDFC Bank', color: 'from-blue-600 to-indigo-700', badge: 'HDFC' },
+    { name: 'State Bank of India', color: 'from-sky-600 to-blue-700', badge: 'SBI' },
+    { name: 'ICICI Bank', color: 'from-orange-600 to-amber-700', badge: 'ICICI' },
+    { name: 'Axis Bank', color: 'from-rose-600 to-pink-700', badge: 'AXIS' },
+    { name: 'OneCard (FPL)', color: 'from-amber-500 to-orange-600', badge: 'ONECARD' },
+    { name: 'American Express', color: 'from-cyan-600 to-blue-700', badge: 'AMEX' },
+    { name: 'Kotak Mahindra', color: 'from-red-600 to-rose-700', badge: 'KOTAK' },
+    { name: 'RBL Bank', color: 'from-teal-600 to-emerald-700', badge: 'RBL' }
+];
+
 const CreditCardAutoStatement = () => {
-    const { cards, addCard, addTransaction, categories } = useCreditCards();
+    const { cards = [], addCard, addTransaction, categories = [] } = useCreditCards();
+    
+    // Top-Level Active Navigation Tab ('gmail' | 'pdf' | 'sms' | 'config' | 'transactions')
+    const [activeTab, setActiveTab] = useState('gmail');
+
+    // Gmail Smart Sync State
+    const [gmailStatus, setGmailStatus] = useState({ connected: false, email: null, lastSync: null, isConfigured: false });
+    const [gmailLoading, setGmailLoading] = useState(false);
+    const [gmailSyncing, setGmailSyncing] = useState(false);
+    const [gmailStatements, setGmailStatements] = useState([]);
+    const [selectedCardForStmt, setSelectedCardForStmt] = useState({});
+    const [expandedSnippets, setExpandedSnippets] = useState({});
+    const [applyingStmtId, setApplyingStmtId] = useState(null);
+    const [gmailSearchQuery, setGmailSearchQuery] = useState('');
+
+    // Gmail Config & Privacy Protection State
+    const [gmailConfig, setGmailConfig] = useState({
+        clientId: '',
+        clientSecret: '',
+        redirectUri: window.location.origin + '/credit-cards/auto-statement'
+    });
+    const [showSensitiveKeys, setShowSensitiveKeys] = useState(false);
+    const [showClientId, setShowClientId] = useState(false);
+    const [showSecret, setShowSecret] = useState(false);
+    const [copiedUri, setCopiedUri] = useState(false);
+    const [savingConfig, setSavingConfig] = useState(false);
+
+    // PDF & OCR State
     const [selectedCard, setSelectedCard] = useState('');
     const [pdfFile, setPdfFile] = useState(null);
-    const [inputMode, setInputMode] = useState('pdf'); // 'pdf' or 'text'
-    const [smsText, setSmsText] = useState('');
     const [pdfPassword, setPdfPassword] = useState('');
     const [showPasswordInput, setShowPasswordInput] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
-    const [extractedTransactions, setExtractedTransactions] = useState([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [passwordError, setPasswordError] = useState('');
+    const [cardMatchStatus, setCardMatchStatus] = useState(null);
+    const [statementData, setStatementData] = useState(null);
+    const [parseError, setParseError] = useState(null);
+    const [rawExtractedText, setRawExtractedText] = useState('');
+    const [statementCardEnding, setStatementCardEnding] = useState('');
+    const [fileUrl, setFileUrl] = useState(null);
 
-    // Helper to update state and localStorage simultaneously
+    // SMS Parser State
+    const [smsText, setSmsText] = useState('');
+
+    // Extracted Transactions Staging State
+    const [extractedTransactions, setExtractedTransactions] = useState([]);
+    const [txSearchQuery, setTxSearchQuery] = useState('');
+    const [txFilterCategory, setTxFilterCategory] = useState('ALL');
+    const [selectedTxIds, setSelectedTxIds] = useState(new Set());
+    const [editingTransaction, setEditingTransaction] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
+    const [showEMIModal, setShowEMIModal] = useState(false);
+    const [showManualEntry, setShowManualEntry] = useState(false);
+
+    // UI Feedback State
+    const [toast, setToast] = useState(null);
+    const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    const closeModal = () => setModal((prev) => ({ ...prev, isOpen: false }));
+
     const updateExtractedTransactions = (updater) => {
         setExtractedTransactions((prev) => {
             const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -81,29 +168,6 @@ const CreditCardAutoStatement = () => {
         });
     };
 
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [showManualEntry, setShowManualEntry] = useState(false);
-    const [passwordError, setPasswordError] = useState('');
-    const [cardMatchStatus, setCardMatchStatus] = useState(null); // 'matched', 'not-matched', null
-    const [statementData, setStatementData] = useState(null);
-    const [parseError, setParseError] = useState(null);
-    const [rawExtractedText, setRawExtractedText] = useState('');
-    const [statementCardEnding, setStatementCardEnding] = useState('');
-    const [editingTransaction, setEditingTransaction] = useState(null);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showSummaryModal, setShowSummaryModal] = useState(false);
-    const [showEMIModal, setShowEMIModal] = useState(false);
-
-    const [toast, setToast] = useState(null);
-    const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null });
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
-
-    const closeModal = () => setModal((prev) => ({ ...prev, isOpen: false }));
-
     const [manualTransaction, setManualTransaction] = useState({
         date: getLocalISOString(),
         merchant: '',
@@ -111,1041 +175,1677 @@ const CreditCardAutoStatement = () => {
         category: ''
     });
 
-    const [fileUrl, setFileUrl] = useState(null);
-
-    // Load saved state from localStorage on mount
-    useEffect(() => {
-        const savedTransactions = localStorage.getItem('pendingTransactions');
-        if (savedTransactions) {
-            try {
-                const parsed = JSON.parse(savedTransactions);
-                setExtractedTransactions(parsed);
-            } catch (e) {
-                console.error('Failed to load saved transactions:', e);
-            }
-        }
-
-        const savedSelectedCard = localStorage.getItem('selectedCard');
-        if (savedSelectedCard) setSelectedCard(savedSelectedCard);
-
-        const savedMatchStatus = localStorage.getItem('cardMatchStatus');
-        if (savedMatchStatus) setCardMatchStatus(savedMatchStatus);
-
-        const savedEnding = localStorage.getItem('statementCardEnding');
-        if (savedEnding) setStatementCardEnding(savedEnding);
-    }, []);
-
-    // Keep other state in sync with localStorage
-    useEffect(() => {
-        if (selectedCard) localStorage.setItem('selectedCard', selectedCard);
-        else localStorage.removeItem('selectedCard');
-    }, [selectedCard]);
-
-    useEffect(() => {
-        if (cardMatchStatus) localStorage.setItem('cardMatchStatus', cardMatchStatus);
-        else localStorage.removeItem('cardMatchStatus');
-    }, [cardMatchStatus]);
-
-    useEffect(() => {
-        if (statementCardEnding) localStorage.setItem('statementCardEnding', statementCardEnding);
-        else localStorage.removeItem('statementCardEnding');
-    }, [statementCardEnding]);
-
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setInputMode('pdf'); // Switch to PDF mode on file select
-            const isImage = file.type.startsWith('image/');
-            const isPDF = file.type === 'application/pdf';
-
-            if (isImage || isPDF) {
-                setPdfFile(file);
-                setCardMatchStatus(null);
-                setExtractedTransactions([]);
-                setParseError(null);
-                setRawExtractedText('');
-                setIsUnlocked(false);
-                setShowPasswordInput(false);
-
-                // Create preview URL for images
-                if (isImage) {
-                    const url = URL.createObjectURL(file);
-                    setFileUrl(url);
-                } else {
-                    setFileUrl(null);
+    // ----------------------------------------------------
+    // FETCHERS & GMAIL SYNC LOGIC
+    // ----------------------------------------------------
+    const fetchGmailStatus = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await fetch(`${API_URL}/credit-cards/gmail/status`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setGmailStatus(data);
+                if (data.customConfig?.clientId) {
+                    setGmailConfig(prev => ({
+                        ...prev,
+                        clientId: data.customConfig.clientId,
+                        redirectUri: data.customConfig.redirectUri || prev.redirectUri
+                    }));
                 }
             }
+        } catch (e) {
+            console.error('Failed to fetch Gmail status:', e);
         }
     };
 
-    const handleViewStatement = () => {
-        if (fileUrl) {
-            window.open(fileUrl, '_blank');
-        } else if (pdfFile) {
-            const url = URL.createObjectURL(pdfFile);
-            setFileUrl(url); // Cache the URL
-            window.open(url, '_blank');
+    const handleGoogleConnect = async () => {
+        if (!gmailStatus.isConfigured && !gmailConfig.clientId) {
+            setActiveTab('config');
+            showToast('Please enter your Google OAuth Client ID & Secret below first', 'error');
+            return;
         }
-    };
 
-    const handleProcessText = async () => {
-        if (!smsText.trim()) return;
-        setIsProcessing(true);
-        setParseError(null);
-        setStatementData(null);
-        setExtractedTransactions([]);
-
+        setGmailLoading(true);
         try {
-            const formData = new FormData();
-            formData.append('text', smsText);
-
-            const response = await fetch(`${API_URL}/statements/parse`, {
+            const token = localStorage.getItem('token');
+            const redirectUri = window.location.origin + '/credit-cards/auto-statement';
+            const res = await fetch(`${API_URL}/credit-cards/gmail/auth-url`, {
                 method: 'POST',
-                body: formData // Send as FormData to satisfy multer
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    redirectUri,
+                    clientId: gmailConfig.clientId || undefined,
+                    clientSecret: gmailConfig.clientSecret || undefined
+                })
             });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to parse text');
+            const data = await res.json();
+            if (data.authUrl) {
+                const width = 560;
+                const height = 680;
+                const left = window.screen.width / 2 - width / 2;
+                const top = window.screen.height / 2 - height / 2;
+                const popup = window.open(
+                    data.authUrl,
+                    'GoogleOAuthLogin',
+                    `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
+                );
+                if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                    window.location.href = data.authUrl;
+                }
+            } else {
+                showToast(data.error || 'Failed to generate Google Auth URL', 'error');
             }
-
-            handleParseSuccess(data);
-        } catch (error) {
-            console.error('Text parsing error:', error);
-            setParseError({
-                message: error.message || 'Failed to parse text.',
-                details: error.details || 'Please check the text format.'
-            });
+        } catch (e) {
+            showToast('Error connecting to Google OAuth', 'error');
         } finally {
-            setIsProcessing(false);
+            setGmailLoading(false);
+        }
+    };
+
+    const handleSaveGmailConfig = async () => {
+        if (!gmailConfig.clientId || !gmailConfig.clientSecret) {
+            showToast('Please fill in both Client ID and Client Secret', 'error');
+            return;
+        }
+        setSavingConfig(true);
+        try {
+            const token = localStorage.getItem('token');
+            const saveRes = await fetch(`${API_URL}/credit-cards/gmail/config`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(gmailConfig)
+            });
+            if (!saveRes.ok) throw new Error('Failed to save configuration');
+            showToast('Google OAuth Credentials Saved Successfully!', 'success');
+            await fetchGmailStatus();
+        } catch (e) {
+            showToast(e.message || 'Failed to save config', 'error');
+        } finally {
+            setSavingConfig(false);
+        }
+    };
+
+    const handleGoogleCallback = async (code) => {
+        setGmailLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const redirectUri = window.location.origin + '/credit-cards/auto-statement';
+            const res = await fetch(`${API_URL}/credit-cards/gmail/callback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    code,
+                    redirectUri,
+                    clientId: gmailConfig.clientId || undefined,
+                    clientSecret: gmailConfig.clientSecret || undefined
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`Connected successfully to ${maskEmail(data.email)}!`, 'success');
+                await fetchGmailStatus();
+                handleSyncGmailStatements();
+            } else {
+                showToast(data.error || 'Authentication failed', 'error');
+            }
+        } catch (e) {
+            showToast('Failed to complete Google OAuth handshake', 'error');
+        } finally {
+            setGmailLoading(false);
+        }
+    };
+
+    const handleSyncGmailStatements = async () => {
+        setGmailSyncing(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/gmail/sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            const data = await res.json();
+            if (res.ok && data.statements) {
+                setGmailStatements(data.statements);
+                showToast(
+                    data.statements.length > 0 
+                        ? `Discovered ${data.statements.length} credit card statement${data.statements.length > 1 ? 's' : ''}!`
+                        : 'No new credit card statement emails found in the last 45 days.',
+                    data.statements.length > 0 ? 'success' : 'info'
+                );
+                await fetchGmailStatus();
+            } else {
+                showToast(data.error || 'Failed to sync statements', 'error');
+            }
+        } catch (e) {
+            showToast('Failed to communicate with Gmail Sync engine', 'error');
+        } finally {
+            setGmailSyncing(false);
+        }
+    };
+
+    const handleDisconnectGmail = async () => {
+        setModal({
+            isOpen: true,
+            title: 'Disconnect Google Account',
+            message: 'Are you sure you want to disconnect your Gmail sync? You will need to re-authorize to scan statements.',
+            type: 'confirm',
+            onConfirm: async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    await fetch(`${API_URL}/credit-cards/gmail/disconnect`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    setGmailStatus({ connected: false, email: null, lastSync: null, isConfigured: true });
+                    setGmailStatements([]);
+                    showToast('Gmail account disconnected', 'info');
+                } catch {
+                    showToast('Failed to disconnect Gmail', 'error');
+                } finally {
+                    closeModal();
+                }
+            }
+        });
+    };
+
+    const handleApplyGmailStatement = async (statement) => {
+        const matchedCardId = selectedCardForStmt[statement.messageId] || statement.matchedCardId;
+        if (!matchedCardId) {
+            showToast('Please select which card to link this statement to', 'error');
+            return;
+        }
+
+        setApplyingStmtId(statement.messageId);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/gmail/apply-statement`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    statement,
+                    cardId: matchedCardId
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(data.message || 'Statement bill applied to card successfully!', 'success');
+                setGmailStatements(prev => prev.filter(s => s.messageId !== statement.messageId));
+            } else {
+                showToast(data.error || 'Failed to apply statement', 'error');
+            }
+        } catch (e) {
+            showToast('Error applying statement to card ledger', 'error');
+        } finally {
+            setApplyingStmtId(null);
+        }
+    };
+
+    const handleDismissGmailStatement = (messageId) => {
+        setGmailStatements(prev => prev.filter(s => s.messageId !== messageId));
+        showToast('Statement dismissed from inbox', 'info');
+    };
+
+    const toggleSnippet = (id) => {
+        setExpandedSnippets(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const copyRedirectUri = () => {
+        navigator.clipboard.writeText(gmailConfig.redirectUri);
+        setCopiedUri(true);
+        showToast('Redirect URI copied to clipboard!', 'success');
+        setTimeout(() => setCopiedUri(false), 2500);
+    };
+
+    // ----------------------------------------------------
+    // INITIALIZATION & URL / POPUP LISTENER
+    // ----------------------------------------------------
+    useEffect(() => {
+        fetchGmailStatus();
+        const saved = localStorage.getItem('pendingTransactions');
+        if (saved) {
+            try {
+                setExtractedTransactions(JSON.parse(saved));
+            } catch (e) {
+                console.error('Error loading pending transactions:', e);
+            }
+        }
+
+        const handleOAuthMessage = (event) => {
+            if (event.data?.type === 'GMAIL_OAUTH_CODE' && event.data.code) {
+                handleGoogleCallback(event.data.code);
+            }
+        };
+        window.addEventListener('message', handleOAuthMessage);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code) {
+            if (window.opener) {
+                window.opener.postMessage({ type: 'GMAIL_OAUTH_CODE', code }, '*');
+                window.close();
+                return;
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+            handleGoogleCallback(code);
+        }
+
+        return () => window.removeEventListener('message', handleOAuthMessage);
+    }, []);
+
+    // ----------------------------------------------------
+    // PDF & OCR HANDLERS
+    // ----------------------------------------------------
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            setPdfFile(file);
+            setFileUrl(URL.createObjectURL(file));
+            setPdfPassword('');
+            setShowPasswordInput(false);
+            setIsUnlocked(false);
+            setPasswordError('');
+            setParseError(null);
+            setStatementData(null);
+            setExtractedTransactions([]);
+            setRawExtractedText('');
+            showToast('PDF statement loaded. Click Process Statement to extract transactions.');
+        } else {
+            showToast('Please upload a valid PDF statement file', 'error');
         }
     };
 
     const handleProcessStatement = async () => {
-        if (pdfFile) {
-            await processStatement(pdfFile, null);
-        }
-    };
-
-    // Extracted success handler to reuse
-    const handleParseSuccess = (data) => {
-        setStatementData(data);
-        setRawExtractedText(data.rawText);
-
-        if (data.transactions && data.transactions.length > 0) {
-            // Add approved field to each transaction
-            const transactionsWithApproval = data.transactions.map((t) => ({
-                ...t,
-                approved: null, // null = pending, true = approved/synced, false = rejected
-                id: t.id || Date.now() + Math.random(), // Ensure each has unique ID
-                rawLine: t.rawLine || t.description // Store raw line if available
-            }));
-            updateExtractedTransactions(transactionsWithApproval);
-        } else {
-            setParseError({
-                message: 'No transactions found',
-                details: 'Could not identify any clear transactions. Try pasting a different format.'
-            });
-        }
-
-        // Try to match card
-        if (data.cardEnding) {
-            setStatementCardEnding(data.cardEnding);
-            // Robust match: Check strict last 4 or if card number contains the last 4
-            const matchedCard = cards.find(
-                (card) =>
-                    card.number &&
-                    (card.number.endsWith(data.cardEnding) || card.number.replace(/\s/g, '').includes(data.cardEnding))
-            );
-
-            if (matchedCard) {
-                setCardMatchStatus('matched');
-                setSelectedCard(matchedCard.id.toString());
-            } else {
-                setCardMatchStatus('new-detected');
-            }
-        } else {
-            setCardMatchStatus('manual-required');
-        }
-    };
-
-    const handleUnlockPDF = async () => {
-        if (pdfFile && pdfPassword) {
-            await processStatement(pdfFile, pdfPassword);
-        }
-    };
-
-    const processStatement = async (file, password) => {
-        setIsProcessing(true);
-        setPasswordError('');
-
-        try {
-            const formData = new FormData();
-            formData.append('statement', file);
-            if (password) {
-                formData.append('password', password);
-            }
-
-            const response = await fetch(`${API_URL}/statements/parse`, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (response.status === 401 && data.encrypted) {
-                setShowPasswordInput(true);
-                setPasswordError('This PDF is password protected. Please enter the password.');
-                setIsProcessing(false);
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText = data.details || data.error || 'Failed to parse statement';
-                setParseError({ message: data.error, details: data.details });
-                throw new Error(errorText);
-            }
-
-            setParseError(null);
-            setRawExtractedText(data.rawText || '');
-            setIsUnlocked(true);
-            handleParseSuccess(data); // Reuse logic
-            setIsProcessing(false);
-        } catch (error) {
-            console.error('Statement processing error:', error);
-            setPasswordError(error.message || 'Failed to process statement');
-            setIsProcessing(false);
-        }
-    };
-
-    const handleAddNewCard = (cardData) => {
-        // Create new card with statement data
-        const newCard = addCard({
-            ...cardData,
-            number: `**** **** **** ${statementCardEnding}`,
-            // Populate other fields from statement if available
-            creditLimit: statementData?.credit_limit || 0, // Ensure mapping
-            totalDue: statementData?.totalDue || 0,
-            minPayment: statementData?.minPayment || 0
-        });
-
-        // FORCE UPDATE Selected Card
-        setTimeout(() => {
-            setSelectedCard(newCard.id.toString());
-            setCardMatchStatus('matched');
-        }, 100);
-    };
-
-    // Creates the card directly from the parsed statement. Previously this
-    // opened a card-entry modal that no longer exists in this view.
-    const handleCreateNewCard = () => {
-        handleAddNewCard({});
-    };
-
-    const handleApprove = (id) => {
-        // If no card selected, try to auto-select the first one if only one exists
-        let targetCardId = selectedCard;
-        if (!targetCardId) {
-            if (cards.length === 1) {
-                targetCardId = cards[0].id.toString();
-                setSelectedCard(targetCardId);
-            } else {
-                setModal({
-                    isOpen: true,
-                    title: 'No card selected',
-                    message: `Do you want to create a new card for the statement ending in ${statementCardEnding}?`,
-                    type: 'confirm',
-                    onConfirm: () => {
-                        closeModal();
-                        handleCreateNewCard();
-                    }
-                });
-                return;
-            }
-        }
-
-        const transaction = extractedTransactions.find((t) => t.id === id);
-        if (transaction) {
-            addTransaction(targetCardId, {
-                ...transaction,
-                id: Date.now() + Math.random(),
-                description: transaction.merchant
-            });
-
-            // Mark as approved (synced) but keep in list for history counts
-            updateExtractedTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, approved: true } : t)));
-        }
-    };
-
-    const handleReject = (id) => {
-        updateExtractedTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, approved: false } : t)));
-    };
-
-    const handleEdit = (transaction) => {
-        setEditingTransaction({ ...transaction });
-        setShowEditModal(true);
-    };
-
-    const handleSaveEdit = () => {
-        updateExtractedTransactions((prev) =>
-            prev.map((t) => (t.id === editingTransaction.id ? { ...editingTransaction } : t))
-        );
-        setShowEditModal(false);
-        setEditingTransaction(null);
-    };
-
-    const handleBulkApprove = async () => {
-        if (!selectedCard) {
-            showToast('Please select a card to sync transactions', 'error');
+        if (!pdfFile) {
+            showToast('Please select a PDF file first', 'error');
             return;
         }
 
-        const pending = extractedTransactions.filter((t) => t.approved !== true);
-        if (pending.length === 0) return;
-
         setIsProcessing(true);
+        setPasswordError('');
+        setParseError(null);
+
+        const formData = new FormData();
+        formData.append('pdf', pdfFile);
+        if (selectedCard) formData.append('cardId', selectedCard);
+        if (pdfPassword) formData.append('password', pdfPassword);
+
         try {
-            for (const t of pending) {
-                await addTransaction(selectedCard, {
-                    ...t,
-                    id: Date.now() + Math.random(),
-                    description: t.merchant,
-                    transactionDate: t.date // Ensure naming consistency
-                });
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/parse-statement`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (res.status === 401 || data.isPasswordProtected) {
+                setShowPasswordInput(true);
+                setIsUnlocked(false);
+                setIsProcessing(false);
+                if (data.error) setPasswordError(data.error);
+                return;
             }
 
-            updateExtractedTransactions((prev) => prev.map((t) => ({ ...t, approved: true })));
-            showToast(`Successfully synced ${pending.length} transactions!`, 'success');
-        } catch (error) {
-            console.error('Bulk approve error:', error);
-            showToast('Failed to sync some transactions. Please try again.', 'error');
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to process statement');
+            }
+
+            handleParseSuccess(data);
+            showToast('PDF statement processed successfully!');
+        } catch (err) {
+            setParseError(err.message);
+            showToast(err.message, 'error');
         } finally {
             setIsProcessing(false);
         }
     };
 
+    const handleUnlockPDF = async () => {
+        if (!pdfPassword) {
+            setPasswordError('Please enter password');
+            return;
+        }
+
+        setIsProcessing(true);
+        setPasswordError('');
+
+        const formData = new FormData();
+        formData.append('pdf', pdfFile);
+        formData.append('password', pdfPassword);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/unlock-pdf`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Invalid password');
+            }
+
+            setIsUnlocked(true);
+            setShowPasswordInput(false);
+            showToast('PDF unlocked! Processing transactions...');
+            handleProcessStatement();
+        } catch (err) {
+            setPasswordError(err.message);
+            showToast(err.message, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleProcessText = async () => {
+        if (!smsText.trim()) {
+            showToast('Please paste statement or SMS text to parse', 'error');
+            return;
+        }
+
+        setIsProcessing(true);
+        setParseError(null);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/parse-text`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ text: smsText, cardId: selectedCard })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to parse text');
+            }
+
+            handleParseSuccess(data);
+            showToast('Text parsed successfully!');
+        } catch (err) {
+            setParseError(err.message);
+            showToast(err.message, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleParseSuccess = (data) => {
+        setStatementData(data.summary || null);
+        setRawExtractedText(data.rawText || '');
+
+        if (data.cardEnding) {
+            setStatementCardEnding(data.cardEnding);
+            const matched = cards.find(c => c.last4 === data.cardEnding || c.cardNumber?.endsWith(data.cardEnding));
+            if (matched) {
+                setSelectedCard(matched.id);
+                setCardMatchStatus('matched');
+            } else {
+                setCardMatchStatus('not-matched');
+            }
+        }
+
+        if (data.transactions && data.transactions.length > 0) {
+            const newTxs = data.transactions.map((tx, index) => ({
+                id: `extracted-${Date.now()}-${index}`,
+                date: tx.date || new Date().toISOString().slice(0, 10),
+                description: tx.description || 'Unknown Merchant',
+                merchant: tx.merchant || tx.description || 'Unknown Merchant',
+                amount: parseFloat(tx.amount) || 0,
+                category: tx.category || 'Shopping',
+                type: tx.type || 'expense',
+                cardId: selectedCard || (cards[0]?.id || '')
+            }));
+            updateExtractedTransactions((prev) => [...newTxs, ...prev]);
+            setActiveTab('transactions');
+        }
+    };
+
+    // ----------------------------------------------------
+    // TRANSACTIONS APPROVAL & STAGING HANDLERS
+    // ----------------------------------------------------
+    const handleApprove = (id) => {
+        const tx = extractedTransactions.find(t => t.id === id);
+        if (!tx) return;
+
+        const targetCard = cards.find(c => c.id === (tx.cardId || selectedCard)) || cards[0];
+        if (!targetCard) {
+            showToast('Please link a valid credit card first', 'error');
+            return;
+        }
+
+        addTransaction(targetCard.id, {
+            date: tx.date,
+            description: tx.merchant || tx.description,
+            amount: parseFloat(tx.amount),
+            category: tx.category || 'Shopping',
+            type: tx.type || 'expense'
+        });
+
+        updateExtractedTransactions(prev => prev.filter(t => t.id !== id));
+        setSelectedTxIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+        showToast('Transaction approved to credit card ledger!', 'success');
+    };
+
+    const handleReject = (id) => {
+        updateExtractedTransactions(prev => prev.filter(t => t.id !== id));
+        setSelectedTxIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+        showToast('Transaction removed', 'info');
+    };
+
+    const handleBulkApprove = () => {
+        if (selectedTxIds.size === 0) {
+            showToast('Select at least one transaction to approve', 'error');
+            return;
+        }
+
+        let approvedCount = 0;
+        extractedTransactions.forEach(tx => {
+            if (selectedTxIds.has(tx.id)) {
+                const targetCard = cards.find(c => c.id === (tx.cardId || selectedCard)) || cards[0];
+                if (targetCard) {
+                    addTransaction(targetCard.id, {
+                        date: tx.date,
+                        description: tx.merchant || tx.description,
+                        amount: parseFloat(tx.amount),
+                        category: tx.category || 'Shopping',
+                        type: tx.type || 'expense'
+                    });
+                    approvedCount++;
+                }
+            }
+        });
+
+        updateExtractedTransactions(prev => prev.filter(t => !selectedTxIds.has(t.id)));
+        setSelectedTxIds(new Set());
+        showToast(`Approved ${approvedCount} transaction${approvedCount > 1 ? 's' : ''} to card ledger!`, 'success');
+    };
+
     const handleBulkReject = () => {
-        updateExtractedTransactions((prev) => prev.map((t) => (t.approved === null ? { ...t, approved: false } : t)));
+        if (selectedTxIds.size === 0) return;
+        updateExtractedTransactions(prev => prev.filter(t => !selectedTxIds.has(t.id)));
+        setSelectedTxIds(new Set());
+        showToast('Selected transactions discarded', 'info');
     };
 
-    const handleDeleteAll = () => {
-        updateExtractedTransactions([]);
-        // Clear all relevant localStorage items
-        localStorage.removeItem('pendingTransactions');
-        localStorage.removeItem('cardMatchStatus');
-        localStorage.removeItem('statementCardEnding');
-        localStorage.removeItem('selectedCard');
-        setCardMatchStatus(null);
-        setSelectedCard('');
-        setStatementCardEnding('');
+    const handleClearAllExtracted = () => {
+        setModal({
+            isOpen: true,
+            title: 'Clear Extracted Transactions',
+            message: 'Are you sure you want to clear all pending extracted transactions?',
+            type: 'confirm',
+            onConfirm: () => {
+                updateExtractedTransactions([]);
+                setSelectedTxIds(new Set());
+                closeModal();
+                showToast('Staging ledger cleared', 'info');
+            }
+        });
     };
 
-    const handleDelete = (id) => {
-        updateExtractedTransactions((prev) => prev.filter((t) => t.id !== id));
+    const toggleSelectAll = () => {
+        if (selectedTxIds.size === filteredTransactions.length) {
+            setSelectedTxIds(new Set());
+        } else {
+            setSelectedTxIds(new Set(filteredTransactions.map(t => t.id)));
+        }
+    };
+
+    const toggleSelectTx = (id) => {
+        setSelectedTxIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
     };
 
     const handleAddManualTransaction = () => {
-        const newTransaction = {
-            id: Date.now(),
-            ...manualTransaction,
+        if (!manualTransaction.merchant || !manualTransaction.amount) {
+            showToast('Merchant name and amount are required', 'error');
+            return;
+        }
+
+        const newTx = {
+            id: `manual-${Date.now()}`,
+            date: manualTransaction.date || getLocalISOString().slice(0, 10),
+            description: manualTransaction.merchant,
+            merchant: manualTransaction.merchant,
             amount: parseFloat(manualTransaction.amount),
-            approved: null
+            category: manualTransaction.category || 'Shopping',
+            type: 'expense',
+            cardId: selectedCard || (cards[0]?.id || '')
         };
-        updateExtractedTransactions((prev) => [...prev, newTransaction]);
-        setManualTransaction({ date: getLocalISOString(), merchant: '', amount: '', category: 'Shopping' });
+
+        updateExtractedTransactions(prev => [newTx, ...prev]);
         setShowManualEntry(false);
+        setManualTransaction({
+            date: getLocalISOString(),
+            merchant: '',
+            amount: '',
+            category: ''
+        });
+        setActiveTab('transactions');
+        showToast('Manual transaction added to staging ledger!');
     };
 
-    const approvedCount = extractedTransactions.filter((t) => t.approved === true).length;
-    const rejectedCount = extractedTransactions.filter((t) => t.approved === false).length;
-    const pendingCount = extractedTransactions.filter((t) => t.approved === null).length;
-
-    const segBtn = (active) =>
-        cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-[8px] px-4 py-2.5 text-sm font-bold transition',
-            active ? 'bg-brand text-slate-950' : 'text-ink-muted hover:text-ink'
+    // ----------------------------------------------------
+    // FILTERED LISTS
+    // ----------------------------------------------------
+    const filteredGmailStatements = useMemo(() => {
+        if (!gmailSearchQuery.trim()) return gmailStatements;
+        const q = gmailSearchQuery.toLowerCase();
+        return gmailStatements.filter(s => 
+            (s.bankName && s.bankName.toLowerCase().includes(q)) ||
+            (s.subject && s.subject.toLowerCase().includes(q)) ||
+            (s.last4 && s.last4.includes(q)) ||
+            (s.totalDue && s.totalDue.toString().includes(q))
         );
+    }, [gmailStatements, gmailSearchQuery]);
+
+    const filteredTransactions = useMemo(() => {
+        return extractedTransactions.filter(tx => {
+            const matchSearch = !txSearchQuery || 
+                (tx.merchant && tx.merchant.toLowerCase().includes(txSearchQuery.toLowerCase())) ||
+                (tx.description && tx.description.toLowerCase().includes(txSearchQuery.toLowerCase())) ||
+                (tx.amount && tx.amount.toString().includes(txSearchQuery));
+            const matchCategory = txFilterCategory === 'ALL' || tx.category === txFilterCategory;
+            return matchSearch && matchCategory;
+        });
+    }, [extractedTransactions, txSearchQuery, txFilterCategory]);
 
     return (
-        <div className="mx-auto max-w-[1400px] p-6 md:p-10">
-            {/* Header */}
-            <header className="mb-8">
-                <h1 className="text-2xl font-black tracking-tight text-ink sm:text-3xl">Auto Statement</h1>
-                <p className="mt-1 text-sm text-ink-muted">
-                    Upload PDF statements, extract transactions, and sync to your cards.
-                </p>
-            </header>
-
-            <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-                {/* Left Panel - Upload & Settings */}
-                <div className="flex flex-col gap-5">
-                    {/* Select Card - Always show if transactions exist but no card is matched/selected */}
-                    {(cardMatchStatus === 'not-matched' || (extractedTransactions.length > 0 && !selectedCard)) && (
-                        <Panel>
-                            <PanelHeader title="Select Card Manually" icon={FileText} />
-                            <select
-                                value={selectedCard}
-                                onChange={(e) => setSelectedCard(e.target.value)}
-                                className={cx(INPUT_CLASS, 'appearance-none')}
-                            >
-                                <option value="">Choose a card...</option>
-                                {cards.map((card) => (
-                                    <option key={card.id} value={card.id}>
-                                        {card.bankName} - {card.name} (Ending {card.number?.slice(-4)})
-                                    </option>
-                                ))}
-                            </select>
-                        </Panel>
-                    )}
-
-                    {/* Input Mode Tabs */}
-                    <div className="flex gap-2 rounded-control border border-line bg-surface p-1">
-                        <button type="button" onClick={() => setInputMode('pdf')} className={segBtn(inputMode === 'pdf')}>
-                            <FileText size={17} aria-hidden="true" /> Upload PDF
-                        </button>
-                        <button type="button" onClick={() => setInputMode('text')} className={segBtn(inputMode === 'text')}>
-                            <MessageSquare size={17} aria-hidden="true" /> SMS / Text
-                        </button>
-                    </div>
-
-                    {/* PDF Upload */}
-                    {inputMode === 'pdf' && (
-                        <Panel>
-                            <PanelHeader title="Upload Statement" icon={Upload} />
-
-                            <label className="flex cursor-pointer flex-col items-center rounded-card border-2 border-dashed border-line bg-sunken px-6 py-8 text-center transition hover:border-line-strong">
-                                <Upload size={30} className="mb-3 text-ink-faint" aria-hidden="true" />
-                                <span className="text-sm font-bold text-ink">
-                                    {pdfFile ? pdfFile.name : 'Click to upload statement'}
-                                </span>
-                                <span className="mt-1 text-xs text-ink-faint">PDF or Image files</span>
-                                <input type="file" accept=".pdf,image/*" onChange={handleFileUpload} className="hidden" />
-                            </label>
-
-                            {/* File Preview & Process Buttons */}
-                            {pdfFile && !isProcessing && (
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                    <Button variant="secondary" icon={Eye} onClick={handleViewStatement}>
-                                        View
-                                    </Button>
-                                    {!isUnlocked && !showPasswordInput && (
-                                        <Button variant="primary" icon={CheckCircle2} onClick={handleProcessStatement} className="flex-1">
-                                            Process Statement
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="secondary"
-                                        icon={FileText}
-                                        onClick={() => setShowSummaryModal(true)}
-                                        disabled={!statementData}
-                                    >
-                                        Summary
-                                    </Button>
-                                    {statementData?.emis && statementData.emis.length > 0 && (
-                                        <Button variant="secondary" icon={DollarSign} onClick={() => setShowEMIModal(true)}>
-                                            EMIs
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Processing State */}
-                            {isProcessing && (
-                                <div className="mt-4 flex flex-col items-center gap-3 rounded-card border border-line bg-sunken p-5">
-                                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                                        <Upload size={24} className="text-violet" aria-hidden="true" />
-                                    </motion.div>
-                                    <span className="text-sm font-semibold text-ink">Analyzing statement accurately...</span>
-                                </div>
-                            )}
-
-                            {/* Card Match Status */}
-                            {cardMatchStatus === 'matched' && (
-                                <div className="mt-4 flex items-center gap-2 rounded-control border border-pos bg-pos-soft p-3 text-sm font-bold text-pos">
-                                    <CheckCircle2 size={16} aria-hidden="true" />
-                                    Card matched! Statement card ending in {statementCardEnding}
-                                </div>
-                            )}
-
-                            {cardMatchStatus === 'new-detected' && (
-                                <div className="mt-4">
-                                    <div className="flex items-center gap-2 rounded-control border border-warn bg-warn-soft p-3 text-sm font-bold text-warn">
-                                        <AlertCircle size={16} aria-hidden="true" />
-                                        New Card Detected (Ending {statementCardEnding})
-                                    </div>
-                                    <Button variant="primary" icon={Plus} onClick={handleCreateNewCard} className="mt-3 w-full">
-                                        Create New Card
-                                    </Button>
-                                </div>
-                            )}
-
-                            {(cardMatchStatus === 'manual-required' || cardMatchStatus === 'not-matched') && (
-                                <div className="mt-4 flex items-center gap-2 rounded-control border border-info bg-info-soft p-3 text-sm font-bold text-info">
-                                    <AlertCircle size={16} aria-hidden="true" />
-                                    Please select your card from the list above.
-                                </div>
-                            )}
-
-                            {/* Password Input */}
-                            {showPasswordInput && !isUnlocked && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4">
-                                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-ink-faint">
-                                        PDF Password
-                                    </label>
-                                    <div className="relative">
-                                        <Lock
-                                            size={18}
-                                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            type="password"
-                                            value={pdfPassword}
-                                            onChange={(e) => setPdfPassword(e.target.value)}
-                                            placeholder="Enter PDF password"
-                                            className={cx(INPUT_CLASS, 'pl-11', passwordError && 'border-neg')}
-                                        />
-                                    </div>
-                                    {passwordError && <div className="mt-1.5 text-xs text-neg">{passwordError}</div>}
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleUnlockPDF}
-                                        disabled={!pdfPassword}
-                                        className="mt-3 w-full"
-                                    >
-                                        Unlock &amp; Extract
-                                    </Button>
-                                </motion.div>
-                            )}
-
-                            {/* Detailed Parse Error */}
-                            {parseError && (
-                                <div className="mt-4 rounded-card border border-neg bg-neg-soft p-4 text-neg">
-                                    <div className="flex items-center gap-2 text-sm font-bold">
-                                        <AlertCircle size={16} aria-hidden="true" />
-                                        <span>{parseError.message}</span>
-                                    </div>
-                                    {parseError.details && <p className="mt-1.5 text-xs opacity-90">{parseError.details}</p>}
-                                    {rawExtractedText && (
-                                        <details className="mt-2.5">
-                                            <summary className="cursor-pointer text-xs opacity-80">
-                                                Show raw extraction (Technical Info)
-                                            </summary>
-                                            <div className="mt-1.5 max-h-[150px] overflow-y-auto whitespace-pre-wrap rounded-control bg-black/20 p-2.5 font-mono text-[10px] text-ink-muted">
-                                                {rawExtractedText}
-                                            </div>
-                                        </details>
-                                    )}
-                                </div>
-                            )}
-
-                            {isUnlocked && (
-                                <div className="mt-4 flex items-center gap-2 rounded-control border border-pos bg-pos-soft p-3 text-sm font-bold text-pos">
-                                    <CheckCircle2 size={16} aria-hidden="true" />
-                                    PDF unlocked successfully
-                                </div>
-                            )}
-                        </Panel>
-                    )}
-
-                    {/* SMS / Text Input */}
-                    {inputMode === 'text' && (
-                        <Panel>
-                            <PanelHeader title="Paste SMS / Text" icon={MessageSquare} />
-                            <textarea
-                                value={smsText}
-                                onChange={(e) => setSmsText(e.target.value)}
-                                placeholder={`Paste your bank SMS or raw transactions here...\nExample: \nSpent Rs. 500 at Swiggy on 12 - 12 - 2024\nTxn of INR 1200.00 at Amazon on 15 Oct 2024`}
-                                className={cx(INPUT_CLASS, 'min-h-[200px] resize-y font-mono text-[13px] leading-relaxed')}
-                            />
-
-                            <Button
-                                variant="primary"
-                                icon={CheckCircle2}
-                                loading={isProcessing}
-                                onClick={handleProcessText}
-                                disabled={!smsText}
-                                className="mt-5 w-full"
-                                size="lg"
-                            >
-                                {isProcessing ? 'Processing Text...' : 'Parse Transactions'}
-                            </Button>
-
-                            {/* Detailed Parse Error */}
-                            {parseError && (
-                                <div className="mt-4 rounded-card border border-neg bg-neg-soft p-4 text-neg">
-                                    <div className="flex items-center gap-2 text-sm font-bold">
-                                        <AlertCircle size={16} aria-hidden="true" />
-                                        <span>{parseError.message}</span>
-                                    </div>
-                                    {parseError.details && <p className="mt-1.5 text-xs opacity-90">{parseError.details}</p>}
-                                </div>
-                            )}
-                        </Panel>
-                    )}
-
-                    {/* Manual Entry Button */}
-                    <Button variant="secondary" icon={Plus} onClick={() => setShowManualEntry(true)} className="w-full" size="lg">
-                        Add Manual Transaction
-                    </Button>
-
-                    {/* Stats */}
-                    {extractedTransactions.length > 0 && (
-                        <>
-                            <Panel>
-                                <PanelHeader title="Summary" />
-                                <div className="flex flex-col gap-2.5">
-                                    <StatRow label="Total" value={extractedTransactions.length} />
-                                    <StatRow label="Approved" value={approvedCount} tone="text-pos" />
-                                    <StatRow label="Rejected" value={rejectedCount} tone="text-neg" />
-                                    <StatRow label="Pending" value={pendingCount} tone="text-warn" />
-                                </div>
-                            </Panel>
-
-                            {/* Rewards Summary */}
-                            {statementData?.rewards && (
-                                <Panel>
-                                    <PanelHeader title="Reward Points" />
-                                    <div className="flex flex-col gap-2.5">
-                                        <StatRow label="Opening" value={statementData.rewards.opening} />
-                                        <StatRow label="Earned" value={`+${statementData.rewards.earned}`} tone="text-pos" />
-                                        <StatRow label="Redeemed" value={`-${statementData.rewards.disbursed}`} tone="text-neg" />
-                                        <div className="mt-1 flex items-center justify-between border-t border-line pt-2.5">
-                                            <span className="text-xs font-bold text-ink">Closing Balance</span>
-                                            <span className="tnum text-sm font-black text-violet">
-                                                {statementData.rewards.closing}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </Panel>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {/* Right Panel - Transactions */}
-                <Panel>
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-lg font-black text-ink">Extracted Transactions</h3>
-                            <p className="text-xs text-ink-muted">Review and approve transactions</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {pdfFile && (
-                                <Button variant="secondary" icon={Eye} onClick={handleViewStatement}>
-                                    View Original
-                                </Button>
-                            )}
-                            {extractedTransactions.length > 0 && pendingCount > 0 && (
-                                <>
-                                    <Button variant="primary" icon={Check} onClick={handleBulkApprove} disabled={isProcessing}>
-                                        Approve All
-                                    </Button>
-                                    <Button variant="danger" icon={X} onClick={handleBulkReject}>
-                                        Reject All
-                                    </Button>
-                                    <Button variant="secondary" icon={X} onClick={handleDeleteAll}>
-                                        Finish &amp; Clear All
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {extractedTransactions.length === 0 ? (
-                        <EmptyState
-                            icon={FileText}
-                            title="No transactions yet"
-                            description="Upload a PDF statement to extract transactions, or add them manually."
-                        />
-                    ) : (
-                        <div className="flex max-h-[600px] flex-col gap-3 overflow-y-auto">
-                            {extractedTransactions.map((t) => {
-                                const isGST = t.description?.toUpperCase().includes('GST');
-                                return (
-                                    <motion.div
-                                        key={t.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className={cx(
-                                            'flex items-center justify-between gap-4 rounded-card border p-4',
-                                            isGST ? 'border-warn bg-warn-soft' : 'border-line bg-sunken'
-                                        )}
-                                    >
-                                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                            <span
-                                                className={cx(
-                                                    'break-words text-sm font-bold leading-relaxed',
-                                                    isGST ? 'text-warn' : 'text-ink'
-                                                )}
-                                            >
-                                                {t.description}
-                                            </span>
-                                            <div className="flex flex-wrap items-center gap-2.5 text-xs text-ink-muted">
-                                                <span>{formatDate(t.date)}</span>
-                                                <span aria-hidden="true">•</span>
-                                                <Badge tone={categoryTone(t.category)}>{t.category || 'Uncategorized'}</Badge>
-                                            </div>
-                                            {t.rawLine && (
-                                                <div className="mt-1 w-fit rounded-[4px] bg-black/20 px-1.5 py-0.5 font-mono text-[11px] text-ink-muted">
-                                                    Raw: {t.rawLine}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-4">
-                                            <span
-                                                className={cx(
-                                                    'tnum text-base font-bold',
-                                                    t.type === 'credit' ? 'text-pos' : 'text-ink'
-                                                )}
-                                            >
-                                                {t.type === 'credit' ? '+' : '-'}
-                                                {formatCurrency(t.amount)}
-                                            </span>
-
-                                            <div className="flex items-center gap-1.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEdit(t)}
-                                                    disabled={t.approved === true}
-                                                    title="Edit transaction"
-                                                    className={cx(
-                                                        'rounded-control p-2 text-ink-faint transition hover:bg-violet-soft hover:text-violet',
-                                                        t.approved === true && 'cursor-default opacity-50 hover:bg-transparent hover:text-ink-faint'
-                                                    )}
-                                                >
-                                                    <Pencil size={15} aria-hidden="true" />
-                                                </button>
-
-                                                {t.approved === true ? (
-                                                    <Badge tone="pos" icon={CheckCircle2}>
-                                                        Synced
-                                                    </Badge>
-                                                ) : (
-                                                    <>
-                                                        <Button size="sm" variant="primary" icon={Check} onClick={() => handleApprove(t.id)}>
-                                                            Approve
-                                                        </Button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleReject(t.id)}
-                                                            title="Reject transaction"
-                                                            className="rounded-control p-2 text-ink-faint transition hover:bg-warn-soft hover:text-warn"
-                                                        >
-                                                            <X size={15} aria-hidden="true" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDelete(t.id)}
-                                                            title="Delete transaction"
-                                                            className="rounded-control p-2 text-ink-faint transition hover:bg-neg-soft hover:text-neg"
-                                                        >
-                                                            <Trash2 size={15} aria-hidden="true" />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </Panel>
-            </div>
-
-            {/* Manual Entry Modal */}
-            <Modal
-                isOpen={showManualEntry}
-                onClose={() => setShowManualEntry(false)}
-                title="Add Manual Transaction"
-                icon={Plus}
-                size="md"
-                footer={
-                    <div className="flex gap-3">
-                        <Button variant="secondary" onClick={() => setShowManualEntry(false)} className="flex-1">
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="primary"
-                            onClick={handleAddManualTransaction}
-                            disabled={!manualTransaction.date || !manualTransaction.merchant || !manualTransaction.amount}
-                            className="flex-1"
-                        >
-                            Add Transaction
-                        </Button>
-                    </div>
-                }
-            >
-                <div className="flex flex-col gap-4">
-                    <Field label="Date">
-                        <input
-                            type="datetime-local"
-                            value={manualTransaction.date}
-                            onChange={(e) => setManualTransaction({ ...manualTransaction, date: e.target.value })}
-                            className={INPUT_CLASS}
-                        />
-                    </Field>
-                    <Field label="Merchant">
-                        <input
-                            type="text"
-                            value={manualTransaction.merchant}
-                            onChange={(e) => setManualTransaction({ ...manualTransaction, merchant: e.target.value })}
-                            placeholder="e.g., Amazon, Swiggy"
-                            className={INPUT_CLASS}
-                        />
-                    </Field>
-                    <Field label="Amount (₹)">
-                        <input
-                            type="number"
-                            value={manualTransaction.amount}
-                            onChange={(e) => setManualTransaction({ ...manualTransaction, amount: e.target.value })}
-                            placeholder="2500"
-                            className={INPUT_CLASS}
-                        />
-                    </Field>
-                    <Field label="Category">
-                        <select
-                            value={manualTransaction.category}
-                            onChange={(e) => setManualTransaction({ ...manualTransaction, category: e.target.value })}
-                            className={cx(INPUT_CLASS, 'appearance-none')}
-                        >
-                            <option value="">Select Category</option>
-                            {categories && categories.length > 0 ? (
-                                categories.map((cat) => (
-                                    <option key={cat.id} value={cat.name}>
-                                        {cat.name}
-                                    </option>
-                                ))
-                            ) : (
-                                <>
-                                    <option value="Shopping">Shopping</option>
-                                    <option value="Food & Dining">Food & Dining</option>
-                                    <option value="Fuel">Fuel</option>
-                                    <option value="Entertainment">Entertainment</option>
-                                    <option value="Bills">Bills</option>
-                                    <option value="Travel">Travel</option>
-                                </>
-                            )}
-                        </select>
-                    </Field>
-                </div>
-            </Modal>
-
-            {/* Edit Transaction Modal */}
-            <Modal
-                isOpen={showEditModal && Boolean(editingTransaction)}
-                onClose={() => setShowEditModal(false)}
-                title="Edit Transaction"
-                icon={Pencil}
-                size="md"
-                footer={
-                    <div className="flex gap-3">
-                        <Button variant="secondary" onClick={() => setShowEditModal(false)} className="flex-1">
-                            Cancel
-                        </Button>
-                        <Button variant="primary" icon={Save} onClick={handleSaveEdit} className="flex-1">
-                            Save Changes
-                        </Button>
-                    </div>
-                }
-            >
-                {editingTransaction && (
-                    <div className="flex flex-col gap-4">
-                        <Field label="Date">
-                            <input
-                                type="datetime-local"
-                                value={editingTransaction.date}
-                                onChange={(e) => setEditingTransaction({ ...editingTransaction, date: e.target.value })}
-                                className={INPUT_CLASS}
-                            />
-                        </Field>
-                        <Field label="Merchant">
-                            <input
-                                type="text"
-                                value={editingTransaction.merchant}
-                                onChange={(e) => setEditingTransaction({ ...editingTransaction, merchant: e.target.value })}
-                                placeholder="Enter merchant name"
-                                className={INPUT_CLASS}
-                            />
-                        </Field>
-                        <Field label="Amount">
-                            <input
-                                type="number"
-                                value={editingTransaction.amount}
-                                onChange={(e) => setEditingTransaction({ ...editingTransaction, amount: e.target.value })}
-                                placeholder="0.00"
-                                className={INPUT_CLASS}
-                            />
-                        </Field>
-                        <Field label="Category">
-                            <select
-                                value={editingTransaction.category}
-                                onChange={(e) => setEditingTransaction({ ...editingTransaction, category: e.target.value })}
-                                className={cx(INPUT_CLASS, 'appearance-none')}
-                            >
-                                <option value="">Select Category</option>
-                                {categories && categories.length > 0 ? (
-                                    categories.map((cat) => (
-                                        <option key={cat.id} value={cat.name}>
-                                            {cat.name}
-                                        </option>
-                                    ))
-                                ) : (
-                                    <>
-                                        <option value="Shopping">Shopping</option>
-                                        <option value="Food & Dining">Food & Dining</option>
-                                        <option value="Fuel">Fuel</option>
-                                        <option value="Entertainment">Entertainment</option>
-                                        <option value="Bills">Bills</option>
-                                        <option value="Travel">Travel</option>
-                                        <option value="Healthcare">Healthcare</option>
-                                        <option value="Groceries">Groceries</option>
-                                    </>
-                                )}
-                            </select>
-                        </Field>
-                        <Field label="Transaction Type">
-                            <select
-                                value={editingTransaction.type || 'debit'}
-                                onChange={(e) => setEditingTransaction({ ...editingTransaction, type: e.target.value })}
-                                className={cx(INPUT_CLASS, 'appearance-none')}
-                            >
-                                <option value="debit">Debit (Spending)</option>
-                                <option value="credit">Credit (Payment)</option>
-                                <option value="refund">Refund</option>
-                            </select>
-                        </Field>
-                        {editingTransaction.rawLine && (
-                            <div className="mt-1 rounded-control bg-sunken p-3 text-xs text-ink-muted">
-                                <strong className="text-ink">Raw Line:</strong>
-                                <p className="mt-1 font-mono">{editingTransaction.rawLine}</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Modal>
-
-            <SummaryModal isOpen={showSummaryModal} onClose={() => setShowSummaryModal(false)} data={statementData} />
-            <EMIModal isOpen={showEMIModal} onClose={() => setShowEMIModal(false)} emis={statementData?.emis} />
-
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-slate-100">
+            {/* TOAST ALERTS */}
             <AnimatePresence>
                 {toast && (
                     <motion.div
-                        initial={{ y: 50, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 50, opacity: 0 }}
-                        className={cx(
-                            'fixed bottom-8 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2.5 rounded-control px-5 py-3 text-sm font-bold text-white shadow-raised',
-                            toast.type === 'error' ? 'bg-neg' : 'bg-pos'
-                        )}
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-xs sm:text-sm font-semibold ${
+                            toast.type === 'error'
+                                ? 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-950/50'
+                                : toast.type === 'info'
+                                ? 'bg-cyan-950/90 border-cyan-500/50 text-cyan-200 shadow-cyan-950/50'
+                                : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50'
+                        }`}
                     >
-                        {toast.type === 'error' ? <AlertCircle size={18} aria-hidden="true" /> : <CheckCircle2 size={18} aria-hidden="true" />}
-                        {toast.message}
+                        {toast.type === 'error' ? (
+                            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                        ) : toast.type === 'info' ? (
+                            <Info className="w-5 h-5 text-cyan-400 shrink-0" />
+                        ) : (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        )}
+                        <span>{toast.message}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* CONFIRMATION / ACTION MODAL */}
             <ActionModal
                 isOpen={modal.isOpen}
-                onClose={closeModal}
-                onConfirm={modal.onConfirm}
                 title={modal.title}
                 message={modal.message}
                 type={modal.type}
+                onConfirm={modal.onConfirm}
+                onCancel={closeModal}
             />
+
+            {/* TOP HERO HEADER WITH TELEMETRY BADGES */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 shadow-2xl backdrop-blur-xl">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25">
+                            <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                                Auto Statement Engine
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    CRED SYNC
+                                </span>
+                            </h1>
+                            <p className="text-xs sm:text-sm text-slate-400">
+                                Auto-discover e-statements via Gmail, decrypt protected PDFs, and approve bills in 1 click.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status Telemetry Badges */}
+                <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                    {/* Gmail Connection Status */}
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                        <div className={`w-2.5 h-2.5 rounded-full ${gmailStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Gmail Sync</span>
+                            <span className={`text-[11px] font-extrabold ${gmailStatus.connected ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {gmailStatus.connected ? (maskEmail(gmailStatus.email) || 'CONNECTED') : 'READY TO LINK'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Discovered Statements Counter */}
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                        <Mail className="w-3.5 h-3.5 text-teal-400" />
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Statements</span>
+                            <span className="text-[11px] font-extrabold text-teal-300">
+                                {gmailStatements.length} Found
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Pending Staging Ledger */}
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                        <CheckSquare className="w-3.5 h-3.5 text-indigo-400" />
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Staging TXs</span>
+                            <span className="text-[11px] font-extrabold text-indigo-300">
+                                {extractedTransactions.length} Pending
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    {gmailStatus.connected && (
+                        <button
+                            onClick={handleSyncGmailStatements}
+                            disabled={gmailSyncing}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${gmailSyncing ? 'animate-spin' : ''}`} />
+                            <span>{gmailSyncing ? 'Scanning...' : 'Sync Now'}</span>
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => setShowManualEntry(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-all border border-slate-700"
+                    >
+                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Manual TX</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* SEGMENTED NAVIGATION TAB BAR */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+                {/* Tab 1: Gmail Statements */}
+                <button
+                    onClick={() => setActiveTab('gmail')}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
+                        activeTab === 'gmail'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                >
+                    <Mail className="w-4 h-4" />
+                    <span>Gmail Smart Sync</span>
+                    {gmailStatements.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-sm animate-pulse">
+                            {gmailStatements.length}
+                        </span>
+                    )}
+                </button>
+
+                {/* Tab 2: PDF Statement Upload */}
+                <button
+                    onClick={() => setActiveTab('pdf')}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
+                        activeTab === 'pdf'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                >
+                    <FileText className="w-4 h-4" />
+                    <span>PDF Decrypt & OCR</span>
+                </button>
+
+                {/* Tab 3: SMS & Raw Text Parser */}
+                <button
+                    onClick={() => setActiveTab('sms')}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
+                        activeTab === 'sms'
+                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>SMS / Text Parser</span>
+                </button>
+
+                {/* Tab 4: Email & Google Cloud Config */}
+                <button
+                    onClick={() => setActiveTab('config')}
+                    className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
+                        activeTab === 'config'
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Email & API Config</span>
+                    {gmailStatus.connected && (
+                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    )}
+                </button>
+            </div>
+
+            {/* TAB 1: GMAIL SMART STATEMENTS VIEW (CRED STYLE) */}
+            {activeTab === 'gmail' && (
+                <div className="space-y-6">
+                    {!gmailStatus.connected ? (
+                        <div className="p-8 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-6 backdrop-blur-xl">
+                            <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
+                                <Mail className="w-8 h-8" />
+                            </div>
+                            <div className="max-w-xl mx-auto space-y-2">
+                                <h2 className="text-xl sm:text-2xl font-black text-white">
+                                    Connect Gmail for Automated Statement Discovery
+                                </h2>
+                                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                                    Our intelligent parser reads official credit card bill alerts from HDFC, SBI, ICICI, Axis, OneCard, Amex, Kotak, and RBL—just like CRED. Secure read-only access.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                                <button
+                                    onClick={handleGoogleConnect}
+                                    disabled={gmailLoading}
+                                    className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-sm shadow-xl shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    <Sparkles className="w-4 h-4" />
+                                    <span>{gmailLoading ? 'Connecting to Google...' : 'Connect Google Account (Gmail)'}</span>
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('config')}
+                                    className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-all"
+                                >
+                                    <Key className="w-4 h-4 text-amber-400" />
+                                    <span>Configure OAuth Keys</span>
+                                </button>
+                            </div>
+
+                            {/* Supported Banks Badges */}
+                            <div className="pt-4 border-t border-slate-800/80">
+                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">
+                                    Supported Banks & E-Statements
+                                </p>
+                                <div className="flex flex-wrap justify-center gap-2">
+                                    {SUPPORTED_BANKS.map((b) => (
+                                        <span key={b.name} className="px-3 py-1 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] font-semibold text-slate-300">
+                                            {b.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {/* Connected Status Bar & Search Filter */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                        <Mail className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-white">{maskEmail(gmailStatus.email)}</span>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                ACTIVE
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-400">
+                                            Last Synced: {gmailStatus.lastSync ? formatFullDate(gmailStatus.lastSync) : 'Just Now'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                                    {/* Search */}
+                                    <div className="relative flex-1 sm:w-64">
+                                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            value={gmailSearchQuery}
+                                            onChange={(e) => setGmailSearchQuery(e.target.value)}
+                                            placeholder="Filter bank, card or amount..."
+                                            className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleSyncGmailStatements}
+                                        disabled={gmailSyncing}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${gmailSyncing ? 'animate-spin' : ''}`} />
+                                        <span>{gmailSyncing ? 'Scanning...' : 'Sync Gmail'}</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveTab('config')}
+                                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+                                        title="Email Settings & Keys"
+                                    >
+                                        <SlidersHorizontal className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Discovered Statements Cards */}
+                            {filteredGmailStatements.length > 0 ? (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                            Discovered Statements ({filteredGmailStatements.length})
+                                        </span>
+                                        <span className="text-xs text-emerald-400 font-semibold">
+                                            CRED Smart Auto-Match
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {filteredGmailStatements.map((stmt) => {
+                                            const matchedCard = cards.find(c => 
+                                                c.id === (selectedCardForStmt[stmt.messageId] || stmt.matchedCardId) ||
+                                                (stmt.last4 && (c.last4 === stmt.last4 || c.cardNumber?.endsWith(stmt.last4)))
+                                            );
+                                            const currentSelectedId = selectedCardForStmt[stmt.messageId] || matchedCard?.id || '';
+                                            const isExpanded = !!expandedSnippets[stmt.messageId];
+
+                                            return (
+                                                <motion.div
+                                                    key={stmt.messageId}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="p-5 rounded-3xl bg-slate-900/70 border border-slate-800 shadow-xl backdrop-blur-xl hover:border-slate-700 transition-all space-y-4 flex flex-col justify-between"
+                                                >
+                                                    <div className="space-y-3">
+                                                        {/* Header: Bank & Card Pill */}
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+                                                                <span className="text-sm font-extrabold text-white">
+                                                                    {stmt.bankName || 'Bank Statement'}
+                                                                </span>
+                                                                {stmt.last4 && (
+                                                                    <span className="px-2 py-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[10px] font-mono font-bold text-purple-300">
+                                                                        •••• {stmt.last4}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800">
+                                                                {stmt.receivedDate ? formatDate(stmt.receivedDate) : 'Recent'}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Financial Metrics Grid */}
+                                                        <div className="grid grid-cols-2 gap-2.5 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                                                            <div>
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                                    Total Due
+                                                                </span>
+                                                                <span className="text-lg font-black text-white tracking-tight">
+                                                                    {stmt.totalDue ? formatCurrency(stmt.totalDue) : 'N/A'}
+                                                                </span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                                    Due Date
+                                                                </span>
+                                                                <span className="text-sm font-extrabold text-amber-400 flex items-center gap-1 mt-0.5">
+                                                                    <Calendar className="w-3.5 h-3.5" />
+                                                                    {stmt.dueDate ? formatDate(stmt.dueDate) : 'N/A'}
+                                                                </span>
+                                                            </div>
+
+                                                            {stmt.minDue && (
+                                                                <div className="pt-2 border-t border-slate-800/60">
+                                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                                                                        Minimum Due
+                                                                    </span>
+                                                                    <span className="text-xs font-bold text-slate-300">
+                                                                        {formatCurrency(stmt.minDue)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+
+                                                            {stmt.statementPeriod && (
+                                                                <div className="pt-2 border-t border-slate-800/60">
+                                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                                                                        Statement Cycle
+                                                                    </span>
+                                                                    <span className="text-[11px] font-semibold text-slate-400 truncate block">
+                                                                        {stmt.statementPeriod}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Card Link Selector */}
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                                                <CreditCard className="w-3 h-3 text-purple-400" />
+                                                                Target Credit Card
+                                                            </label>
+                                                            <select
+                                                                value={currentSelectedId}
+                                                                onChange={(e) => setSelectedCardForStmt(prev => ({ ...prev, [stmt.messageId]: e.target.value }))}
+                                                                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 outline-none focus:border-purple-500"
+                                                            >
+                                                                <option value="">-- Select Linked Card --</option>
+                                                                {cards.map(c => (
+                                                                    <option key={c.id} value={c.id}>
+                                                                        {c.cardName || c.bankName} (•••• {c.last4 || c.cardNumber?.slice(-4) || '----'})
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        {/* Expandable Email Snippet */}
+                                                        {stmt.snippet && (
+                                                            <div className="pt-1">
+                                                                <button
+                                                                    onClick={() => toggleSnippet(stmt.messageId)}
+                                                                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                                                >
+                                                                    <span>{isExpanded ? 'Hide Email Details' : 'View Raw Email Snippet'}</span>
+                                                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                                                </button>
+                                                                {isExpanded && (
+                                                                    <div className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 leading-relaxed font-mono whitespace-pre-wrap">
+                                                                        <div className="text-[10px] text-slate-500 font-bold mb-1">
+                                                                            SUBJECT: {stmt.subject}
+                                                                        </div>
+                                                                        {stmt.snippet}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                                                        <button
+                                                            onClick={() => handleApplyGmailStatement(stmt)}
+                                                            disabled={applyingStmtId === stmt.messageId}
+                                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                            <span>{applyingStmtId === stmt.messageId ? 'Applying Bill...' : 'Approve & Apply to Card'}</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDismissGmailStatement(stmt.messageId)}
+                                                            className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
+                                                            title="Dismiss Statement"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-12 rounded-3xl bg-slate-900/40 border border-slate-800 text-center space-y-4 backdrop-blur-xl">
+                                    <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-800/60 border border-slate-700 flex items-center justify-center text-slate-400">
+                                        <Mail className="w-7 h-7" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h3 className="text-base font-bold text-white">No Pending Statements</h3>
+                                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                            Your Gmail inbox is all caught up! Click below to scan for the latest bank statements.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleSyncGmailStatements}
+                                        disabled={gmailSyncing}
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all"
+                                    >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${gmailSyncing ? 'animate-spin' : ''}`} />
+                                        <span>{gmailSyncing ? 'Scanning Gmail...' : 'Scan Statements Now'}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 2: PDF STATEMENT DECRYPT & OCR */}
+            {activeTab === 'pdf' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div className="lg:col-span-5 space-y-5">
+                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-purple-400" />
+                                    <h2 className="text-base font-bold text-white">Upload E-Statement PDF</h2>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Assign to Credit Card (Optional)
+                                    </label>
+                                    <select
+                                        value={selectedCard}
+                                        onChange={(e) => setSelectedCard(e.target.value)}
+                                        className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 outline-none focus:border-purple-500"
+                                    >
+                                        <option value="">Auto-Detect from Statement</option>
+                                        {cards.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.cardName || c.bankName} (•••• {c.last4 || c.cardNumber?.slice(-4)})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="relative border-2 border-dashed border-slate-700 hover:border-purple-500/80 rounded-2xl p-6 text-center transition-all bg-slate-950/40 hover:bg-slate-950/70 group">
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        onChange={handleFileUpload}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    <div className="space-y-3">
+                                        <div className="w-12 h-12 mx-auto rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+                                            <Upload className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-200">
+                                                {pdfFile ? pdfFile.name : 'Drag & drop bank PDF or browse'}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 mt-1">
+                                                Supports HDFC, ICICI, SBI, Axis, OneCard, Amex
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {showPasswordInput && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/30 space-y-3"
+                                    >
+                                        <div className="flex items-center gap-2 text-amber-400">
+                                            <Lock className="w-4 h-4" />
+                                            <span className="text-xs font-bold">Password Protected Statement</span>
+                                        </div>
+                                        <p className="text-[11px] text-amber-200/80">
+                                            Standard format: 4 letters of name in CAPS + DOB (DDMM) e.g., RAMA0810
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="password"
+                                                value={pdfPassword}
+                                                onChange={(e) => setPdfPassword(e.target.value)}
+                                                placeholder="Enter PDF password..."
+                                                className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-amber-500"
+                                            />
+                                            <button
+                                                onClick={handleUnlockPDF}
+                                                disabled={isProcessing}
+                                                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl transition-all"
+                                            >
+                                                Unlock
+                                            </button>
+                                        </div>
+                                        {passwordError && (
+                                            <p className="text-[10px] text-rose-400 font-semibold">{passwordError}</p>
+                                        )}
+                                    </motion.div>
+                                )}
+
+                                <button
+                                    onClick={handleProcessStatement}
+                                    disabled={!pdfFile || isProcessing}
+                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25 transition-all disabled:opacity-50"
+                                >
+                                    <Sparkles className="w-4 h-4" />
+                                    <span>{isProcessing ? 'Decrypting & Extracting...' : 'Process Statement'}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-7 space-y-5">
+                            {statementData ? (
+                                <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                                            Parsed Statement Summary
+                                        </h3>
+                                        {statementCardEnding && (
+                                            <span className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono font-bold text-purple-300">
+                                                Card Ending: •••• {statementCardEnding}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Due</span>
+                                            <span className="text-base font-black text-white">{statementData.totalDue ? formatCurrency(statementData.totalDue) : 'N/A'}</span>
+                                        </div>
+                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Due Date</span>
+                                            <span className="text-sm font-extrabold text-amber-400">{statementData.dueDate ? formatDate(statementData.dueDate) : 'N/A'}</span>
+                                        </div>
+                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Min Due</span>
+                                            <span className="text-sm font-bold text-slate-300">{statementData.minDue ? formatCurrency(statementData.minDue) : 'N/A'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 text-xs text-slate-400">
+                                        Transactions have been placed into the <span className="text-indigo-300 font-bold">Staging Ledger</span>. Switch to the tab or review below.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-12 rounded-3xl bg-slate-900/30 border border-slate-800 text-center space-y-3 backdrop-blur-xl">
+                                    <FileText className="w-10 h-10 text-slate-600 mx-auto" />
+                                    <p className="text-xs text-slate-400">
+                                        Upload a statement PDF to view parsed summary, card billing cycle, and extracted transactions.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 3: SMS & RAW TEXT PARSER */}
+            {activeTab === 'sms' && (
+                <div className="max-w-3xl mx-auto space-y-5">
+                    <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                        <div className="flex items-center gap-2">
+                            <MessageSquare className="w-5 h-5 text-blue-400" />
+                            <h2 className="text-base font-bold text-white">Paste Bank Statement or SMS Alerts</h2>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                            Paste raw transaction SMS or text copied from your bank portal to extract amount, merchant, and dates using regex NLP.
+                        </p>
+
+                        <textarea
+                            rows={6}
+                            value={smsText}
+                            onChange={(e) => setSmsText(e.target.value)}
+                            placeholder="e.g., Alert: Rs 3,420.00 spent on HDFC Card ending 4821 at AMAZON INDIA on 08-Oct-2026. Avl Lmt: Rs 1,45,000..."
+                            className="w-full p-4 bg-slate-950/90 border border-slate-800 rounded-2xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-blue-500"
+                        />
+
+                        <button
+                            onClick={handleProcessText}
+                            disabled={!smsText.trim() || isProcessing}
+                            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-extrabold text-xs shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            <span>{isProcessing ? 'Parsing Text...' : 'Parse Transactions & Sync'}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 4: EMAIL & GOOGLE CLOUD CONFIGURATION (CRITICAL INFO MASKED & PROTECTED) */}
+            {activeTab === 'config' && (
+                <div className="space-y-6">
+                    {/* Security & Masking Banner */}
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                                <Shield className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-white">OAuth Privacy & Credential Masking</p>
+                                <p className="text-[11px] text-slate-400">Sensitive client keys, tokens, and email addresses are masked by default.</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setShowSensitiveKeys(!showSensitiveKeys)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all"
+                        >
+                            {showSensitiveKeys ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-amber-400" />}
+                            <span>{showSensitiveKeys ? 'Hide Critical Info' : 'Reveal Info'}</span>
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Connection & OAuth Setup Form (7 cols) */}
+                        <div className="lg:col-span-7 space-y-5">
+                            {/* Google Account Status Card */}
+                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                            <ShieldCheck className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-white">Google Cloud OAuth Integration</h3>
+                                            <p className="text-[11px] text-slate-400">Gmail Read-Only API Configuration</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                                        gmailStatus.connected 
+                                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                    }`}>
+                                        {gmailStatus.connected ? 'CONNECTED' : 'NOT LINKED'}
+                                    </span>
+                                </div>
+
+                                {gmailStatus.connected && (
+                                    <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between gap-3">
+                                        <div className="space-y-0.5">
+                                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Active Google Mailbox</span>
+                                            <p className="text-xs font-extrabold text-white">
+                                                {showSensitiveKeys ? gmailStatus.email : maskEmail(gmailStatus.email)}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleDisconnectGmail}
+                                            className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all"
+                                        >
+                                            Disconnect
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* OAuth Credentials Form */}
+                                <div className="space-y-4 pt-2">
+                                    {/* Google Client ID with Masking */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Key className="w-3.5 h-3.5 text-amber-400" />
+                                                Google Client ID
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowClientId(!showClientId)}
+                                                className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                            >
+                                                {showClientId || showSensitiveKeys ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                                <span>{showClientId || showSensitiveKeys ? 'Mask' : 'View'}</span>
+                                            </button>
+                                        </div>
+                                        <input
+                                            type={showClientId || showSensitiveKeys ? 'text' : 'password'}
+                                            value={gmailConfig.clientId}
+                                            onChange={(e) => setGmailConfig(prev => ({ ...prev, clientId: e.target.value.trim() }))}
+                                            placeholder="434689533284-••••••••.apps.googleusercontent.com"
+                                            className="w-full px-3.5 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-amber-500"
+                                        />
+                                    </div>
+
+                                    {/* Google Client Secret with Masking */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                                                Google Client Secret
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowSecret(!showSecret)}
+                                                className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                            >
+                                                {showSecret || showSensitiveKeys ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                                <span>{showSecret || showSensitiveKeys ? 'Mask' : 'View'}</span>
+                                            </button>
+                                        </div>
+                                        <input
+                                            type={showSecret || showSensitiveKeys ? 'text' : 'password'}
+                                            value={gmailConfig.clientSecret}
+                                            onChange={(e) => setGmailConfig(prev => ({ ...prev, clientSecret: e.target.value.trim() }))}
+                                            placeholder="GOCSPX-••••••••••••••••"
+                                            className="w-full px-3.5 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-amber-500"
+                                        />
+                                    </div>
+
+                                    {/* Authorized Redirect URI with Copy Button */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                                            <span>Authorized Redirect URI (Google Console)</span>
+                                            <span className="text-[10px] text-emerald-400 font-semibold">Exact Match Required</span>
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={gmailConfig.redirectUri}
+                                                className="flex-1 px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-400 font-mono outline-none select-all"
+                                            />
+                                            <button
+                                                onClick={copyRedirectUri}
+                                                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all shrink-0"
+                                            >
+                                                {copiedUri ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                                <span>{copiedUri ? 'Copied' : 'Copy'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-wrap items-center gap-3 pt-3">
+                                        <button
+                                            onClick={handleSaveGmailConfig}
+                                            disabled={savingConfig}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs border border-slate-700 transition-all disabled:opacity-50"
+                                        >
+                                            <Save className="w-4 h-4 text-amber-400" />
+                                            <span>{savingConfig ? 'Saving...' : 'Save Configuration'}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={handleGoogleConnect}
+                                            disabled={gmailLoading}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-50"
+                                        >
+                                            <Sparkles className="w-4 h-4" />
+                                            <span>{gmailLoading ? 'Authorizing...' : (gmailStatus.connected ? 'Re-Authorize Gmail' : 'Connect & Authorize')}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Setup Guide & Troubleshooting (5 cols) */}
+                        <div className="lg:col-span-5 space-y-5">
+                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 backdrop-blur-xl">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    <HelpCircle className="w-4 h-4 text-teal-400" />
+                                    Google Cloud Setup Checklist
+                                </h3>
+
+                                <div className="space-y-3 text-xs text-slate-300">
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+                                        <div>
+                                            <p className="font-bold text-white">Enable Gmail API</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">In Google Cloud Console ➔ APIs & Services ➔ Enable <b>Gmail API</b>.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
+                                        <div>
+                                            <p className="font-bold text-white">Create OAuth Web Client ID</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">Application type: <b>Web Application</b>. Add the Authorized redirect URI shown on the left.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">3</span>
+                                        <div>
+                                            <p className="font-bold text-white">OAuth Consent Screen: Add Test User</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">Under Test Users, add your Google account email address to allow login without full app verification.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-950/20 border border-amber-500/30">
+                                        <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                        <div className="text-[11px] text-amber-200/90 leading-relaxed">
+                                            <b>Google hasn&apos;t verified this app screen?</b> Click <b>&quot;Advanced&quot;</b> and select <b>&quot;Go to Nexa-Stream (unsafe)&quot;</b>. This is normal for private self-hosted apps.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* STAGING LEDGER / EXTRACTED TRANSACTIONS SECTION */}
+            {extractedTransactions.length > 0 && (
+                <div className="space-y-4 pt-4 border-t border-slate-800/80">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                                <CheckSquare className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    Staging Transactions Ledger
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                        {extractedTransactions.length} Pending
+                                    </span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400">Review, edit, and approve extracted charges to your credit card inventory.</p>
+                            </div>
+                        </div>
+
+                        {/* Batch Action Buttons */}
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={toggleSelectAll}
+                                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700"
+                            >
+                                {selectedTxIds.size === filteredTransactions.length ? 'Deselect All' : 'Select All'}
+                            </button>
+
+                            {selectedTxIds.size > 0 && (
+                                <>
+                                    <button
+                                        onClick={handleBulkApprove}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20"
+                                    >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Approve ({selectedTxIds.size})</span>
+                                    </button>
+                                    <button
+                                        onClick={handleBulkReject}
+                                        className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold"
+                                    >
+                                        Reject
+                                    </button>
+                                </>
+                            )}
+
+                            <button
+                                onClick={handleClearAllExtracted}
+                                className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700"
+                                title="Clear All Staging Transactions"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Filter & Search Bar */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <div className="relative w-full sm:w-72">
+                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                                type="text"
+                                value={txSearchQuery}
+                                onChange={(e) => setTxSearchQuery(e.target.value)}
+                                placeholder="Search merchant or amount..."
+                                className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-500"
+                            />
+                        </div>
+
+                        <select
+                            value={txFilterCategory}
+                            onChange={(e) => setTxFilterCategory(e.target.value)}
+                            className="w-full sm:w-auto px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 outline-none"
+                        >
+                            <option value="ALL">All Categories</option>
+                            {Object.keys(CATEGORY_TONES).map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Transaction Items Grid */}
+                    <div className="space-y-2.5">
+                        {filteredTransactions.map((tx) => {
+                            const isSelected = selectedTxIds.has(tx.id);
+                            return (
+                                <div
+                                    key={tx.id}
+                                    className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                                        isSelected 
+                                            ? 'bg-indigo-950/30 border-indigo-500/50 shadow-md shadow-indigo-950/30' 
+                                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleSelectTx(tx.id)}
+                                            className="w-4 h-4 rounded-md border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer"
+                                        />
+                                        <div className="space-y-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-extrabold text-white">{tx.merchant || tx.description}</span>
+                                                <Badge tone={categoryTone(tx.category)} className="text-[10px] px-2 py-0.5">
+                                                    {tx.category || 'General'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400">{formatDate(tx.date)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-black text-white">{formatCurrency(tx.amount)}</span>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleApprove(tx.id)}
+                                                className="p-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                                                title="Approve to Ledger"
+                                            >
+                                                <Check className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleReject(tx.id)}
+                                                className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 transition-colors"
+                                                title="Discard"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* MANUAL TRANSACTION MODAL */}
+            <Modal
+                isOpen={showManualEntry}
+                onClose={() => setShowManualEntry(false)}
+                title="Add Manual Credit Card Charge"
+            >
+                <div className="space-y-4 p-2">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-300">Merchant / Title</label>
+                        <input
+                            type="text"
+                            value={manualTransaction.merchant}
+                            onChange={(e) => setManualTransaction(prev => ({ ...prev, merchant: e.target.value }))}
+                            placeholder="e.g. Apple Subscription, Shell Petrol"
+                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-300">Amount (₹)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={manualTransaction.amount}
+                                onChange={(e) => setManualTransaction(prev => ({ ...prev, amount: e.target.value }))}
+                                placeholder="0.00"
+                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-300">Category</label>
+                            <select
+                                value={manualTransaction.category}
+                                onChange={(e) => setManualTransaction(prev => ({ ...prev, category: e.target.value }))}
+                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                            >
+                                <option value="">Select Category</option>
+                                {Object.keys(CATEGORY_TONES).map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-300">Date & Time</label>
+                        <input
+                            type="datetime-local"
+                            value={manualTransaction.date}
+                            onChange={(e) => setManualTransaction(prev => ({ ...prev, date: e.target.value }))}
+                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                        />
+                    </div>
+
+                    <div className="flex gap-2 pt-3">
+                        <button
+                            onClick={() => setShowManualEntry(false)}
+                            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleAddManualTransaction}
+                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/25"
+                        >
+                            Add to Staging
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
 
 export default CreditCardAutoStatement;
-
-function Field({ label, children }) {
-    return (
-        <label className="block">
-            <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-ink-faint">{label}</span>
-            {children}
-        </label>
-    );
-}
-
-function StatRow({ label, value, tone = 'text-ink' }) {
-    return (
-        <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-muted">{label}</span>
-            <span className={cx('tnum text-xs font-bold', tone)}>{value}</span>
-        </div>
-    );
-}
-
-function SummaryModal({ isOpen, onClose, data }) {
-    const items = [
-        { label: 'Total Due', value: data?.totalDue || 'N/A' },
-        { label: 'Min Amount Due', value: data?.minPayment || 'N/A' },
-        { label: 'Statement Date', value: data?.statementDate || 'N/A' },
-        { label: 'Payment Due Date', value: data?.paymentDueDate || 'N/A' },
-        { label: 'Credit Limit', value: data?.credit_limit || 'N/A' },
-        { label: 'Available Credit', value: data?.available_credit || 'N/A' }
-    ];
-
-    return (
-        <Modal
-            isOpen={isOpen && Boolean(data)}
-            onClose={onClose}
-            title="Statement Summary"
-            icon={FileText}
-            size="md"
-            footer={
-                <Button variant="primary" onClick={onClose} className="w-full">
-                    Close
-                </Button>
-            }
-        >
-            <div className="grid grid-cols-2 gap-5">
-                {items.map((item) => (
-                    <div key={item.label}>
-                        <p className="text-xs text-ink-faint">{item.label}</p>
-                        <p className="tnum mt-0.5 text-lg font-black text-ink">{item.value}</p>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-5 rounded-control border border-violet bg-violet-soft p-3 text-xs leading-relaxed text-violet">
-                <strong>RBI MAD Calculation:</strong> Minimum Amount Due is calculated to cover 100% of interest, fees,
-                taxes, and EMIs, plus 5% of spends principal. This prevents negative amortization but carrying balance
-                attracts standard ~42% p.a. interest + 18% GST.
-            </div>
-        </Modal>
-    );
-}
-
-function EMIModal({ isOpen, onClose, emis }) {
-    return (
-        <Modal
-            isOpen={isOpen && Boolean(emis)}
-            onClose={onClose}
-            title="Extracted EMIs"
-            icon={DollarSign}
-            size="md"
-            footer={
-                <Button variant="primary" onClick={onClose} className="w-full">
-                    Close
-                </Button>
-            }
-        >
-            <div className="flex flex-col gap-3">
-                {(emis || []).map((emi, idx) => (
-                    <div key={idx} className="rounded-card border border-line bg-sunken p-4">
-                        <div className="text-sm font-bold text-ink">{emi.description}</div>
-                        <div className="mt-1.5 flex flex-wrap gap-4 text-sm text-ink-muted">
-                            <span>Amount: {emi.amount}</span>
-                            <span>Tenure: {emi.tenure} months</span>
-                            <span>Interest: {emi.interestRate}%</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </Modal>
-    );
-}

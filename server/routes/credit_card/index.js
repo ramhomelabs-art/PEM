@@ -1437,4 +1437,143 @@ router.delete('/emis/:emiId', authenticate, async (req, res) => {
 
 
 
+
+// ------------------------------------------------------------------
+// GMAIL SMART STATEMENT SYNC (CRED STYLE)
+// ------------------------------------------------------------------
+const gmailService = require('../../services/gmailStatementService');
+
+// 1a. Save Custom Google OAuth Configuration
+router.post('/gmail/config', authenticate, async (req, res) => {
+    try {
+        const { clientId, clientSecret, redirectUri } = req.body;
+        if (!clientId || !clientSecret) {
+            return res.status(400).json({ error: 'Both Google Client ID and Client Secret are required' });
+        }
+
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const prefs = user.preferences || {};
+        prefs.gmailSync = {
+            ...(prefs.gmailSync || {}),
+            customConfig: {
+                clientId: clientId.trim(),
+                clientSecret: clientSecret.trim(),
+                redirectUri: (redirectUri || 'http://localhost:5174/credit-cards/auto-statement').trim()
+            }
+        };
+
+        user.preferences = prefs;
+        await user.save();
+
+        res.json({ success: true, message: 'Google OAuth configuration saved successfully!' });
+    } catch (e) {
+        console.error('[Gmail Save Config Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 1. Get connection & configuration status
+router.get('/gmail/status', authenticate, async (req, res) => {
+    try {
+        const status = await gmailService.getStatus(req.user.id);
+        res.json(status);
+    } catch (e) {
+        console.error('[Gmail Status Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 2. Generate Google OAuth URL
+router.post('/gmail/auth-url', authenticate, async (req, res) => {
+    try {
+        const url = await gmailService.getAuthUrl(req.user.id, req.body || {});
+        res.json({ url });
+    } catch (e) {
+        console.error('[Gmail Auth URL Error]', e);
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// 3. Exchange OAuth Code for Tokens
+router.post('/gmail/callback', authenticate, async (req, res) => {
+    try {
+        const { code, customConfig } = req.body;
+        if (!code) return res.status(400).json({ error: 'Authorization code is required' });
+        const result = await gmailService.handleCallback(code, req.user.id, customConfig || {});
+        res.json(result);
+    } catch (e) {
+        console.error('[Gmail Callback Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 4. Sync Statements from Gmail
+router.post('/gmail/sync', authenticate, async (req, res) => {
+    try {
+        const result = await gmailService.syncStatements(req.user.id);
+        res.json(result);
+    } catch (e) {
+        console.error('[Gmail Sync Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 5. Disconnect Gmail
+router.post('/gmail/disconnect', authenticate, async (req, res) => {
+    try {
+        const result = await gmailService.disconnect(req.user.id);
+        res.json(result);
+    } catch (e) {
+        console.error('[Gmail Disconnect Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 6. 1-Click Apply Statement to Card
+router.post('/gmail/apply-statement', authenticate, async (req, res) => {
+    try {
+        const { cardId, totalDue, minDue, dueDate, billDate, statementDetails } = req.body;
+        if (!cardId || !totalDue) {
+            return res.status(400).json({ error: 'cardId and totalDue are required' });
+        }
+
+        const card = await CreditCard.findOne({ where: { id: cardId, userId: req.user.id } });
+        if (!card) return res.status(404).json({ error: 'Credit card not found' });
+
+        const bDate = billDate || new Date().toISOString().slice(0, 10);
+        const dDate = dueDate || new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+        // Create or update CreditCardBill
+        const bill = await CreditCardBill.create({
+            creditCardId: card.id,
+            userId: req.user.id,
+            billDate: bDate,
+            dueDate: dDate,
+            totalAmount: totalDue,
+            minDueAmount: minDue || Math.round(totalDue * 0.05),
+            paidAmount: 0,
+            status: 'unpaid',
+            metadata: statementDetails || { source: 'gmail_smart_sync' }
+        });
+
+        // Update card dues
+        await card.update({
+            totalDue: totalDue,
+            minPayment: minDue || Math.round(totalDue * 0.05)
+        });
+
+        res.json({
+            success: true,
+            message: `Statement for ${card.cardName} applied successfully!`,
+            bill
+        });
+    } catch (e) {
+        console.error('[Apply Statement Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
 module.exports = router;

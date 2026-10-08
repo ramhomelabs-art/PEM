@@ -55,10 +55,17 @@ function isActiveRoute(pathname, id) {
     return pathname === id || pathname.startsWith(`${id}/`);
 }
 
-function Brand({ compact = false }) {
+function Brand({ compact = false, onToggle }) {
     return (
-        <div className="flex items-center gap-3 overflow-hidden">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-brand text-slate-950 shadow-sm">
+        <div 
+            onClick={compact ? onToggle : undefined}
+            title={compact ? "Click to expand sidebar" : undefined}
+            className={cx(
+                "flex items-center overflow-hidden transition-all duration-300",
+                compact ? "justify-center w-full cursor-pointer hover:opacity-90" : "gap-3"
+            )}
+        >
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-brand text-slate-950 shadow-sm transition-transform duration-200 active:scale-95">
                 <Wallet size={22} aria-hidden="true" />
             </div>
             <div
@@ -67,6 +74,7 @@ function Brand({ compact = false }) {
                     maxWidth: compact ? 0 : 160,
                     opacity: compact ? 0 : 1,
                     transform: compact ? 'translateX(-8px)' : 'translateX(0)',
+                    marginLeft: compact ? 0 : undefined
                 }}
             >
                 <p className="text-xl font-black leading-none tracking-tight text-ink">PEM</p>
@@ -265,27 +273,33 @@ const Layout = ({ children }) => {
             {/* Desktop / tablet sidebar (collapsible) */}
             <aside
                 className={cx(
-                    'sidebar-aside relative z-20 hidden shrink-0 flex-col border-r border-line bg-surface md:flex',
+                    'sidebar-aside relative z-30 hidden shrink-0 flex-col border-r border-line bg-surface transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] md:flex',
                     collapsed ? 'md:w-[76px] md:p-3' : 'md:w-[260px] md:p-5'
                 )}
                 style={{ backgroundColor: theme.sidebar }}
             >
+                {/* Floating Edge Collapse / Expand Toggle Button */}
                 <button
                     type="button"
                     onClick={toggleSidebar}
                     aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    className="absolute -right-3 top-6 z-30 hidden h-6 w-6 place-items-center rounded-full border border-line bg-surface text-ink-muted shadow-card transition hover:border-line-strong hover:text-ink md:grid"
+                    className={cx(
+                        'absolute -right-3.5 top-6 z-50 hidden md:flex h-7 w-7 items-center justify-center rounded-full border shadow-md transition-all duration-200 cursor-pointer',
+                        collapsed
+                            ? 'border-brand bg-surface text-brand hover:scale-115 hover:bg-brand hover:text-slate-950 shadow-brand/20 active:scale-95'
+                            : 'border-line-strong bg-surface text-ink-muted hover:scale-115 hover:border-brand hover:text-brand hover:bg-surface-hover active:scale-95'
+                    )}
                 >
                     {collapsed ? (
-                        <ChevronRight size={14} aria-hidden="true" />
+                        <ChevronRight size={15} className="stroke-[2.5]" aria-hidden="true" />
                     ) : (
-                        <ChevronLeft size={14} aria-hidden="true" />
+                        <ChevronLeft size={15} className="stroke-[2.5]" aria-hidden="true" />
                     )}
                 </button>
 
                 <div className="mb-6 flex items-center overflow-hidden">
-                    <Brand compact={collapsed} />
+                    <Brand compact={collapsed} onToggle={toggleSidebar} />
                 </div>
 
                 <div className="mb-6 overflow-hidden">

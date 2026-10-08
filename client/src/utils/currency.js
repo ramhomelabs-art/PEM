@@ -13,8 +13,8 @@ const symbolMap = {
 // Currencies whose default grouping differs from the en-US pattern.
 const groupingLocale = { INR: 'en-IN' };
 
-export const symbolFor = (currencyCode = 'USD') =>
-    symbolMap[currencyCode] || currencyCode || '$';
+export const symbolFor = (currencyCode = 'INR') =>
+    symbolMap[currencyCode] || currencyCode || '₹';
 
 /**
  * THE canonical money formatter for the whole app.

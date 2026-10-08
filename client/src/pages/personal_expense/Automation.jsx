@@ -19,45 +19,6 @@ import { API_URL } from '../../config';
 import { useToast } from '../../context/ToastContext';
 import { formatCurrency } from '../../utils/currency';
 
-// Sample SMS templates for the Interactive Simulator
-const SAMPLE_TEMPLATES = [
-    {
-        name: 'HDFC UPI Debit',
-        bank: 'HDFC',
-        type: 'debit',
-        text: 'Rs 1,450.00 debited from HDFC Bank A/C **1234 to SWIGGY on 07-OCT-26 via UPI txn# 428190284. Bal: Rs 45,210.00',
-        sender: 'HDFCBK'
-    },
-    {
-        name: 'ICICI Credit Card',
-        bank: 'ICICI',
-        type: 'debit',
-        text: 'INR 4,299.00 spent on your ICICI Bank Credit Card ending XX8002 at AMAZON INDIA on 07-Oct-26. Available Limit: INR 1,85,000.00',
-        sender: 'ICICIB'
-    },
-    {
-        name: 'SBI Salary Credit',
-        bank: 'SBI',
-        type: 'credit',
-        text: 'Dear Customer, your SBI A/C ending 9876 has been CREDITED with INR 85,000.00 on 07-Oct-26 by SALARY NEFT transfer. Available Bal: INR 1,12,450.00',
-        sender: 'SBIBNK'
-    },
-    {
-        name: 'Axis Zomato UPI',
-        bank: 'Axis',
-        type: 'debit',
-        text: 'Paid Rs. 620.00 from Axis Bank A/C XX4421 to ZOMATO on 07/10/2026. Ref UPI/429188091.',
-        sender: 'AXISBK'
-    },
-    {
-        name: 'CRED Card Bill Pay',
-        bank: 'CRED',
-        type: 'debit',
-        text: 'Payment of Rs. 18,500.00 received towards SBI Card SimplyCLICK via CRED Pay on 07 Oct 2026.',
-        sender: 'CREDPY'
-    }
-];
-
 const Automation = () => {
     const { theme, isDarkMode } = useTheme();
     const { user } = useAuth();
@@ -94,17 +55,10 @@ const Automation = () => {
     const [confirmAction, setConfirmAction] = useState(null);
 
     // Navigation Tab
-    const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'manual' | 'simulator' | 'connect'
+    const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'manual' | 'connect'
     const [editingItem, setEditingItem] = useState(null);
 
-    // Simulator State
-    const [simText, setSimText] = useState(SAMPLE_TEMPLATES[0].text);
-    const [simSender, setSimSender] = useState(SAMPLE_TEMPLATES[0].sender);
-    const [simResult, setSimResult] = useState(null);
-    const [simLoading, setSimLoading] = useState(false);
-    const [pushingToQueue, setPushingToQueue] = useState(false);
-
-    const webhookUrl = 'https://finance.ramhomelab.com/api/sms/webhook';
+    const webhookUrl = `${window.location.protocol}//${window.location.host}/api/sms/webhook`;
 
     // --- FETCHERS ---
     const fetchConfig = async () => {
@@ -158,7 +112,10 @@ const Automation = () => {
         setVerifySuccess(false);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post(`${API_URL}/mfa/setup/generate-qr`, {}, {
+            const mobileServerUrl = `${window.location.protocol}//${window.location.host}`; // Uses port 5174 (already accessible across subnets)
+            const res = await axios.post(`${API_URL}/mfa/setup/generate-qr`, {
+                serverUrl: mobileServerUrl
+            }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data && res.data.qrCodeUrl) {
@@ -281,7 +238,7 @@ const Automation = () => {
                 amount: sms.amount,
                 description: sms.merchant || sms.provider || 'SMS Expense',
                 category: sms.category || 'General',
-                type: sms.transaction_type === 'credit' ? 'income' : 'expense',
+                type: (sms.transaction_type === 'credit' || sms.type === 'income' || sms.category_type === 'income') ? 'income' : 'expense',
                 paymentMode: sms.paymentMethod || sms.mode || 'UPI',
                 status: 'Completed',
                 source: sms.source === 'MANUAL_ENTRY' ? 'manual' : 'sms',
@@ -315,7 +272,7 @@ const Automation = () => {
                 description: sms.merchant || sms.provider || 'Card Transaction',
                 merchant: sms.merchant || sms.provider || 'Card Transaction',
                 category: sms.category || 'General',
-                type: sms.transaction_type === 'credit' ? 'credit' : 'debit',
+                type: (sms.transaction_type === 'credit' || sms.type === 'income' || sms.category_type === 'income') ? 'credit' : 'debit',
                 status: 'Completed',
                 paymentMethod: 'Credit Card'
             });
@@ -366,39 +323,7 @@ const Automation = () => {
         }
     };
 
-    const handleRunSimulation = async (pushQueue = false) => {
-        if (!simText.trim()) {
-            notify("Please enter SMS text to test", 'error');
-            return;
-        }
-        if (pushQueue) setPushingToQueue(true);
-        else setSimLoading(true);
-
-        try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post(`${API_URL}/sms/simulate`, {
-                text: simText,
-                sender: simSender,
-                pushToQueue: pushQueue
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            setSimResult(res.data);
-            if (pushQueue) {
-                notify("Extracted transaction pushed to Pending Inbox!", 'success');
-                fetchPending();
-            } else {
-                notify(`Parsed successfully via ${res.data.source}`, 'success');
-            }
-        } catch (e) {
-            notify("Simulation failed: " + (e.response?.data?.error || e.message), 'error');
-        } finally {
-            setSimLoading(false);
-            setPushingToQueue(false);
-        }
-    };
-
+    
     const copyToClipboard = (text, label) => {
         if (!text) return;
         navigator.clipboard.writeText(text);
@@ -524,7 +449,7 @@ const Automation = () => {
 
             {/* Segmented Navigation Tab Bar */}
             <div className="max-w-7xl mx-auto mb-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
                     {/* Tab 1: SMS Inbox */}
                     <button
                         onClick={() => setActiveTab('pending')}
@@ -561,20 +486,7 @@ const Automation = () => {
                         )}
                     </button>
 
-                    {/* Tab 3: Interactive Sandbox */}
-                    <button
-                        onClick={() => setActiveTab('simulator')}
-                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                            activeTab === 'simulator'
-                                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/25'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                        }`}
-                    >
-                        <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>SMS Parser Simulator</span>
-                    </button>
-
-                    {/* Tab 4: Android Connect & Security */}
+                    {/* Tab 3: Android Connect & Security */}
                     <button
                         onClick={() => setActiveTab('connect')}
                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
@@ -656,10 +568,10 @@ const Automation = () => {
                                     No pending SMS transactions waiting for review. New transactions received by your Android companion will appear here in real-time.
                                 </p>
                                 <button
-                                    onClick={() => setActiveTab('simulator')}
+                                    onClick={() => setActiveTab('connect')}
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors"
                                 >
-                                    <Sparkles className="w-4 h-4 text-amber-400" /> Test SMS with Parser Simulator
+                                    <Smartphone className="w-4 h-4 text-blue-400" /> Open Android Pairing
                                 </button>
                             </div>
                         ) : (
@@ -745,183 +657,7 @@ const Automation = () => {
                     </div>
                 )}
 
-                {/* 3. INTERACTIVE SMS & REGEX PARSER SIMULATOR */}
-                {activeTab === 'simulator' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Input & Preset Sandbox (Left Column) */}
-                        <div className="lg:col-span-6 space-y-5">
-                            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-amber-400" />
-                                        Interactive SMS NLP Sandbox
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        Select a real-world bank template or paste raw bank SMS text to evaluate entity extraction.
-                                    </p>
-                                </div>
-
-                                {/* Preset Bank Buttons */}
-                                <div>
-                                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                        Sample Bank Templates
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {SAMPLE_TEMPLATES.map((tmpl, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSimText(tmpl.text);
-                                                    setSimSender(tmpl.sender);
-                                                    setSimResult(null);
-                                                }}
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                                                    simText === tmpl.text
-                                                        ? 'bg-blue-600/30 text-blue-300 border-blue-500 shadow-sm'
-                                                        : 'bg-slate-950/70 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
-                                                }`}
-                                            >
-                                                {tmpl.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Raw SMS Textarea */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                            Raw SMS Payload
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] text-slate-500">Sender ID:</span>
-                                            <input
-                                                type="text"
-                                                value={simSender}
-                                                onChange={(e) => setSimSender(e.target.value)}
-                                                className="w-24 px-2 py-0.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 text-center uppercase"
-                                                placeholder="HDFCBK"
-                                            />
-                                        </div>
-                                    </div>
-                                    <textarea
-                                        rows={5}
-                                        value={simText}
-                                        onChange={(e) => setSimText(e.target.value)}
-                                        placeholder="Paste transaction SMS message here..."
-                                        className="w-full p-3.5 bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl text-xs font-mono text-slate-200 outline-none leading-relaxed resize-none shadow-inner"
-                                    />
-                                </div>
-
-                                {/* Simulation Controls */}
-                                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRunSimulation(false)}
-                                        disabled={simLoading || pushingToQueue}
-                                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                    >
-                                        {simLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                                        Run AI & Regex Parser
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRunSimulation(true)}
-                                        disabled={simLoading || pushingToQueue}
-                                        className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                    >
-                                        {pushingToQueue ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                        Parse & Push to Inbox
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Extraction Inspector & Diagnostics (Right Column) */}
-                        <div className="lg:col-span-6 space-y-5">
-                            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4 min-h-[380px]">
-                                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                                    <div>
-                                        <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                                            <Activity className="w-4 h-4 text-emerald-400" />
-                                            Live Extraction Inspector
-                                        </h3>
-                                        <p className="text-xs text-slate-400">Structured JSON output and entity classification</p>
-                                    </div>
-                                    {simResult && (
-                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                                            simResult.source.includes('python') 
-                                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                                : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                                        }`}>
-                                            Engine: {simResult.source}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {!simResult ? (
-                                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                                        <Terminal className="w-12 h-12 text-slate-700 mb-3" />
-                                        <h4 className="text-sm font-semibold text-slate-300 mb-1">Awaiting Test Execution</h4>
-                                        <p className="text-xs text-slate-500 max-w-xs">
-                                            Click "Run AI & Regex Parser" to observe entity recognition and structured payload mapping.
-                                        </p>
-                                    </div>
-                                ) : simResult.extracted && simResult.extracted.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {/* Structured Badges */}
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                                                <span className="text-[10px] font-bold uppercase text-slate-500 block">Amount</span>
-                                                <span className="text-base font-black text-emerald-400">
-                                                    {formatCurrency(simResult.extracted[0].amount, user?.currency || 'INR')}
-                                                </span>
-                                            </div>
-                                            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                                                <span className="text-[10px] font-bold uppercase text-slate-500 block">Direction</span>
-                                                <span className={`text-xs font-extrabold uppercase ${
-                                                    simResult.extracted[0].transaction_type === 'credit' ? 'text-emerald-400' : 'text-rose-400'
-                                                }`}>
-                                                    {simResult.extracted[0].transaction_type}
-                                                </span>
-                                            </div>
-                                            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                                                <span className="text-[10px] font-bold uppercase text-slate-500 block">Merchant</span>
-                                                <span className="text-xs font-bold text-slate-200 truncate block">
-                                                    {simResult.extracted[0].merchant || 'Unknown'}
-                                                </span>
-                                            </div>
-                                            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                                                <span className="text-[10px] font-bold uppercase text-slate-500 block">Category</span>
-                                                <span className="text-xs font-bold text-purple-400 truncate block">
-                                                    {simResult.extracted[0].category || 'General'}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Raw JSON Code Block */}
-                                        <div>
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                                                Extracted JSON Node
-                                            </span>
-                                            <pre className="p-3.5 rounded-xl bg-slate-950 text-emerald-300 font-mono text-[11px] overflow-x-auto border border-slate-800 max-h-60 leading-relaxed shadow-inner">
-                                                {JSON.stringify(simResult.extracted[0], null, 2)}
-                                            </pre>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="p-6 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                                        <p className="font-bold mb-1">No financial entities extracted</p>
-                                        <p className="text-slate-400">The message did not match any active transaction regex rules or NLP patterns.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
+                {/* 3. ANDROID PAIRING, TOTP & HARDWARE SECURITY */}
                 {/* 4. ANDROID PAIRING, TOTP & HARDWARE SECURITY */}
                 {activeTab === 'connect' && (
                     <div className="max-w-4xl mx-auto space-y-6">
@@ -1179,7 +915,7 @@ const TransactionCard = ({
     setSelectedCardMap,
     onApproveToCard
 }) => {
-    const isCredit = sms.transaction_type === 'credit';
+    const isCredit = sms.transaction_type === 'credit' || sms.type === 'income' || sms.category_type === 'income';
     const isProcessing = processingId === sms.id;
     const [showRaw, setShowRaw] = useState(false);
 
