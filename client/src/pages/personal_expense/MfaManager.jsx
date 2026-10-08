@@ -188,7 +188,7 @@ const MfaManager = () => {
             <ConfirmDialog
                 isOpen={confirmReset.isOpen}
                 title="Reset MFA Credentials"
-                message={`Are you sure you want to completely remove MFA protection and clear all paired companion devices for "${confirmReset.username}"? They will be able to log in with standard password.`}
+                message={`Are you sure you want to completely remove MFA protection and reset two-factor authentication for "${confirmReset.username}"? They will be able to log in with standard password.`}
                 confirmText="Reset MFA"
                 cancelText="Keep MFA"
                 type="danger"
@@ -208,10 +208,10 @@ const MfaManager = () => {
                         </span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                        MFA Management & Device Pairing
+                        MFA Security Management
                     </h1>
                     <p className="text-xs text-slate-400">
-                        Configure multi-factor authentication requirements, TOTP keys, and mobile companion app pairing.
+                        Configure multi-factor authentication and standard Authenticator (TOTP) enforcement.
                     </p>
                 </div>
 
@@ -384,8 +384,8 @@ const MfaManager = () => {
                                                     className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 outline-none cursor-pointer"
                                                 >
                                                     <option value="totp">Authenticator (TOTP)</option>
-                                                    <option value="push">Android Companion Push</option>
-                                                    <option value="both">Both (TOTP + Push)</option>
+                                                    
+                                                    
                                                 </select>
                                             </div>
 
