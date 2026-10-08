@@ -263,9 +263,32 @@ router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLim
         console.log(`[MFA] Generating QR Code with mobile Server URL: ${currentServerUrl}`);
         const qrData = await mfaService.generateQRCodeData(userId, currentServerUrl);
 
+        // Ensure TOTP secret exists and get standard Authenticator QR code
+        let totpSecret = '';
+        let totpQr = '';
+        try {
+            const totpData = await mfaService.generateTOTPSecret(userId);
+            totpSecret = totpData.secret;
+            totpQr = totpData.qrCodeUrl;
+        } catch (e) {
+            const { MfaTotpSecret } = require('../../models');
+            const existing = await MfaTotpSecret.findOne({ where: { userId } });
+            if (existing) {
+                totpSecret = existing.secret;
+                const user = await User.findByPk(userId);
+                const speakeasy = require('speakeasy');
+                const QRCode = require('qrcode');
+                const otpauth = `otpauth://totp/PEM%20Pro%20(${encodeURIComponent(user ? user.email : 'User')})?secret=${totpSecret}&issuer=Personal%20Expense%20Manager`;
+                totpQr = await QRCode.toDataURL(otpauth);
+            }
+        }
+
         res.json({
             success: true,
-            qrCodeUrl: qrData.qrCodeUrl,
+            qrCodeUrl: totpQr || qrData.qrCodeUrl,
+            totpQrCodeUrl: totpQr,
+            companionQrCodeUrl: qrData.qrCodeUrl,
+            secret: totpSecret,
             bindingToken: qrData.bindingToken,
             expiresAt: qrData.expiresAt
         });
@@ -344,6 +367,11 @@ router.post('/setup/totp/verify', authenticateToken, setupRateLimiter, async (re
 
         if (result.success) {
             const user = await User.findByPk(userId);
+            await user.update({
+                mfaEnabled: true,
+                mfaConfigured: true,
+                mfaMethod: user.mfaMethod || 'totp'
+            });
             const token = jwt.sign({
                 id: user.id,
                 username: user.username,

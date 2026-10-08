@@ -164,19 +164,27 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
         }
 
         const isEnable = enabled === true || enabled === 'true' || enabled === 1;
-        const updates = {
-            mfaEnabled: isEnable,
-            mfaConfigured: isEnable
-        };
-
+        
+        let isConfigured = false;
         if (isEnable) {
-            if (!user.mfaMethod) updates.mfaMethod = 'totp';
-            // Ensure TOTP secret exists if enabling
+            if (!user.mfaMethod) user.mfaMethod = 'totp';
+            // Check if user already has a verified secret or active device
+            const verifiedSecret = await MfaTotpSecret.findOne({ where: { userId, isVerified: true } });
+            const activeDevice = await MfaDevice.findOne({ where: { userId, isActive: true } });
+            isConfigured = !!(verifiedSecret || activeDevice);
+
+            // If no secret exists at all, generate one for when they set up
             let secret = await MfaTotpSecret.findOne({ where: { userId } });
             if (!secret) {
                 await mfaService.generateTOTPSecret(userId);
             }
         }
+
+        const updates = {
+            mfaEnabled: isEnable,
+            mfaMethod: isEnable ? (user.mfaMethod || 'totp') : null,
+            mfaConfigured: isConfigured
+        };
 
         await user.update(updates);
 

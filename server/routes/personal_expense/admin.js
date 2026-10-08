@@ -223,7 +223,18 @@ router.put('/users/:id', isAdmin, async (req, res) => {
         if (fullName !== undefined) updates.fullName = fullName ? fullName.trim() : null;
         if (role && (role === 'admin' || role === 'user')) updates.role = role;
         if (status && (status === 'active' || status === 'pending')) updates.status = status;
-        if (mfaEnabled !== undefined) updates.mfaEnabled = !!mfaEnabled;
+        if (mfaEnabled !== undefined) {
+            const isEnable = !!mfaEnabled;
+            updates.mfaEnabled = isEnable;
+            if (!isEnable) {
+                updates.mfaConfigured = false;
+            } else {
+                const { MfaTotpSecret, MfaDevice } = require('../../models');
+                const verifiedSecret = await MfaTotpSecret.findOne({ where: { userId: id, isVerified: true } });
+                const activeDevice = await MfaDevice.findOne({ where: { userId: id, isActive: true } });
+                updates.mfaConfigured = !!(verifiedSecret || activeDevice);
+            }
+        }
         if (mfaExempt !== undefined) updates.mfaExempt = !!mfaExempt;
 
         if (password && password.trim()) {
@@ -270,7 +281,18 @@ router.post('/users/:id/update', isAdmin, async (req, res) => {
         if (fullName !== undefined) updates.fullName = fullName ? fullName.trim() : null;
         if (role && (role === 'admin' || role === 'user')) updates.role = role;
         if (status && (status === 'active' || status === 'pending')) updates.status = status;
-        if (mfaEnabled !== undefined) updates.mfaEnabled = !!mfaEnabled;
+        if (mfaEnabled !== undefined) {
+            const isEnable = !!mfaEnabled;
+            updates.mfaEnabled = isEnable;
+            if (!isEnable) {
+                updates.mfaConfigured = false;
+            } else {
+                const { MfaTotpSecret, MfaDevice } = require('../../models');
+                const verifiedSecret = await MfaTotpSecret.findOne({ where: { userId: id, isVerified: true } });
+                const activeDevice = await MfaDevice.findOne({ where: { userId: id, isActive: true } });
+                updates.mfaConfigured = !!(verifiedSecret || activeDevice);
+            }
+        }
         if (mfaExempt !== undefined) updates.mfaExempt = !!mfaExempt;
 
         if (password && password.trim()) {
