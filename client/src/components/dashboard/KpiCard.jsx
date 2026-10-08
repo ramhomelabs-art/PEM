@@ -162,9 +162,12 @@ export function KpiCard({
                 <IconBadge icon={icon} tone={tone} size="sm" />
             </header>
 
-            <div className="mt-3 flex flex-1 items-end justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="tnum truncate text-[30px] font-extrabold leading-none tracking-tight text-ink">
+            <div className="mt-3 flex flex-1 items-end justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                    <p
+                        className="tnum text-[20px] sm:text-[22px] 2xl:text-[26px] font-extrabold leading-none tracking-tight text-ink whitespace-nowrap overflow-visible"
+                        title={typeof format === 'function' ? format(value) : String(value)}
+                    >
                         <AnimatedNumber value={value} format={format} />
                     </p>
                     <div className="mt-2 flex items-center gap-1.5">
@@ -180,18 +183,20 @@ export function KpiCard({
                             {delta == null ? '—' : `${Math.abs(delta).toFixed(1)}%`}
                         </span>
                         <span className="text-xs text-ink-faint">vs prev</span>
-                        {hint ? <span className="text-xs text-ink-faint">· {hint}</span> : null}
+                        {hint ? <span className="text-xs text-ink-faint">• {hint}</span> : null}
                     </div>
                 </div>
 
                 {typeof ring === 'number' ? (
-                    <RadialProgress value={ring} size={68} color={ringColor}>
-                        <span className="tnum text-xs font-bold text-ink">
-                            {Math.round(Math.min(100, Math.max(0, ring)))}%
-                        </span>
-                    </RadialProgress>
+                    <div className="shrink-0">
+                        <RadialProgress value={ring} size={60} color={ringColor}>
+                            <span className="tnum text-xs font-bold text-ink">
+                                {Math.round(Math.min(100, Math.max(0, ring)))}%
+                            </span>
+                        </RadialProgress>
+                    </div>
                 ) : spark ? (
-                    <div className="w-[38%] max-w-[130px] self-center">
+                    <div className="w-[28%] max-w-[85px] shrink-0 self-center">
                         <Sparkline data={spark} color={sparkColor} />
                     </div>
                 ) : null}
