@@ -118,6 +118,15 @@ function App() {
                         />
 
                         <Route
+                          path="/mfa-manager"
+                          element={
+                            <PrivateRoute role="admin">
+                              <Layout><MfaManager /></Layout>
+                            </PrivateRoute>
+                          }
+                        />
+
+                        <Route
                           path="/profile"
                           element={
                             <PrivateRoute>
