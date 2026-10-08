@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, CheckCircle2, ArrowRight, Loader2, KeyRound, AlertCircle } from 'lucide-react';
+import { Shield, CheckCircle2, ArrowRight, Smartphone, Loader2, KeyRound, AlertCircle, Sparkles } from 'lucide-react';
 import { API_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 
@@ -9,11 +9,14 @@ const MfaVerify = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
-    const { userId } = location.state || {};
+    const { userId, mfaMethod, requestId } = location.state || {};
+
+    const hasPush = Boolean(requestId && (mfaMethod === 'push' || mfaMethod === 'both'));
 
     const [otp, setOtp] = useState('');
-    const [status, setStatus] = useState('idle'); // idle | verifying | success | error
+    const [status, setStatus] = useState(() => (hasPush ? 'polling' : 'idle')); // idle | polling | verifying | success | error
     const [error, setError] = useState('');
+    const [mode, setMode] = useState(() => (hasPush ? 'push' : 'totp')); // 'push' | 'totp'
     const [authenticatedUser, setAuthenticatedUser] = useState(null);
 
     const handleSuccess = useCallback((token, user) => {
@@ -26,11 +29,49 @@ const MfaVerify = () => {
         }, 900);
     }, [login, navigate]);
 
+    // Background push approval poller
+    const startPolling = useCallback(() => {
+        if (!requestId) return undefined;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`${API_URL}/mfa/auth/status/${requestId}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (data.status === 'approved') {
+                    clearInterval(pollInterval);
+                    handleSuccess(data.token, data.user || { username: 'User' });
+                } else if (data.status === 'denied') {
+                    clearInterval(pollInterval);
+                    setStatus('error');
+                    setError('Login request was declined on your Android Companion.');
+                    setMode('totp');
+                } else if (data.status === 'expired') {
+                    clearInterval(pollInterval);
+                    setStatus('error');
+                    setError('Push request timed out. Please enter code manually.');
+                    setMode('totp');
+                }
+            } catch {
+                // Transient poll error
+            }
+        }, 2000);
+
+        return () => clearInterval(pollInterval);
+    }, [requestId, handleSuccess]);
+
     useEffect(() => {
         if (!userId) {
             navigate('/login');
+            return undefined;
         }
-    }, [userId, navigate]);
+
+        if (hasPush && mode === 'push' && status !== 'success') {
+            return startPolling();
+        }
+        return undefined;
+    }, [userId, hasPush, mode, status, navigate, startPolling]);
 
     const handleOtpSubmit = async (e) => {
         e?.preventDefault?.();
@@ -78,10 +119,10 @@ const MfaVerify = () => {
                     </div>
                     <div>
                         <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                            Security Verification
+                            Two-Factor Security
                         </h1>
                         <p className="text-xs text-slate-400 font-medium">
-                            Enter 6-digit Authenticator code to continue
+                            {mode === 'push' ? 'Approve login on Android Companion' : 'Enter 6-digit Authenticator code'}
                         </p>
                     </div>
                 </div>
@@ -105,8 +146,67 @@ const MfaVerify = () => {
                                 </p>
                             </div>
                         </motion.div>
+                    ) : mode === 'push' && hasPush ? (
+                        /* PUSH MODE */
+                        <motion.div
+                            key="push-mode"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
+                            <div className="p-6 rounded-2xl bg-slate-950/80 border border-slate-800 text-center space-y-4">
+                                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                                    <div className="absolute inset-0 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin" />
+                                    <Smartphone className="w-7 h-7 text-emerald-400 animate-pulse" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <p className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
+                                        <Sparkles className="w-4 h-4 text-emerald-400" />
+                                        <span>Check Android Companion</span>
+                                    </p>
+                                    <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                                        Tap <span className="text-emerald-400 font-semibold">Approve</span> on your Android phone prompt to log in instantly.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setMode('totp');
+                                        setError('');
+                                    }}
+                                    className="w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Enter 6-Digit Code Instead</span>
+                                </button>
+                            </div>
+
+                            {error && (
+                                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2 justify-center text-center">
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => navigate('/login')}
+                                className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-center"
+                            >
+                                Back to Login
+                            </button>
+                        </motion.div>
                     ) : (
-                        <motion.div key="challenge" className="space-y-6">
+                        /* TOTP MODE */
+                        <motion.div
+                            key="totp-mode"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
                             <form onSubmit={handleOtpSubmit} className="space-y-6">
                                 <div className="space-y-3 text-center">
                                     <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1.5">
@@ -127,7 +227,7 @@ const MfaVerify = () => {
                                         />
                                     </div>
                                     <p className="text-xs text-slate-400">
-                                        From Google Authenticator, Microsoft Authenticator, or 1Password.
+                                        From Google Authenticator, Microsoft Authenticator, or Android Companion.
                                     </p>
                                 </div>
 
@@ -156,10 +256,25 @@ const MfaVerify = () => {
                                         )}
                                     </motion.button>
 
+                                    {hasPush && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMode('push');
+                                                setError('');
+                                                setStatus('polling');
+                                            }}
+                                            className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                        >
+                                            <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                                            <span>Switch Back to Mobile Push Approval</span>
+                                        </button>
+                                    )}
+
                                     <button
                                         type="button"
                                         onClick={() => navigate('/login')}
-                                        className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                                        className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-center"
                                     >
                                         Back to Login
                                     </button>
