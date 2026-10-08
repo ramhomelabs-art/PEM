@@ -1,3 +1,4 @@
+import { subscribeToDataChanges } from '../../utils/realtimeSync';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_URL } from '../../config';
 import { formatCurrency } from '../../utils/currency';
@@ -77,6 +78,10 @@ export function useTransactions(userId) {
 
     useEffect(() => {
         load();
+        const unsubscribe = subscribeToDataChanges((event) => {
+            load();
+        });
+        return unsubscribe;
     }, [load]);
 
     const remove = useCallback(
@@ -131,6 +136,10 @@ export function useCommitments(userId) {
 
     useEffect(() => {
         load();
+        const unsubscribe = subscribeToDataChanges((event) => {
+            load();
+        });
+        return unsubscribe;
     }, [load]);
 
     return { bills, loans, borrow, budgets, banks, loading, reload };

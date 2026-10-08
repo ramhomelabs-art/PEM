@@ -1,3 +1,4 @@
+import { notifyDataChanged } from '../../utils/realtimeSync';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
 import { useAuth } from '../../context/personal_expense/AuthContext';
@@ -247,7 +248,7 @@ const Automation = () => {
 
             await axios.delete(`${API_URL}/sms/reject/${sms.id}`);
             setPendingSMS(prev => prev.filter(p => p.id !== sms.id));
-            notify("Transaction Approved to Personal Ledger", 'success');
+            notify("Transaction Approved to Personal Ledger", 'success'); notifyDataChanged("transactions");
         } catch (e) {
             notify("Approval Failed", 'error');
         } finally {

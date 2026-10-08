@@ -1,3 +1,4 @@
+import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCategories } from '../../context/CategoryContext'; // Import context

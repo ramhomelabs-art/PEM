@@ -1,3 +1,4 @@
+import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -652,7 +653,7 @@ const CreditCardAutoStatement = () => {
             next.delete(id);
             return next;
         });
-        showToast('Transaction approved to credit card ledger!', 'success');
+        showToast('Transaction approved to credit card ledger!', 'success'); notifyDataChanged("transactions");
     };
 
     const handleReject = (id) => {

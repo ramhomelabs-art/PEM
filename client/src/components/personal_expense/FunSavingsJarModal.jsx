@@ -1,3 +1,4 @@
+import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/personal_expense/AuthContext';
@@ -218,7 +219,7 @@ export function FunSavingsJarModal({
             localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify(updated));
             setPendingHold(null);
 
-            if (onReloadTransactions) onReloadTransactions();
+            if (onReloadTransactions) onReloadTransactions(); notifyDataChanged("transactions");
             setToastMessage(`✅ Confirmed! ${formatCurrency(holdItem.amount, currency)} is permanently locked into your Fun Jar.`);
             setTimeout(() => setToastMessage(null), 4000);
         } catch (err) {
@@ -270,7 +271,7 @@ export function FunSavingsJarModal({
             setLastStashedDate('');
             localStorage.removeItem('pem-fun-jar-last-stashed-date');
 
-            if (onReloadTransactions) onReloadTransactions();
+            if (onReloadTransactions) onReloadTransactions(); notifyDataChanged("transactions");
             setToastMessage(`🔄 Rolled back ${formatCurrency(holdItem.amount, currency)}! Funds restored to your Main Balance.`);
             setTimeout(() => setToastMessage(null), 4500);
         } catch (err) {
@@ -320,7 +321,7 @@ export function FunSavingsJarModal({
                 localStorage.setItem('pem-fun-jar-pending-verifications', JSON.stringify([newVerification, ...pendingList]));
                 setPendingHold(newVerification);
 
-                if (onReloadTransactions) onReloadTransactions();
+                if (onReloadTransactions) onReloadTransactions(); notifyDataChanged("transactions");
                 return txData.id;
             } else {
                 const errData = await res.json().catch(() => ({}));
@@ -358,7 +359,7 @@ export function FunSavingsJarModal({
 
             if (res.ok) {
                 const txData = await res.json();
-                if (onReloadTransactions) onReloadTransactions();
+                if (onReloadTransactions) onReloadTransactions(); notifyDataChanged("transactions");
                 return txData.id;
             } else {
                 const errData = await res.json().catch(() => ({}));

@@ -1,3 +1,4 @@
+import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -69,7 +70,7 @@ export function FunPotVerificationModal({
 
             setStatusMessage({ type: 'success', text: `Confirmed! ${formatCurrency(amount, currency)} is now a permanent savings record.` });
             setTimeout(() => {
-                if (onVerified) onVerified(verificationItem);
+                if (onVerified) onVerified(verificationItem); notifyDataChanged("transactions");
                 onClose();
             }, 1200);
         } catch (e) {
