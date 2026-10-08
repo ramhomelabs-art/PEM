@@ -3,7 +3,8 @@ import { API_URL } from '../../config';
 import {
     Shield, Smartphone, Key, AlertCircle, CheckCircle, X, RefreshCw,
     Users, Lock, Unlock, Power, Clock, Search, Filter, ShieldCheck,
-    CheckCircle2, ArrowLeft, SlidersHorizontal, Info, Sparkles
+    CheckCircle2, ArrowLeft, SlidersHorizontal, Info, Sparkles, QrCode,
+    SmartphoneNfc, Copy, ExternalLink, Cpu, Check
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +20,20 @@ const MfaManager = () => {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [confirmReset, setConfirmReset] = useState({ isOpen: false, userId: null, username: '' });
     const [updatingId, setUpdatingId] = useState(null);
+
+    // Pairing Modal State
+    const [pairingModal, setPairingModal] = useState({
+        isOpen: false,
+        userId: null,
+        username: '',
+        tab: 'companion', // 'companion' | 'totp'
+        qrData: null,
+        loading: false,
+        error: '',
+        serverUrl: 'http://10.10.20.4:5005',
+        copied: false,
+        pairedSuccess: false
+    });
 
     const showToast = useCallback((message, type = 'success') => {
         setToast({ show: true, message, type });
@@ -146,6 +161,91 @@ const MfaManager = () => {
         }
     };
 
+    // Open Pairing Modal
+    const openPairingModal = async (user) => {
+        const uId = user ? user.id : (users[0]?.id || 1);
+        const uName = user ? user.username : (users[0]?.username || 'User');
+        setPairingModal({
+            isOpen: true,
+            userId: uId,
+            username: uName,
+            tab: 'companion',
+            qrData: null,
+            loading: true,
+            error: '',
+            serverUrl: 'http://10.10.20.4:5005',
+            copied: false,
+            pairedSuccess: false
+        });
+        await fetchPairingQR(uId, 'http://10.10.20.4:5005');
+    };
+
+    const fetchPairingQR = async (userId, customServerUrl) => {
+        setPairingModal(prev => ({ ...prev, loading: true, error: '', pairedSuccess: false }));
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/admin/mfa/generate-qr/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ serverUrl: customServerUrl })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPairingModal(prev => ({
+                    ...prev,
+                    qrData: data,
+                    loading: false
+                }));
+            } else {
+                const err = await res.json().catch(() => ({}));
+                setPairingModal(prev => ({
+                    ...prev,
+                    error: err.error || 'Failed to generate pairing QR',
+                    loading: false
+                }));
+            }
+        } catch (e) {
+            setPairingModal(prev => ({
+                ...prev,
+                error: 'Network error generating pairing QR',
+                loading: false
+            }));
+        }
+    };
+
+    // Live binding poller while Pairing Modal is open
+    useEffect(() => {
+        if (!pairingModal.isOpen || !pairingModal.userId || pairingModal.pairedSuccess) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_URL}/admin/mfa/users/${pairingModal.userId}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.user?.devices && data.user.devices.length > 0) {
+                        const activeDev = data.user.devices.find(d => d.isActive);
+                        if (activeDev) {
+                            setPairingModal(prev => ({ ...prev, pairedSuccess: true }));
+                            fetchUsers();
+                            fetchStats();
+                            showToast(`Device "${activeDev.deviceName}" paired successfully!`, 'success');
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore polling errors
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [pairingModal.isOpen, pairingModal.userId, pairingModal.pairedSuccess, fetchUsers, fetchStats, showToast]);
+
     const filteredUsers = useMemo(() => {
         return users.filter(u => {
             const matchesSearch = !searchTerm ||
@@ -196,6 +296,205 @@ const MfaManager = () => {
                 onClose={() => setConfirmReset({ isOpen: false, userId: null, username: '' })}
             />
 
+            {/* Device Pairing Modal */}
+            <AnimatePresence>
+                {pairingModal.isOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ scale: 0.94, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.94, opacity: 0, y: 20 }}
+                            className="w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col"
+                        >
+                            {/* Modal Header */}
+                            <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                                        <SmartphoneNfc className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-white">Pair Mobile Device</h3>
+                                        <p className="text-xs text-slate-400">
+                                            Linking for <span className="text-emerald-400 font-bold">{pairingModal.username}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setPairingModal(prev => ({ ...prev, isOpen: false }))}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
+                                {/* Tab selector */}
+                                <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-bold">
+                                    <button
+                                        onClick={() => setPairingModal(prev => ({ ...prev, tab: 'companion' }))}
+                                        className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                                            pairingModal.tab === 'companion'
+                                                ? 'bg-emerald-500 text-slate-950 shadow-md font-extrabold'
+                                                : 'text-slate-400 hover:text-white'
+                                        }`}
+                                    >
+                                        <Smartphone className="w-4 h-4" />
+                                        <span>Android App</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setPairingModal(prev => ({ ...prev, tab: 'totp' }))}
+                                        className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                                            pairingModal.tab === 'totp'
+                                                ? 'bg-emerald-500 text-slate-950 shadow-md font-extrabold'
+                                                : 'text-slate-400 hover:text-white'
+                                        }`}
+                                    >
+                                        <Key className="w-4 h-4" />
+                                        <span>Authenticator</span>
+                                    </button>
+                                </div>
+
+                                {/* User switch if needed */}
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+                                    <span className="text-slate-400 font-medium">Target User:</span>
+                                    <select
+                                        value={pairingModal.userId}
+                                        onChange={(e) => {
+                                            const id = Number(e.target.value);
+                                            const u = users.find(x => x.id === id);
+                                            setPairingModal(prev => ({ ...prev, userId: id, username: u?.username || 'User' }));
+                                            fetchPairingQR(id, pairingModal.serverUrl);
+                                        }}
+                                        className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none cursor-pointer"
+                                    >
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.username} ({u.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Server URL setting for LAN */}
+                                {pairingModal.tab === 'companion' && (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                                            <span>LAN Server Endpoint:</span>
+                                            <button
+                                                onClick={() => {
+                                                    const def = 'http://10.10.20.4:5005';
+                                                    setPairingModal(prev => ({ ...prev, serverUrl: def }));
+                                                    fetchPairingQR(pairingModal.userId, def);
+                                                }}
+                                                className="text-emerald-400 hover:underline font-semibold"
+                                            >
+                                                Use LAN IP (10.10.20.4)
+                                            </button>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={pairingModal.serverUrl}
+                                                onChange={(e) => setPairingModal(prev => ({ ...prev, serverUrl: e.target.value }))}
+                                                placeholder="http://10.10.20.4:5005"
+                                                className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200 outline-none focus:border-emerald-500 transition-colors"
+                                            />
+                                            <button
+                                                onClick={() => fetchPairingQR(pairingModal.userId, pairingModal.serverUrl)}
+                                                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 transition-colors"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* QR Display Area */}
+                                <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-950 border border-slate-800/80 min-h-[260px] relative">
+                                    {pairingModal.loading ? (
+                                        <div className="flex flex-col items-center gap-3">
+                                            <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+                                            <p className="text-xs text-slate-400 font-semibold">Generating dynamic security QR...</p>
+                                        </div>
+                                    ) : pairingModal.error ? (
+                                        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-center space-y-2">
+                                            <AlertCircle className="w-6 h-6 mx-auto text-rose-400" />
+                                            <p>{pairingModal.error}</p>
+                                            <button
+                                                onClick={() => fetchPairingQR(pairingModal.userId, pairingModal.serverUrl)}
+                                                className="px-3 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-white text-xs font-bold"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    ) : pairingModal.pairedSuccess ? (
+                                        <motion.div
+                                            initial={{ scale: 0.85, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="text-center space-y-3 py-4"
+                                        >
+                                            <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                                <CheckCircle className="w-8 h-8" />
+                                            </div>
+                                            <h4 className="text-sm font-black text-white">Smartphone Paired Successfully!</h4>
+                                            <p className="text-xs text-slate-300 max-w-xs">
+                                                Your companion app is linked for push notifications, SMS sync, and TOTP.
+                                            </p>
+                                        </motion.div>
+                                    ) : (
+                                        <div className="space-y-4 text-center">
+                                            <div className="p-3 bg-white rounded-2xl inline-block shadow-2xl border-4 border-emerald-500/30">
+                                                <img
+                                                    src={pairingModal.tab === 'companion' ? pairingModal.qrData?.companionQrCodeUrl : pairingModal.qrData?.totpQrCodeUrl}
+                                                    alt="Pairing QR Code"
+                                                    className="w-48 h-48 sm:w-56 sm:h-56 object-contain"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-300">
+                                                <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                                                <span>Waiting for mobile app to scan...</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Instructions */}
+                                <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/80 text-xs text-slate-400 space-y-1.5 leading-relaxed">
+                                    <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                                        <Info className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Quick Instructions:</span>
+                                    </div>
+                                    {pairingModal.tab === 'companion' ? (
+                                        <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                                            <li>Open the <strong>PEM Companion App</strong> on your Android phone.</li>
+                                            <li>Tap <strong>Scan Web Portal QR</strong> or <strong>Pair Device</strong>.</li>
+                                            <li>Scan this QR code. Keys, URL, and TOTP will configure in 1 second!</li>
+                                        </ol>
+                                    ) : (
+                                        <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                                            <li>Open Google Authenticator, Microsoft Authenticator, or 1Password.</li>
+                                            <li>Tap <strong>Scan QR Code</strong> and point at the QR above.</li>
+                                        </ol>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-3">
+                                <button
+                                    onClick={() => setPairingModal(prev => ({ ...prev, isOpen: false }))}
+                                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
@@ -211,7 +510,7 @@ const MfaManager = () => {
                         MFA Security Management
                     </h1>
                     <p className="text-xs text-slate-400">
-                        Configure multi-factor authentication and standard Authenticator (TOTP) enforcement.
+                        Configure multi-factor authentication, device pairing, and push notification enforcement.
                     </p>
                 </div>
 
@@ -224,13 +523,13 @@ const MfaManager = () => {
                         <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
                         <span>Refresh Directory</span>
                     </button>
-                    <Link
-                        to="/mfa-setup"
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all"
+                    <button
+                        onClick={() => openPairingModal(null)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
                     >
                         <Smartphone className="w-3.5 h-3.5" />
                         <span>Pair New Device</span>
-                    </Link>
+                    </button>
                 </div>
             </div>
 
@@ -263,7 +562,7 @@ const MfaManager = () => {
                             <span className="text-2xl font-black text-white">{stats.devices?.active ?? 0}</span>
                             <span className="text-xs text-slate-500">active smartphones</span>
                         </div>
-                        <p className="text-[10px] text-slate-400">Total registered: {stats.devices?.total ?? 0}</p>
+                        <p className="text-[10px] text-slate-500">Total registered: {stats.devices?.total ?? 0}</p>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
@@ -272,59 +571,61 @@ const MfaManager = () => {
                             <Key className="w-4 h-4 text-amber-400" />
                         </div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black text-white">{stats.methods?.totp ?? 0}</span>
-                            <span className="text-xs text-slate-500">TOTP Authenticator</span>
+                            <span className="text-2xl font-black text-white">{stats.methods?.both ?? (stats.methods?.totp ?? 0)}</span>
+                            <span className="text-xs text-slate-500">
+                                {stats.methods?.both > 0 ? 'Dual (Push+TOTP)' : 'TOTP Authenticator'}
+                            </span>
                         </div>
-                        <p className="text-[10px] text-slate-400">Push notification: {stats.methods?.push ?? 0}</p>
+                        <p className="text-[10px] text-slate-500">Push notification: {stats.methods?.push ?? 0}</p>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
                         <div className="flex items-center justify-between text-slate-400">
                             <span className="text-xs font-semibold uppercase tracking-wider">7-Day Success</span>
-                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                         </div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black text-white">{stats.activity?.successRate ?? 100}%</span>
+                            <span className="text-2xl font-black text-white">{stats.activity?.successRate ?? '100.00'}%</span>
                             <span className="text-xs text-slate-500">verification rate</span>
                         </div>
-                        <p className="text-[10px] text-slate-400">{stats.activity?.recentLogins ?? 0} successful challenges</p>
+                        <p className="text-[10px] text-slate-500">{stats.activity?.recentLogins ?? 0} successful challenges</p>
                     </div>
                 </div>
             )}
 
-            {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
+            {/* Filter and Search */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
                 <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                         type="text"
                         placeholder="Search users by name or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
                     />
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <span className="text-[11px] font-bold text-slate-400">Filter:</span>
-                    {['ALL', 'ENABLED', 'DISABLED'].map((s) => (
+                <div className="flex items-center gap-1.5 self-end sm:self-auto bg-slate-900/60 p-1 rounded-xl border border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 px-2">Filter:</span>
+                    {['ALL', 'ENABLED', 'DISABLED'].map((f) => (
                         <button
-                            key={s}
-                            onClick={() => setStatusFilter(s)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                statusFilter === s
+                            key={f}
+                            onClick={() => setStatusFilter(f)}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all ${
+                                statusFilter === f
                                     ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                    : 'text-slate-400 hover:text-white'
                             }`}
                         >
-                            {s}
+                            {f}
                         </button>
                     ))}
                 </div>
             </div>
 
-            {/* Users Directory */}
-            <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800/80 space-y-4">
+            {/* User Directory Cards */}
+            <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                         <Key className="w-4 h-4 text-emerald-400" />
@@ -378,51 +679,71 @@ const MfaManager = () => {
                                             <div className="flex items-center justify-between text-[11px]">
                                                 <span className="text-slate-400 font-medium">Method:</span>
                                                 <select
-                                                    value={u.mfaMethod || u.mfa_method || 'totp'}
+                                                    value={u.mfaMethod || u.mfa_method || 'both'}
                                                     onChange={(e) => handleMethodChange(u.id, e.target.value, u.username)}
                                                     disabled={isUpdating}
-                                                    className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 outline-none cursor-pointer"
+                                                    className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-emerald-400 outline-none cursor-pointer hover:border-slate-700 transition-colors"
                                                 >
+                                                    <option value="both">Both (Push + TOTP)</option>
+                                                    <option value="push">Android Push Only</option>
                                                     <option value="totp">Authenticator (TOTP)</option>
-                                                    
-                                                    
                                                 </select>
                                             </div>
 
                                             <div className="flex items-center justify-between text-[11px] text-slate-400">
                                                 <span>Device Status:</span>
-                                                <span className="font-semibold text-slate-300">
-                                                    {hasDevice ? 'Paired Smartphone' : (isEnabled ? 'Software TOTP' : 'No Device')}
+                                                <span className={`font-semibold flex items-center gap-1 ${hasDevice ? 'text-emerald-400' : isEnabled ? 'text-cyan-400' : 'text-slate-500'}`}>
+                                                    {hasDevice ? (
+                                                        <>
+                                                            <Smartphone className="w-3 h-3 text-emerald-400" />
+                                                            <span>Paired Smartphone ({u.deviceCount || 1})</span>
+                                                        </>
+                                                    ) : isEnabled ? (
+                                                        'Software TOTP'
+                                                    ) : (
+                                                        'No Device'
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                                        <button
-                                            onClick={() => handleToggleMFA(u.id, isEnabled, u.username)}
-                                            disabled={isUpdating}
-                                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition-all disabled:opacity-50 ${
-                                                isEnabled
-                                                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                                                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20'
-                                            }`}
-                                        >
-                                            {isEnabled ? <Power className="w-3.5 h-3.5 text-rose-400" /> : <Lock className="w-3.5 h-3.5" />}
-                                            <span>{isEnabled ? 'Disable MFA' : 'Enable MFA'}</span>
-                                        </button>
-
-                                        {isEnabled && (
+                                    <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                                        <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => setConfirmReset({ isOpen: true, userId: u.id, username: u.username })}
+                                                onClick={() => handleToggleMFA(u.id, isEnabled, u.username)}
                                                 disabled={isUpdating}
-                                                className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
-                                                title="Reset MFA & Clear Paired Devices"
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition-all disabled:opacity-50 cursor-pointer ${
+                                                    isEnabled
+                                                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                                                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20'
+                                                }`}
                                             >
-                                                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                                                {isEnabled ? <Power className="w-3.5 h-3.5 text-rose-400" /> : <Lock className="w-3.5 h-3.5" />}
+                                                <span>{isEnabled ? 'Disable MFA' : 'Enable MFA'}</span>
                                             </button>
-                                        )}
+
+                                            <button
+                                                onClick={() => openPairingModal(u)}
+                                                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-emerald-950/60 hover:text-emerald-400 text-slate-300 border border-slate-700 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+                                                title="Pair Mobile App / View QR Code"
+                                            >
+                                                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span>Pair App</span>
+                                            </button>
+
+                                            {isEnabled && (
+                                                <button
+                                                    onClick={() => setConfirmReset({ isOpen: true, userId: u.id, username: u.username })}
+                                                    disabled={isUpdating}
+                                                    className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all cursor-pointer"
+                                                    title="Reset MFA & Clear Paired Devices"
+                                                >
+                                                    <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </motion.div>
                             );

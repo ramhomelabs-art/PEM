@@ -58,8 +58,8 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
                 status: user.status,
                 mfaEnabled: !!user.mfaEnabled,
                 mfa_enabled: !!user.mfaEnabled,
-                mfaMethod: user.mfaMethod || 'totp',
-                mfa_method: user.mfaMethod || 'totp',
+                mfaMethod: user.mfaMethod || 'both',
+                mfa_method: user.mfaMethod || 'both',
                 mfaConfigured: !!user.mfaConfigured,
                 mfaExempt: !!user.mfaExempt,
                 hasDevice: hasDevice,
@@ -131,8 +131,8 @@ router.get('/users/:userId', authenticateToken, requireAdmin, async (req, res) =
                 ...user.toJSON(),
                 mfaEnabled: !!user.mfaEnabled,
                 mfa_enabled: !!user.mfaEnabled,
-                mfaMethod: user.mfaMethod || 'totp',
-                mfa_method: user.mfaMethod || 'totp',
+                mfaMethod: user.mfaMethod || 'both',
+                mfa_method: user.mfaMethod || 'both',
                 hasTotp: !!totpSecret,
                 totpVerified: totpSecret ? totpSecret.isVerified : false,
                 devices: user.mfaDevices || [],
@@ -167,13 +167,11 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
         
         let isConfigured = false;
         if (isEnable) {
-            if (!user.mfaMethod) user.mfaMethod = 'totp';
-            // Check if user already has a verified secret or active device
+            if (!user.mfaMethod) user.mfaMethod = 'both';
             const verifiedSecret = await MfaTotpSecret.findOne({ where: { userId, isVerified: true } });
             const activeDevice = await MfaDevice.findOne({ where: { userId, isActive: true } });
             isConfigured = !!(verifiedSecret || activeDevice);
 
-            // If no secret exists at all, generate one for when they set up
             let secret = await MfaTotpSecret.findOne({ where: { userId } });
             if (!secret) {
                 await mfaService.generateTOTPSecret(userId);
@@ -182,7 +180,7 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
 
         const updates = {
             mfaEnabled: isEnable,
-            mfaMethod: isEnable ? (user.mfaMethod || 'totp') : null,
+            mfaMethod: isEnable ? (user.mfaMethod || 'both') : null,
             mfaConfigured: isConfigured
         };
 
@@ -301,75 +299,71 @@ router.post('/method/:userId', authenticateToken, requireAdmin, async (req, res)
 });
 
 /**
- * POST /api/admin/mfa/exempt/:userId
- * Exemption toggle
+ * POST /api/admin/mfa/generate-qr/:userId
+ * Admin endpoint to generate Companion Binding QR code & TOTP QR code for any user
  */
-router.post('/exempt/:userId', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/generate-qr/:userId', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        const { exempt, reason } = req.body;
+        const requestedUrl = req.body?.serverUrl;
 
         const user = await User.findByPk(userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        await user.update({ mfaExempt: !!exempt });
-
-        await mfaService.logMFAEvent(userId, exempt ? 'mfa_exempted' : 'mfa_unexempted', null, null, {
-            reason: reason || 'Admin action',
-            setBy: req.user.id
-        });
-
-        res.json({
-            success: true,
-            message: `User ${exempt ? 'exempted from' : 'required to use'} MFA`
-        });
-    } catch (error) {
-        console.error('MFA exemption error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/admin/mfa/user/:userId/secret
- * Get user's TOTP secret (for manual setup assistance)
- */
-router.get('/user/:userId/secret', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        let secret = await MfaTotpSecret.findOne({
-            where: { userId: userId }
-        });
-
-        if (!secret) {
-            const result = await mfaService.generateTOTPSecret(userId);
-            if (result && result.secret) {
-                secret = { secret: result.secret, isVerified: true };
+        const clientHost = req.headers['x-forwarded-host'] || req.get('host') || '';
+        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? req.protocol + '://' + clientHost : 'http://10.10.20.4:5005');
+        if (currentServerUrl.includes(':5174')) {
+            currentServerUrl = currentServerUrl.replace(':5174', ':5005');
+        }
+        if (currentServerUrl.includes('localhost') || currentServerUrl.includes('127.0.0.1')) {
+            if (req.headers['x-forwarded-host']) {
+                currentServerUrl = req.protocol + '://' + req.headers['x-forwarded-host'];
+            } else if (clientHost && !clientHost.includes('localhost')) {
+                currentServerUrl = req.protocol + '://' + clientHost.split(':')[0] + ':5005';
+            } else {
+                currentServerUrl = 'http://10.10.20.4:5005';
             }
         }
 
-        if (!secret || !secret.secret) {
-            return res.json({ code: null, message: 'No TOTP configured for this user' });
+        console.log(`[Admin MFA] Generating pairing QR for user ${user.username} (ID: ${userId}) with URL: ${currentServerUrl}`);
+        const companionData = await mfaService.generateQRCodeData(userId, currentServerUrl);
+
+        // Generate TOTP Secret & QR
+        let totpSecret = '';
+        let totpQr = '';
+        try {
+            const totpData = await mfaService.generateTOTPSecret(userId);
+            totpSecret = totpData.secret;
+            totpQr = totpData.qrCodeUrl;
+        } catch (e) {
+            const existing = await MfaTotpSecret.findOne({ where: { userId } });
+            if (existing) {
+                totpSecret = existing.secret;
+                const speakeasy = require('speakeasy');
+                const QRCode = require('qrcode');
+                const otpauth = `otpauth://totp/PEM%20Pro%20(${encodeURIComponent(user.email || user.username)})?secret=${totpSecret}&issuer=Personal%20Expense%20Manager`;
+                totpQr = await QRCode.toDataURL(otpauth);
+            }
         }
 
-        const speakeasy = require('speakeasy');
-        const currentCode = speakeasy.totp({
-            secret: secret.secret,
-            encoding: 'base32'
-        });
-
-        const timeRemaining = 30 - (Math.floor(Date.now() / 1000) % 30);
-
         res.json({
-            code: currentCode,
-            expiresIn: timeRemaining,
-            isVerified: secret.isVerified ?? true
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                mfaMethod: user.mfaMethod || 'both'
+            },
+            companionQrCodeUrl: companionData.qrCodeUrl,
+            totpQrCodeUrl: totpQr || companionData.qrCodeUrl,
+            bindingToken: companionData.bindingToken,
+            serverUrl: currentServerUrl,
+            expiresAt: companionData.expiresAt
         });
-
     } catch (error) {
-        console.error('Get TOTP Secret Error:', error);
+        console.error('Admin generate-qr error:', error);
         res.status(500).json({ error: error.message });
     }
 });

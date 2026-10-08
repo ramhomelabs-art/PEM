@@ -186,9 +186,9 @@ class MFAService {
         return {
             deviceId: device.id,
             webhookUrl: webhookUrl,
-            secretKey: user.smsApiKey, // Correct: Use User API Key for signing consistency
-            encryptionKey: user.encryptionKey,
-            totpSecret: totpSecret // Include TOTP secret for auto-configuration
+            secretKey: user.smsApiKey || secretKey,
+            encryptionKey: encryptionKey || (device && device.encryptionKey) || '',
+            totpSecret: totpSecret || ''
         };
     }
 

@@ -41,7 +41,7 @@ router.get('/pending-requests', authenticateToken, async (req, res) => {
                     [Op.gt]: new Date()
                 }
             },
-            order: [[literal('"MfaPushRequest".created_at'), 'DESC']],
+            order: [['createdAt', 'DESC']],
             limit: 10
         });
 
@@ -74,15 +74,18 @@ router.post('/respond', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'requestId and approved (boolean) are required' });
         }
 
-        // Find the request
+        // Find the request safely
         const pushRequest = await MfaPushRequest.findOne({
-            where: { requestId },
-            include: [{
-                model: MfaDevice,
-                as: 'device',
-                where: { userId }
-            }]
+            where: { requestId }
         });
+
+        if (!pushRequest) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+
+        if (pushRequest.userId && Number(pushRequest.userId) !== Number(userId)) {
+            return res.status(403).json({ error: 'Unauthorized push response' });
+        }
 
         if (!pushRequest) {
             return res.status(404).json({ error: 'Request not found or unauthorized' });
