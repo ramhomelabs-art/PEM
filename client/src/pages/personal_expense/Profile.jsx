@@ -184,7 +184,7 @@ const Profile = () => {
 
     const handleMfaChange = async (e) => {
         const newMethod = e.target.value;
-        if (!confirm(`Switch MFA method to ${newMethod.toUpperCase()}? Ensure you have the necessary app/device configured.`)) return;
+        if (!confirm(`Switch Two-Factor Authentication to ${newMethod === 'totp' ? 'ENABLED (Authenticator App)' : 'DISABLED'}?`)) return;
 
         setLoading(true);
         try {
@@ -201,13 +201,17 @@ const Profile = () => {
 
             if (res.ok) {
                 setFormData(p => ({ ...p, mfaMethod: newMethod }));
-                alert(`Success: ${data.message}`);
+                alert(data.message || "MFA settings updated successfully.");
             } else {
-                alert(`Error: ${data.error}`);
+                if (newMethod === 'totp' && data.error && data.error.includes('TOTP not configured')) {
+                    navigate('/mfa-setup', { state: { userId: user.id, token } });
+                } else {
+                    alert(`Error: ${data.error || 'Failed to update MFA settings'}`);
+                }
             }
         } catch (err) {
             console.error(err);
-            alert("Failed to update MFA method");
+            alert("Failed to update MFA settings");
         } finally {
             setLoading(false);
         }
@@ -428,16 +432,14 @@ const Profile = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">MFA Preference</label>
+                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Two-Factor Authentication (MFA)</label>
                                 <select
-                                    value={formData.mfaMethod}
+                                    value={formData.mfaMethod === 'totp' || formData.mfaMethod === 'both' ? 'totp' : 'none'}
                                     onChange={handleMfaChange}
                                     className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
                                 >
-                                    <option value="push">Push Notifications (Best)</option>
-                                    <option value="totp">Authenticator App (TOTP)</option>
-                                    <option value="both">Both (Recommended)</option>
-                                    <option value="none">Disabled (Not Safe)</option>
+                                    <option value="totp">Authenticator App (TOTP Active)</option>
+                                    <option value="none">Disabled</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">

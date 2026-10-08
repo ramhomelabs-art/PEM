@@ -626,6 +626,16 @@ class MFAService {
             throw new Error('User not found');
         }
 
+        if (method === 'none') {
+            await user.update({
+                mfaEnabled: false,
+                mfaMethod: null,
+                mfaConfigured: false
+            });
+            await this.logMFAEvent(userId, 'mfa_disabled', null, null);
+            return;
+        }
+
         // Validate method
         if (!['push', 'totp', 'both'].includes(method)) {
             throw new Error('Invalid MFA method');
