@@ -387,8 +387,10 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         }));
 
         // Mount Routes Conditionally
-        if (authRoutes) app.use('/api/auth', authRoutes);
+        if (mfaAdminRoutes) app.use('/api/admin/mfa', mfaAdminRoutes);
         if (adminRoutes) app.use('/api/admin', adminRoutes);
+        if (mfaRoutes) app.use('/api/mfa', mfaRoutes);
+        if (authRoutes) app.use('/api/auth', authRoutes);
         if (apiRoutes) app.use('/api/data', apiRoutes);
         if (userRoutes) app.use('/api/user', userRoutes);
         if (transactionRoutes) app.use('/api/transactions', transactionRoutes);
@@ -410,8 +412,6 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         if (shareRoutes) app.use('/api/share', authenticateToken, shareRoutes);
         if (groupsRoutes) app.use('/api/groups', authenticateToken, groupsRoutes);
         if (smsRoutes) app.use('/api/sms', smsRoutes);
-        if (mfaRoutes) app.use('/api/mfa', mfaRoutes);
-        if (mfaAdminRoutes) app.use('/api/admin/mfa', mfaAdminRoutes);
         if (pricesRoutes) app.use('/api/investing/prices', authenticateToken, pricesRoutes);
         if (casRoutes) app.use('/api/investing/cas', authenticateToken, casRoutes);
         if (invAssetsRoutes) app.use('/api/investing/assets', authenticateToken, invAssetsRoutes);

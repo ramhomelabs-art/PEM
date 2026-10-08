@@ -1,6 +1,7 @@
-
 const express = require('express');
 const router = express.Router();
+const mfaAdminRoutes = require('../admin/mfaAdmin');
+router.use('/mfa', mfaAdminRoutes);
 const { User } = require('../../models');
 const fs = require('fs');
 const path = require('path');
