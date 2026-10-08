@@ -3,7 +3,7 @@ import { API_URL } from '../../config';
 import {
     Users, ShieldCheck, UserPlus, RefreshCw, Trash2, Key, CheckCircle,
     X, Search, Filter, Lock, Unlock, Mail, Shield, AlertCircle,
-    Activity, Server, ArrowUpRight, CheckSquare, Plus, ExternalLink
+    Activity, Server, ArrowUpRight, CheckSquare, Plus, ExternalLink, Edit3, Save, UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -17,6 +17,24 @@ const Admin = () => {
     const [lockSignup, setLockSignup] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creatingUser, setCreatingUser] = useState(false);
+    
+    // Edit User Modal State
+    const [editModal, setEditModal] = useState({
+        isOpen: false,
+        user: null,
+        loading: false
+    });
+    const [editForm, setEditForm] = useState({
+        fullName: '',
+        username: '',
+        email: '',
+        role: 'user',
+        status: 'active',
+        mfaEnabled: false,
+        mfaExempt: false,
+        newPassword: ''
+    });
+
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, userId: null, username: '' });
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -45,8 +63,7 @@ const Admin = () => {
             } else {
                 showToast('Failed to load user accounts', 'error');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
             showToast('Network error loading users', 'error');
         } finally {
             setLoading(false);
@@ -79,7 +96,7 @@ const Admin = () => {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ lock: !lockSignup })
+                body: JSON.stringify({ locked: !lockSignup })
             });
             if (res.ok) {
                 setLockSignup(!lockSignup);
@@ -124,6 +141,90 @@ const Admin = () => {
             showToast('Error creating user account', 'error');
         } finally {
             setCreatingUser(false);
+        }
+    };
+
+    // Open Edit Modal
+    const handleOpenEdit = (u) => {
+        setEditForm({
+            fullName: u.fullName || '',
+            username: u.username || '',
+            email: u.email || '',
+            role: u.role || 'user',
+            status: u.status || 'active',
+            mfaEnabled: Boolean(u.mfaEnabled ?? u.mfa_enabled),
+            mfaExempt: Boolean(u.mfaExempt ?? u.mfa_exempt),
+            newPassword: ''
+        });
+        setEditModal({ isOpen: true, user: u, loading: false });
+    };
+
+    // Save Edited User
+    const handleSaveUser = async (e) => {
+        e.preventDefault();
+        if (!editModal.user) return;
+        setEditModal(prev => ({ ...prev, loading: true }));
+
+        try {
+            const token = localStorage.getItem('token');
+            const payload = {
+                fullName: editForm.fullName,
+                username: editForm.username,
+                email: editForm.email,
+                role: editForm.role,
+                status: editForm.status,
+                mfaEnabled: editForm.mfaEnabled,
+                mfaExempt: editForm.mfaExempt
+            };
+            if (editForm.newPassword && editForm.newPassword.trim()) {
+                payload.password = editForm.newPassword.trim();
+            }
+
+            const res = await fetch(`${API_URL}/admin/users/${editModal.user.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`User "${editForm.username}" updated successfully!`, 'success');
+                setEditModal({ isOpen: false, user: null, loading: false });
+                await fetchUsers();
+            } else {
+                showToast(data.error || 'Failed to update user', 'error');
+                setEditModal(prev => ({ ...prev, loading: false }));
+            }
+        } catch {
+            showToast('Error saving user profile', 'error');
+            setEditModal(prev => ({ ...prev, loading: false }));
+        }
+    };
+
+    // Quick Role Switcher
+    const handleQuickRoleToggle = async (userId, currentRole, username) => {
+        const nextRole = currentRole === 'admin' ? 'user' : 'admin';
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ role: nextRole })
+            });
+            if (res.ok) {
+                showToast(`Role for ${username} updated to ${nextRole.toUpperCase()}`, 'success');
+                fetchUsers();
+            } else {
+                showToast('Failed to change user role', 'error');
+            }
+        } catch {
+            showToast('Error updating role', 'error');
         }
     };
 
@@ -194,377 +295,538 @@ const Admin = () => {
         return users.filter(u => {
             const matchesSearch = !searchTerm || 
                 (u.username && u.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (u.fullName && u.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
             const matchesRole = roleFilter === 'ALL' || u.role?.toLowerCase() === roleFilter.toLowerCase();
             return matchesSearch && matchesRole;
         });
     }, [users, searchTerm, roleFilter]);
 
-    const adminCount = users.filter(u => u.role === 'admin').length;
-    const standardCount = users.length - adminCount;
-
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-slate-100">
-            {/* TOAST ALERTS */}
+        <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-100">
+            {/* Toast Notification */}
             <AnimatePresence>
                 {toast.show && (
                     <motion.div
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-xs sm:text-sm font-semibold ${
+                        className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl ${
                             toast.type === 'error'
-                                ? 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-950/50'
+                                ? 'bg-rose-950/90 border-rose-500/40 text-rose-200'
                                 : toast.type === 'info'
-                                ? 'bg-cyan-950/90 border-cyan-500/50 text-cyan-200 shadow-cyan-950/50'
-                                : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50'
+                                ? 'bg-sky-950/90 border-sky-500/40 text-sky-200'
+                                : 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
                         }`}
                     >
-                        {toast.type === 'error' ? (
-                            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-                        ) : toast.type === 'info' ? (
-                            <Shield className="w-5 h-5 text-cyan-400 shrink-0" />
-                        ) : (
-                            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-                        )}
-                        <span>{toast.message}</span>
+                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 text-rose-400" /> : <CheckCircle className="w-5 h-5 text-emerald-400" />}
+                        <span className="text-xs font-bold tracking-wide">{toast.message}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* CONFIRM DELETE DIALOG */}
+            {/* Confirm Dialog */}
             <ConfirmDialog
                 isOpen={confirmDialog.isOpen}
                 title="Delete User Account"
-                message={`Are you sure you want to permanently delete "${confirmDialog.username}"? This action cannot be undone.`}
+                message={`Are you sure you want to permanently delete user "${confirmDialog.username}"? All their associated financial data and transactions will be removed.`}
+                confirmText="Delete User"
+                cancelText="Cancel"
+                type="danger"
                 onConfirm={handleDelete}
-                onCancel={() => setConfirmDialog({ isOpen: false, userId: null, username: '' })}
+                onClose={() => setConfirmDialog({ isOpen: false, userId: null, username: '' })}
             />
 
-            {/* TOP HERO HEADER WITH TELEMETRY */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 shadow-2xl backdrop-blur-xl">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
-                            <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                                Enterprise Admin Console
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                    ROOT
-                                </span>
-                            </h1>
-                            <p className="text-xs sm:text-sm text-slate-400">
-                                Centralized identity management, authorization controls, and system access policies.
-                            </p>
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5" /> Core Administration
+                        </span>
                     </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                        User Management & Roles
+                    </h1>
+                    <p className="text-xs text-slate-400">
+                        Manage system accounts, edit user roles, grant administrator privileges, and configure signup security.
+                    </p>
                 </div>
 
-                {/* Status Telemetry Badges */}
-                <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                    {/* Total Users */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
-                        <Users className="w-3.5 h-3.5 text-indigo-400" />
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Total Accounts</span>
-                            <span className="text-[11px] font-extrabold text-indigo-300">
-                                {users.length} Users ({adminCount} Admins)
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Registration Gate */}
+                <div className="flex items-center gap-2 flex-wrap">
                     <button
                         onClick={toggleSignupLock}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all text-left"
-                        title="Click to toggle public signup access"
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                            lockSignup
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                        }`}
                     >
                         {lockSignup ? <Lock className="w-3.5 h-3.5 text-rose-400" /> : <Unlock className="w-3.5 h-3.5 text-emerald-400" />}
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Signup Gate</span>
-                            <span className={`text-[11px] font-extrabold ${lockSignup ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                {lockSignup ? 'LOCKED (INVITE ONLY)' : 'OPEN REGISTRATION'}
-                            </span>
-                        </div>
-                    </button>
-
-                    {/* Add User Action */}
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all active:scale-95"
-                    >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Add Team Member</span>
+                        <span>{lockSignup ? 'Public Registration Locked' : 'Registration Open'}</span>
                     </button>
 
                     <button
                         onClick={fetchUsers}
-                        className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
-                        title="Refresh Directory"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold transition-all disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+                        <span>Refresh</span>
+                    </button>
+
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all"
+                    >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Add New User</span>
                     </button>
                 </div>
             </div>
 
-            {/* QUICK NAVIGATION SHORTCUT TILES */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Quick Links Banner */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Link
-                    to="/admin/mfa"
-                    className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-indigo-500/50 transition-all backdrop-blur-xl group flex items-center justify-between"
+                    to="/mfa-manager"
+                    className="group p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 hover:border-emerald-500/40 transition-all flex items-center justify-between"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition-transform">
-                            <Shield className="w-5 h-5" />
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                            <Key className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                                MFA Security & Device Hub
-                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                            <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                                Multi-Factor Authentication (2FA)
                             </h3>
-                            <p className="text-[11px] text-slate-400">TOTP policies, companion app pairing, and authentication keys</p>
+                            <p className="text-xs text-slate-400">
+                                Configure TOTP authenticators, mobile push notifications, and device pairing
+                            </p>
                         </div>
                     </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
                 </Link>
 
                 <Link
-                    to="/admin/server-manager"
-                    className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-teal-500/50 transition-all backdrop-blur-xl group flex items-center justify-between"
+                    to="/server-manager"
+                    className="group p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 hover:border-sky-500/40 transition-all flex items-center justify-between"
                 >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:scale-105 transition-transform">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 flex items-center justify-center">
                             <Server className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                                Server Manager & Diagnostics
-                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-teal-400 transition-colors" />
+                            <h3 className="text-sm font-bold text-white group-hover:text-sky-400 transition-colors">
+                                Server & Database Console
                             </h3>
-                            <p className="text-[11px] text-slate-400">Hardware telemetry, live logs, database health, and service controls</p>
+                            <p className="text-xs text-slate-400">
+                                Real-time system telemetry, database status, connection pools, and logs
+                            </p>
                         </div>
                     </div>
+                    <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
                 </Link>
             </div>
 
-            {/* USER DIRECTORY SEARCH & FILTER BAR */}
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-xl">
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
                 <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Search team by username or email..."
+                        placeholder="Search by username, name, or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-500"
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                     />
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                    <select
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        className="px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300 outline-none cursor-pointer"
-                    >
-                        <option value="ALL">All Roles ({users.length})</option>
-                        <option value="admin">Administrators ({adminCount})</option>
-                        <option value="user">Standard Users ({standardCount})</option>
-                    </select>
-
-                    <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
-                        Showing {filteredUsers.length} of {users.length}
-                    </span>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-[11px] font-bold text-slate-400">Role:</span>
+                    {['ALL', 'ADMIN', 'USER'].map((r) => (
+                        <button
+                            key={r}
+                            onClick={() => setRoleFilter(r)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                roleFilter === r
+                                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                            }`}
+                        >
+                            {r}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* USER CARDS DIRECTORY TABLE */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <Users className="w-4 h-4 text-indigo-400" />
-                        Team & User Directory
+            {/* Users Table / Directory */}
+            <div className="rounded-2xl bg-slate-900/40 border border-slate-800/80 overflow-hidden backdrop-blur-sm">
+                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                    <h3 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                        <Users className="w-4 h-4 text-emerald-400" />
+                        Registered Accounts ({filteredUsers.length})
                     </h3>
                 </div>
 
-                {filteredUsers.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredUsers.map((u) => {
-                            const isAdmin = u.role === 'admin';
-                            const initials = u.username ? u.username.slice(0, 2).toUpperCase() : '??';
-
-                            return (
-                                <motion.div
-                                    key={u.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-4 flex flex-col justify-between"
-                                >
-                                    <div className="space-y-3">
-                                        {/* Avatar & Role Header */}
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border ${
-                                                    isAdmin
-                                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                                                        : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                        <thead>
+                            <tr className="border-b border-slate-800/80 bg-slate-950/40 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                <th className="p-4">User</th>
+                                <th className="p-4">Email</th>
+                                <th className="p-4">Role</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4">MFA Status</th>
+                                <th className="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                            {filteredUsers.length > 0 ? (
+                                filteredUsers.map((u) => {
+                                    const isMfaActive = Boolean(u.mfaEnabled || u.mfa_enabled);
+                                    return (
+                                        <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center font-bold text-xs uppercase">
+                                                        {u.username ? u.username.slice(0, 2) : '??'}
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-white block">{u.username}</span>
+                                                        {u.fullName && <span className="text-[11px] text-slate-400 block">{u.fullName}</span>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-slate-300 font-medium">{u.email}</td>
+                                            <td className="p-4">
+                                                <button
+                                                    onClick={() => handleQuickRoleToggle(u.id, u.role, u.username)}
+                                                    className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border transition-all ${
+                                                        u.role === 'admin'
+                                                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30'
+                                                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                                                    }`}
+                                                    title="Click to toggle role"
+                                                >
+                                                    {u.role === 'admin' ? '🛡️ Admin' : 'User'}
+                                                </button>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border ${
+                                                    u.status === 'active'
+                                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                                                 }`}>
-                                                    {initials}
+                                                    {u.status || 'active'}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
+                                                    isMfaActive
+                                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                                        : 'bg-slate-800/80 text-slate-400 border-slate-700'
+                                                }`}>
+                                                    {isMfaActive ? '2FA Enabled' : 'Disabled'}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {/* Edit User Details */}
+                                                    <button
+                                                        onClick={() => handleOpenEdit(u)}
+                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 text-slate-300 border border-slate-700 transition-all"
+                                                        title="Edit User Details & Role"
+                                                    >
+                                                        <Edit3 className="w-3.5 h-3.5" />
+                                                    </button>
+
+                                                    {/* Approve User if Pending */}
+                                                    {u.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => handleApprove(u.id, u.username)}
+                                                            className="p-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800 transition-all"
+                                                            title="Approve User Registration"
+                                                        >
+                                                            <CheckCircle className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+
+                                                    {/* Reset Password */}
+                                                    <button
+                                                        onClick={() => handleResetPassword(u.id, u.username)}
+                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 border border-slate-700 transition-all"
+                                                        title="Reset Password"
+                                                    >
+                                                        <Key className="w-3.5 h-3.5" />
+                                                    </button>
+
+                                                    {/* Delete User */}
+                                                    <button
+                                                        onClick={() => setConfirmDialog({ isOpen: true, userId: u.id, username: u.username })}
+                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
+                                                        title="Delete User"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
-                                                <div className="space-y-0.5">
-                                                    <h4 className="text-xs font-bold text-white truncate max-w-[140px]">{u.username}</h4>
-                                                    <p className="text-[10px] text-slate-400 truncate max-w-[140px]">{u.email}</p>
-                                                </div>
-                                            </div>
-
-                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                                                isAdmin
-                                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                                                    : 'bg-slate-800 text-slate-300 border-slate-700'
-                                            }`}>
-                                                {u.role?.toUpperCase() || 'STANDARD'}
-                                            </span>
-                                        </div>
-
-                                        {/* Meta details */}
-                                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/80">
-                                            <span>User ID: #{u.id}</span>
-                                            <span>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Active Member'}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
-                                        <button
-                                            onClick={() => handleResetPassword(u.id, u.username)}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] border border-slate-700 transition-all"
-                                            title="Reset Password"
-                                        >
-                                            <Key className="w-3.5 h-3.5 text-amber-400" />
-                                            <span>Reset Pass</span>
-                                        </button>
-
-                                        {u.is_approved === false && (
-                                            <button
-                                                onClick={() => handleApprove(u.id, u.username)}
-                                                className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all"
-                                                title="Approve User Registration"
-                                            >
-                                                <CheckCircle className="w-4 h-4" />
-                                            </button>
-                                        )}
-
-                                        <button
-                                            onClick={() => setConfirmDialog({ isOpen: true, userId: u.id, username: u.username })}
-                                            className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
-                                            title="Delete User"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="p-12 text-center space-y-3">
-                        <Users className="w-10 h-10 text-slate-600 mx-auto" />
-                        <p className="text-xs text-slate-400">No users found matching your search.</p>
-                    </div>
-                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="p-8 text-center text-slate-500">
+                                        No user accounts found.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
-            {/* CREATE USER MODAL */}
+            {/* EDIT USER MODAL */}
             <AnimatePresence>
-                {showCreateModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                {editModal.isOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-5"
+                            className="w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-5"
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
-                                        <UserPlus className="w-5 h-5" />
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                                        <UserCog className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-bold text-white">Create New User</h3>
-                                        <p className="text-[11px] text-slate-400">Add an account to the enterprise directory</p>
+                                        <h3 className="text-base font-black text-white">Edit User Account</h3>
+                                        <p className="text-xs text-slate-400">Modify credentials, roles, and privileges</p>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setShowCreateModal(false)}
-                                    className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                                    onClick={() => setEditModal({ isOpen: false, user: null, loading: false })}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleCreateUser} className="space-y-4">
+                            <form onSubmit={handleSaveUser} className="space-y-4 text-xs">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Username</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editForm.username}
+                                            onChange={(e) => setEditForm(p => ({ ...p, username: e.target.value }))}
+                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.fullName}
+                                            onChange={(e) => setEditForm(p => ({ ...p, fullName: e.target.value }))}
+                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Username</label>
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Email Address</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={editForm.email}
+                                        onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))}
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">System Role</label>
+                                        <select
+                                            value={editForm.role}
+                                            onChange={(e) => setEditForm(p => ({ ...p, role: e.target.value }))}
+                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none cursor-pointer"
+                                        >
+                                            <option value="user">Standard User</option>
+                                            <option value="admin">System Administrator</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Account Status</label>
+                                        <select
+                                            value={editForm.status}
+                                            onChange={(e) => setEditForm(p => ({ ...p, status: e.target.value }))}
+                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none cursor-pointer"
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="pending">Pending Approval</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <span className="font-bold text-white block">Multi-Factor Authentication (2FA)</span>
+                                            <span className="text-[10px] text-slate-400">Require OTP code upon sign-in</span>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={editForm.mfaEnabled}
+                                            onChange={(e) => setEditForm(p => ({ ...p, mfaEnabled: e.target.checked }))}
+                                            className="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+                                        <div>
+                                            <span className="font-bold text-white block">MFA Exemption</span>
+                                            <span className="text-[10px] text-slate-400">Bypass 2FA checks (Break-glass)</span>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={editForm.mfaExempt}
+                                            onChange={(e) => setEditForm(p => ({ ...p, mfaExempt: e.target.checked }))}
+                                            className="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Set New Password (Optional)</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Leave blank to keep existing password"
+                                        value={editForm.newPassword}
+                                        onChange={(e) => setEditForm(p => ({ ...p, newPassword: e.target.value }))}
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditModal({ isOpen: false, user: null, loading: false })}
+                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={editModal.loading}
+                                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                                    >
+                                        <Save className="w-3.5 h-3.5" />
+                                        <span>{editModal.loading ? 'Saving...' : 'Save Changes'}</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* CREATE USER MODAL */}
+            <AnimatePresence>
+                {showCreateModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-5"
+                        >
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                                        <UserPlus className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-white">Create New Account</h3>
+                                        <p className="text-xs text-slate-400">Add a member to the system</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowCreateModal(false)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleCreateUser} className="space-y-4 text-xs">
+                                <div className="space-y-1">
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Username</label>
                                     <input
                                         type="text"
                                         required
                                         value={newUser.username}
                                         onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                                        placeholder="e.g. alex_stone"
-                                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        placeholder="john_doe"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Email Address</label>
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Email Address</label>
                                     <input
                                         type="email"
                                         required
                                         value={newUser.email}
                                         onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                        placeholder="alex@company.com"
-                                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        placeholder="john@example.com"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Temporary Password</label>
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Password</label>
                                     <input
                                         type="password"
                                         required
                                         value={newUser.password}
                                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                        placeholder="••••••••••••"
-                                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        placeholder="••••••••"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Role & Permissions</label>
+                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Initial Role</label>
                                     <select
                                         value={newUser.role}
                                         onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none"
                                     >
                                         <option value="user">Standard User</option>
-                                        <option value="admin">Administrator (Full Root Access)</option>
+                                        <option value="admin">System Administrator</option>
                                     </select>
                                 </div>
 
-                                <div className="flex gap-2 pt-2">
+                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={creatingUser}
-                                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs shadow-lg shadow-indigo-500/25 disabled:opacity-50"
+                                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 disabled:opacity-50"
                                     >
-                                        {creatingUser ? 'Creating...' : 'Initialize User'}
+                                        {creatingUser ? 'Creating...' : 'Create Account'}
                                     </button>
                                 </div>
                             </form>

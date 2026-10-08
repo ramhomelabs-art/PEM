@@ -204,4 +204,122 @@ router.post('/lock-signup', isAdmin, async (req, res) => {
     }
 });
 
+
+// Update User Details (Role, Status, Username, Email, Name, MFA)
+router.put('/users/:id', isAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, email, fullName, role, status, mfaEnabled, mfaExempt, password } = req.body;
+
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const updates = {};
+        if (username && username.trim()) updates.username = username.trim();
+        if (email && email.trim()) updates.email = email.trim();
+        if (fullName !== undefined) updates.fullName = fullName ? fullName.trim() : null;
+        if (role && (role === 'admin' || role === 'user')) updates.role = role;
+        if (status && (status === 'active' || status === 'pending')) updates.status = status;
+        if (mfaEnabled !== undefined) updates.mfaEnabled = !!mfaEnabled;
+        if (mfaExempt !== undefined) updates.mfaExempt = !!mfaExempt;
+
+        if (password && password.trim()) {
+            const bcrypt = require('bcryptjs');
+            updates.password = await bcrypt.hash(password.trim(), 10);
+        }
+
+        await user.update(updates);
+
+        res.json({
+            success: true,
+            message: `User ${user.username} updated successfully`,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                status: user.status,
+                mfaEnabled: user.mfaEnabled,
+                mfaExempt: user.mfaExempt
+            }
+        });
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: error.message || 'Failed to update user' });
+    }
+});
+
+router.post('/users/:id/update', isAdmin, async (req, res) => {
+    // Alias for PUT /users/:id
+    try {
+        const { id } = req.params;
+        const { username, email, fullName, role, status, mfaEnabled, mfaExempt, password } = req.body;
+
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const updates = {};
+        if (username && username.trim()) updates.username = username.trim();
+        if (email && email.trim()) updates.email = email.trim();
+        if (fullName !== undefined) updates.fullName = fullName ? fullName.trim() : null;
+        if (role && (role === 'admin' || role === 'user')) updates.role = role;
+        if (status && (status === 'active' || status === 'pending')) updates.status = status;
+        if (mfaEnabled !== undefined) updates.mfaEnabled = !!mfaEnabled;
+        if (mfaExempt !== undefined) updates.mfaExempt = !!mfaExempt;
+
+        if (password && password.trim()) {
+            const bcrypt = require('bcryptjs');
+            updates.password = await bcrypt.hash(password.trim(), 10);
+        }
+
+        await user.update(updates);
+
+        res.json({
+            success: true,
+            message: `User ${user.username} updated successfully`,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                status: user.status,
+                mfaEnabled: user.mfaEnabled,
+                mfaExempt: user.mfaExempt
+            }
+        });
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: error.message || 'Failed to update user' });
+    }
+});
+
+// Quick Role update
+router.post('/users/:id/role', isAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body;
+
+        if (!role || (role !== 'admin' && role !== 'user')) {
+            return res.status(400).json({ error: 'Valid role (admin/user) is required' });
+        }
+
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        await user.update({ role });
+        res.json({ success: true, message: `Role updated to ${role} for ${user.username}`, role });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 module.exports = router;

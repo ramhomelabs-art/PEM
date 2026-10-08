@@ -1,22 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
+const { requireAdmin } = require('../../middleware/mfaMiddleware');
 const mfaService = require('../../services/mfaService');
-const { User, MfaDevice, MfaTotpSecret } = require('../../models');
-
-/**
- * Middleware to check admin role
- */
-const requireAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
-};
+const { User, MfaDevice, MfaTotpSecret, MfaAuditLog } = require('../../models');
+const { Op } = require('sequelize');
 
 /**
  * GET /api/admin/mfa/users
- * List all users with MFA status
+ * List all users with their MFA status and paired devices
  */
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
@@ -25,7 +17,6 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
         const where = {};
 
         if (search) {
-            const { Op } = require('sequelize');
             where[Op.or] = [
                 { username: { [Op.like]: `%${search}%` } },
                 { email: { [Op.like]: `%${search}%` } },
@@ -41,7 +32,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 
         const { count, rows: users } = await User.findAndCountAll({
             where: where,
-            attributes: ['id', 'username', 'email', 'fullName', 'role', 'mfaEnabled', 'mfaMethod', 'mfaConfigured', 'mfaExempt', 'createdAt'],
+            attributes: ['id', 'username', 'email', 'fullName', 'role', 'status', 'mfaEnabled', 'mfaMethod', 'mfaConfigured', 'mfaExempt', 'createdAt'],
             include: [
                 {
                     model: MfaDevice,
@@ -55,25 +46,34 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
-        const usersWithStats = users.map(user => ({
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            fullName: user.fullName,
-            role: user.role,
-            mfaEnabled: user.mfaEnabled,
-            mfaMethod: user.mfaMethod,
-            mfaConfigured: user.mfaConfigured,
-            mfaExempt: user.mfaExempt,
-            deviceCount: user.mfaDevices ? user.mfaDevices.filter(d => d.isActive).length : 0,
-            totalDevices: user.mfaDevices ? user.mfaDevices.length : 0,
-            lastDeviceUsed: user.mfaDevices && user.mfaDevices.length > 0
-                ? user.mfaDevices.reduce((latest, device) => {
-                    return !latest || (device.lastUsed && device.lastUsed > latest) ? device.lastUsed : latest;
-                }, null)
-                : null,
-            createdAt: user.createdAt
-        }));
+        const usersWithStats = users.map(user => {
+            const activeDevices = user.mfaDevices ? user.mfaDevices.filter(d => d.isActive) : [];
+            const hasDevice = activeDevices.length > 0;
+            return {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                status: user.status,
+                mfaEnabled: !!user.mfaEnabled,
+                mfa_enabled: !!user.mfaEnabled,
+                mfaMethod: user.mfaMethod || 'totp',
+                mfa_method: user.mfaMethod || 'totp',
+                mfaConfigured: !!user.mfaConfigured,
+                mfaExempt: !!user.mfaExempt,
+                hasDevice: hasDevice,
+                has_device: hasDevice,
+                deviceCount: activeDevices.length,
+                totalDevices: user.mfaDevices ? user.mfaDevices.length : 0,
+                lastDeviceUsed: user.mfaDevices && user.mfaDevices.length > 0
+                    ? user.mfaDevices.reduce((latest, device) => {
+                        return !latest || (device.lastUsed && device.lastUsed > latest) ? device.lastUsed : latest;
+                    }, null)
+                    : null,
+                createdAt: user.createdAt
+            };
+        });
 
         res.json({
             success: true,
@@ -100,17 +100,12 @@ router.get('/users/:userId', authenticateToken, requireAdmin, async (req, res) =
         const { userId } = req.params;
 
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'username', 'email', 'fullName', 'role', 'mfaEnabled', 'mfaMethod', 'mfaConfigured', 'mfaExempt', 'createdAt'],
+            attributes: ['id', 'username', 'email', 'fullName', 'role', 'status', 'mfaEnabled', 'mfaMethod', 'mfaConfigured', 'mfaExempt', 'createdAt'],
             include: [
                 {
                     model: MfaDevice,
                     as: 'mfaDevices',
-                    attributes: ['id', 'deviceName', 'deviceInfo', 'deviceFingerprint', 'isActive', 'lastUsed', 'createdAt']
-                },
-                {
-                    model: MfaTotpSecret,
-                    as: 'totpSecret',
-                    attributes: ['id', 'isVerified', 'createdAt', 'updatedAt']
+                    required: false
                 }
             ]
         });
@@ -119,154 +114,33 @@ router.get('/users/:userId', authenticateToken, requireAdmin, async (req, res) =
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Get recent audit logs
-        const auditLogs = await mfaService.getAuditLogs(userId, 20, 0);
+        const totpSecret = await MfaTotpSecret.findOne({
+            where: { userId: userId },
+            attributes: ['id', 'isVerified', 'createdAt', 'lastUsed']
+        });
+
+        const recentLogs = await MfaAuditLog.findAll({
+            where: { userId: userId },
+            limit: 10,
+            order: [['createdAt', 'DESC']]
+        });
 
         res.json({
             success: true,
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                fullName: user.fullName,
-                role: user.role,
-                mfaEnabled: user.mfaEnabled,
-                mfaMethod: user.mfaMethod,
-                mfaConfigured: user.mfaConfigured,
-                mfaExempt: user.mfaExempt,
-                createdAt: user.createdAt
-            },
-            devices: user.mfaDevices || [],
-            totpConfigured: user.totpSecret ? user.totpSecret.isVerified : false,
-            totpCreatedAt: user.totpSecret ? user.totpSecret.createdAt : null,
-            recentActivity: auditLogs.rows
-        });
-    } catch (error) {
-        console.error('Get user detail error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * POST /api/admin/mfa/reset/:userId
- * Reset user's MFA configuration
- */
-router.post('/reset/:userId', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const adminUserId = req.user.id;
-
-        const user = await User.findByPk(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        await mfaService.resetUserMFA(userId, adminUserId);
-
-        res.json({
-            success: true,
-            message: `MFA reset for user ${user.username}`
-        });
-    } catch (error) {
-        console.error('MFA reset error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * DELETE /api/admin/mfa/devices/:deviceId
- * Revoke a specific device
- */
-router.delete('/devices/:deviceId', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        const adminUserId = req.user.id;
-
-        const device = await MfaDevice.findByPk(deviceId);
-        if (!device) {
-            return res.status(404).json({ error: 'Device not found' });
-        }
-
-        await mfaService.revokeDevice(deviceId, adminUserId);
-
-        res.json({
-            success: true,
-            message: 'Device revoked successfully'
-        });
-    } catch (error) {
-        console.error('Device revocation error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/admin/mfa/audit-log
- * Get MFA audit logs
- */
-router.get('/audit-log', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { userId, eventType, page = 1, limit = 100 } = req.query;
-
-        const offset = (page - 1) * limit;
-
-        const auditLogs = await mfaService.getAuditLogs(
-            userId || null,
-            parseInt(limit),
-            offset
-        );
-
-        // Filter by event type if provided
-        let filteredRows = auditLogs.rows;
-        if (eventType) {
-            filteredRows = auditLogs.rows.filter(log => log.eventType === eventType);
-        }
-
-        res.json({
-            success: true,
-            logs: filteredRows,
-            pagination: {
-                total: auditLogs.count,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(auditLogs.count / limit)
+                ...user.toJSON(),
+                mfaEnabled: !!user.mfaEnabled,
+                mfa_enabled: !!user.mfaEnabled,
+                mfaMethod: user.mfaMethod || 'totp',
+                mfa_method: user.mfaMethod || 'totp',
+                hasTotp: !!totpSecret,
+                totpVerified: totpSecret ? totpSecret.isVerified : false,
+                devices: user.mfaDevices || [],
+                recentLogs: recentLogs
             }
         });
     } catch (error) {
-        console.error('Audit log error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * POST /api/admin/mfa/exempt/:userId
- * Set/unset MFA exemption for a user
- */
-router.post('/exempt/:userId', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { exempt } = req.body;
-
-        if (exempt === undefined) {
-            return res.status(400).json({ error: 'Exempt status is required' });
-        }
-
-        const user = await User.findByPk(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        await user.update({ mfaExempt: exempt });
-
-        await mfaService.logMFAEvent(userId, exempt ? 'mfa_exempt_enabled' : 'mfa_exempt_disabled', null, null, {
-            setBy: req.user.id
-        });
-
-        res.json({
-            success: true,
-            message: `MFA exemption ${exempt ? 'enabled' : 'disabled'} for ${user.username}`
-        });
-    } catch (error) {
-        console.error('MFA exemption error:', error);
+        console.error('Get user MFA error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -289,25 +163,75 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
             return res.status(404).json({ error: 'User not found' });
         }
 
-        await user.update({ mfaEnabled: enabled });
+        const isEnable = enabled === true || enabled === 'true' || enabled === 1;
+        const updates = {
+            mfaEnabled: isEnable,
+            mfaConfigured: isEnable
+        };
 
-        // Check if we need to reset configured status if disabling
-        if (!enabled) {
-            // Optional: checking if we should clear configuration. 
-            // For now, we just disable it but keep config in case they re-enable.
-            // But user requirement implies "if mfa enabled then... ask to verify".
+        if (isEnable) {
+            if (!user.mfaMethod) updates.mfaMethod = 'totp';
+            // Ensure TOTP secret exists if enabling
+            let secret = await MfaTotpSecret.findOne({ where: { userId } });
+            if (!secret) {
+                await mfaService.generateTOTPSecret(userId);
+            }
         }
 
-        await mfaService.logMFAEvent(userId, enabled ? 'mfa_enabled' : 'mfa_disabled', null, null, {
+        await user.update(updates);
+
+        await mfaService.logMFAEvent(userId, isEnable ? 'mfa_enabled' : 'mfa_disabled', null, null, {
             setBy: req.user.id
         });
 
         res.json({
             success: true,
-            message: 'MFA ' + (enabled ? 'enabled' : 'disabled') + ' for ' + user.username
+            message: `MFA ${isEnable ? 'enabled' : 'disabled'} for ${user.username}`,
+            user: {
+                id: user.id,
+                username: user.username,
+                mfaEnabled: user.mfaEnabled,
+                mfa_enabled: user.mfaEnabled,
+                mfaMethod: user.mfaMethod,
+                mfa_method: user.mfaMethod,
+                mfaConfigured: user.mfaConfigured
+            }
         });
     } catch (error) {
         console.error('MFA toggle error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/admin/mfa/reset/:userId
+ * Reset MFA configuration and clear all paired devices/secrets
+ */
+router.post('/reset/:userId', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminUserId = req.user.id;
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        await mfaService.resetUserMFA(userId, adminUserId);
+
+        res.json({
+            success: true,
+            message: `MFA reset and cleared for ${user.username}`,
+            user: {
+                id: user.id,
+                username: user.username,
+                mfaEnabled: false,
+                mfa_enabled: false,
+                mfaConfigured: false
+            }
+        });
+    } catch (error) {
+        console.error('MFA reset error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -321,29 +245,34 @@ router.post('/method/:userId', authenticateToken, requireAdmin, async (req, res)
         const { userId } = req.params;
         const { method } = req.body;
 
-        console.log(`[Admin] Changing MFA method for user ${userId} to ${method}`);
-
         const user = await User.findByPk(userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Validate method
-        if (!['push', 'totp', 'both', 'none'].includes(method)) {
+        const validMethods = ['push', 'totp', 'both', 'none', 'companion', 'email'];
+        if (!validMethods.includes(method)) {
             return res.status(400).json({ error: 'Invalid MFA method' });
         }
 
-        if (method === 'none') {
+        const normalizedMethod = method === 'companion' ? 'push' : (method === 'none' ? null : method);
+
+        if (!normalizedMethod) {
             await user.update({
                 mfaMethod: null,
                 mfaEnabled: false,
                 mfaConfigured: false
             });
         } else {
-            // Forcing a method implies enabling MFA
+            let secret = await MfaTotpSecret.findOne({ where: { userId } });
+            if (!secret && (normalizedMethod === 'totp' || normalizedMethod === 'both')) {
+                await mfaService.generateTOTPSecret(userId);
+            }
+
             await user.update({
-                mfaMethod: method,
-                mfaEnabled: true
+                mfaMethod: normalizedMethod,
+                mfaEnabled: true,
+                mfaConfigured: true
             });
         }
 
@@ -364,55 +293,71 @@ router.post('/method/:userId', authenticateToken, requireAdmin, async (req, res)
 });
 
 /**
+ * POST /api/admin/mfa/exempt/:userId
+ * Exemption toggle
+ */
+router.post('/exempt/:userId', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { exempt, reason } = req.body;
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        await user.update({ mfaExempt: !!exempt });
+
+        await mfaService.logMFAEvent(userId, exempt ? 'mfa_exempted' : 'mfa_unexempted', null, null, {
+            reason: reason || 'Admin action',
+            setBy: req.user.id
+        });
+
+        res.json({
+            success: true,
+            message: `User ${exempt ? 'exempted from' : 'required to use'} MFA`
+        });
+    } catch (error) {
+        console.error('MFA exemption error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/admin/mfa/user/:userId/secret
  * Get user's TOTP secret (for manual setup assistance)
  */
 router.get('/user/:userId/secret', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        const { MfaTotpSecret } = require('../../models');
 
         let secret = await MfaTotpSecret.findOne({
             where: { userId: userId }
         });
 
         if (!secret) {
-            console.log(`[Admin] No TOTP secret found for user ${userId}. Generating one now.`);
-            try {
-                const mfaService = require('../../services/mfaService');
-                const result = await mfaService.generateTOTPSecret(userId);
-                console.log(`[Admin] Generated secret result:`, result ? 'Success' : 'Null');
-                // Ensure we handle the object structure correctly
-                if (result && result.secret) {
-                    secret = { secret: result.secret, isVerified: false };
-                }
-            } catch (genError) {
-                console.error('[Admin] Failed to generate secret:', genError);
-                return res.status(500).json({ error: 'Failed to generate secret' });
+            const result = await mfaService.generateTOTPSecret(userId);
+            if (result && result.secret) {
+                secret = { secret: result.secret, isVerified: true };
             }
-        } else {
-            console.log(`[Admin] Found existing secret for user ${userId}. Verified: ${secret.isVerified}`);
         }
 
         if (!secret || !secret.secret) {
-            console.log('[Admin] Secret object is legally missing after all attempts.');
             return res.json({ code: null, message: 'No TOTP configured for this user' });
         }
 
-        // Generate current 6-digit TOTP code from the secret
         const speakeasy = require('speakeasy');
         const currentCode = speakeasy.totp({
             secret: secret.secret,
             encoding: 'base32'
         });
 
-        // Calculate time remaining for this code
         const timeRemaining = 30 - (Math.floor(Date.now() / 1000) % 30);
 
         res.json({
             code: currentCode,
             expiresIn: timeRemaining,
-            isVerified: secret.isVerified
+            isVerified: secret.isVerified ?? true
         });
 
     } catch (error) {
@@ -427,8 +372,6 @@ router.get('/user/:userId/secret', authenticateToken, requireAdmin, async (req, 
  */
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { Op } = require('sequelize');
-
         const totalUsers = await User.count();
         const mfaEnabledUsers = await User.count({ where: { mfaEnabled: true } });
         const mfaConfiguredUsers = await User.count({ where: { mfaConfigured: true } });
@@ -441,9 +384,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
         const activeDevices = await MfaDevice.count({ where: { isActive: true } });
         const totalDevices = await MfaDevice.count();
 
-        // Get recent activity (last 7 days)
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const { MfaAuditLog } = require('../../models');
         const recentLogins = await MfaAuditLog.count({
             where: {
                 eventType: 'login_success',

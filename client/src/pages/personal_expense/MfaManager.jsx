@@ -82,10 +82,11 @@ const MfaManager = () => {
 
             if (response.ok) {
                 showToast(`MFA ${nextStatus ? 'enabled' : 'disabled'} for ${username}`, 'success');
-                fetchUsers();
-                fetchStats();
+                await fetchUsers();
+                await fetchStats();
             } else {
-                showToast('Failed to update MFA status', 'error');
+                const errData = await response.json().catch(() => ({}));
+                showToast(errData.error || 'Failed to update MFA status', 'error');
             }
         } catch {
             showToast('Error updating MFA status', 'error');
@@ -105,9 +106,9 @@ const MfaManager = () => {
             });
 
             if (response.ok) {
-                showToast(`MFA configuration and companion devices reset for ${confirmReset.username}`, 'info');
-                fetchUsers();
-                fetchStats();
+                showToast(`MFA configuration & devices removed for ${confirmReset.username}`, 'info');
+                await fetchUsers();
+                await fetchStats();
             } else {
                 showToast('Failed to reset MFA', 'error');
             }
@@ -134,7 +135,7 @@ const MfaManager = () => {
 
             if (response.ok) {
                 showToast(`Authentication method updated to ${method.toUpperCase()} for ${username}`, 'success');
-                fetchUsers();
+                await fetchUsers();
             } else {
                 showToast('Failed to update MFA method', 'error');
             }
@@ -150,161 +151,194 @@ const MfaManager = () => {
             const matchesSearch = !searchTerm ||
                 (u.username && u.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            const isEnabled = Boolean(u.mfaEnabled || u.mfa_enabled);
             const matchesStatus = statusFilter === 'ALL' ||
-                (statusFilter === 'ENABLED' && u.mfa_enabled) ||
-                (statusFilter === 'DISABLED' && !u.mfa_enabled);
+                (statusFilter === 'ENABLED' && isEnabled) ||
+                (statusFilter === 'DISABLED' && !isEnabled);
+
             return matchesSearch && matchesStatus;
         });
     }, [users, searchTerm, statusFilter]);
 
-    const enrolledUsers = users.filter(u => u.mfa_enabled).length;
-    const adoptionRate = users.length > 0 ? Math.round((enrolledUsers / users.length) * 100) : 0;
-
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-slate-100">
-            {/* TOAST ALERTS */}
+        <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-100">
+            {/* Toast Notification */}
             <AnimatePresence>
                 {toast.show && (
                     <motion.div
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-xs sm:text-sm font-semibold ${
+                        className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl ${
                             toast.type === 'error'
-                                ? 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-950/50'
+                                ? 'bg-rose-950/90 border-rose-500/40 text-rose-200'
                                 : toast.type === 'info'
-                                ? 'bg-cyan-950/90 border-cyan-500/50 text-cyan-200 shadow-cyan-950/50'
-                                : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50'
+                                ? 'bg-sky-950/90 border-sky-500/40 text-sky-200'
+                                : 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
                         }`}
                     >
-                        {toast.type === 'error' ? (
-                            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-                        ) : toast.type === 'info' ? (
-                            <Info className="w-5 h-5 text-cyan-400 shrink-0" />
-                        ) : (
-                            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-                        )}
-                        <span>{toast.message}</span>
+                        {toast.type === 'error' ? <AlertCircle className="w-5 h-5 text-rose-400" /> : <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+                        <span className="text-xs font-bold tracking-wide">{toast.message}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* CONFIRM RESET DIALOG */}
+            {/* Confirm Reset Dialog */}
             <ConfirmDialog
                 isOpen={confirmReset.isOpen}
-                title="Reset User MFA Credentials"
-                message={`Are you sure you want to reset MFA for "${confirmReset.username}"? This will invalidate their TOTP secret key and remove all paired companion devices.`}
+                title="Reset MFA Credentials"
+                message={`Are you sure you want to completely remove MFA protection and clear all paired companion devices for "${confirmReset.username}"? They will be able to log in with standard password.`}
+                confirmText="Reset MFA"
+                cancelText="Keep MFA"
+                type="danger"
                 onConfirm={handleResetMFA}
-                onCancel={() => setConfirmReset({ isOpen: false, userId: null, username: '' })}
+                onClose={() => setConfirmReset({ isOpen: false, userId: null, username: '' })}
             />
 
-            {/* TOP HERO HEADER WITH TELEMETRY */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 shadow-2xl backdrop-blur-xl">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            to="/admin"
-                            className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
-                            title="Back to Admin Console"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
+                    <div className="flex items-center gap-2">
+                        <Link to="/admin" className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-all">
+                            <ArrowLeft className="w-4 h-4" />
                         </Link>
-                        <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
-                            <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                                MFA Security & Device Hub
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                    RFC 6238 TOTP
-                                </span>
-                            </h1>
-                            <p className="text-xs sm:text-sm text-slate-400">
-                                Monitor two-factor enrollment, manage companion device pairings, and enforce security policies.
-                            </p>
-                        </div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5" /> Security & 2FA Engine
+                        </span>
                     </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                        MFA Management & Device Pairing
+                    </h1>
+                    <p className="text-xs text-slate-400">
+                        Configure multi-factor authentication requirements, TOTP keys, and mobile companion app pairing.
+                    </p>
                 </div>
 
-                {/* Status Telemetry Badges */}
-                <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                    {/* Adoption Rate */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
-                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">MFA Adoption</span>
-                            <span className="text-[11px] font-extrabold text-emerald-300">
-                                {adoptionRate}% ({enrolledUsers}/{users.length} Users)
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Linked Companion Devices */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
-                        <Smartphone className="w-3.5 h-3.5 text-blue-400" />
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Companion Devices</span>
-                            <span className="text-[11px] font-extrabold text-blue-300">
-                                {stats?.activeDevices || enrolledUsers} Paired
-                            </span>
-                        </div>
-                    </div>
-
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => { fetchUsers(); fetchStats(); }}
-                        className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
-                        title="Refresh Security Status"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold transition-all disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+                        <span>Refresh Directory</span>
                     </button>
+                    <Link
+                        to="/mfa-setup"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all"
+                    >
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Pair New Device</span>
+                    </Link>
                 </div>
             </div>
 
-            {/* SEARCH & FILTER BAR */}
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-xl">
+            {/* Stats Overview */}
+            {stats && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
+                        <div className="flex items-center justify-between text-slate-400">
+                            <span className="text-xs font-semibold uppercase tracking-wider">MFA Adoption</span>
+                            <Shield className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-white">{stats.users?.mfaEnabledUsers ?? stats.users?.mfaEnabled ?? 0}</span>
+                            <span className="text-xs text-slate-500">/ {stats.users?.total ?? 0} users</span>
+                        </div>
+                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${stats.users?.mfaEnabledPercentage ?? 0}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
+                        <div className="flex items-center justify-between text-slate-400">
+                            <span className="text-xs font-semibold uppercase tracking-wider">Paired Devices</span>
+                            <Smartphone className="w-4 h-4 text-cyan-400" />
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-white">{stats.devices?.active ?? 0}</span>
+                            <span className="text-xs text-slate-500">active smartphones</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Total registered: {stats.devices?.total ?? 0}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
+                        <div className="flex items-center justify-between text-slate-400">
+                            <span className="text-xs font-semibold uppercase tracking-wider">Primary Method</span>
+                            <Key className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-white">{stats.methods?.totp ?? 0}</span>
+                            <span className="text-xs text-slate-500">TOTP Authenticator</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Push notification: {stats.methods?.push ?? 0}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 backdrop-blur-sm space-y-1">
+                        <div className="flex items-center justify-between text-slate-400">
+                            <span className="text-xs font-semibold uppercase tracking-wider">7-Day Success</span>
+                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black text-white">{stats.activity?.successRate ?? 100}%</span>
+                            <span className="text-xs text-slate-500">verification rate</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">{stats.activity?.recentLogins ?? 0} successful challenges</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
                 <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Search by username or email..."
+                        placeholder="Search users by name or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-emerald-500"
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
                     />
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300 outline-none cursor-pointer"
-                    >
-                        <option value="ALL">All Security States ({users.length})</option>
-                        <option value="ENABLED">MFA Active ({enrolledUsers})</option>
-                        <option value="DISABLED">MFA Disabled ({users.length - enrolledUsers})</option>
-                    </select>
-
-                    <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
-                        Showing {filteredUsers.length} of {users.length}
-                    </span>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-[11px] font-bold text-slate-400">Filter:</span>
+                    {['ALL', 'ENABLED', 'DISABLED'].map((s) => (
+                        <button
+                            key={s}
+                            onClick={() => setStatusFilter(s)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                statusFilter === s
+                                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                            }`}
+                        >
+                            {s}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* USER MFA SECURITY DIRECTORY */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 backdrop-blur-xl shadow-xl">
+            {/* Users Directory */}
+            <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800/80 space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                         <Key className="w-4 h-4 text-emerald-400" />
-                        User Multi-Factor Status & Pairing
+                        User Multi-Factor Status & Pairing ({filteredUsers.length})
                     </h3>
                 </div>
 
                 {filteredUsers.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredUsers.map((u) => {
-                            const isEnabled = !!u.mfa_enabled;
+                            const isEnabled = Boolean(u.mfaEnabled || u.mfa_enabled);
                             const initials = u.username ? u.username.slice(0, 2).toUpperCase() : '??';
                             const isUpdating = updatingId === u.id;
+                            const hasDevice = Boolean(u.hasDevice || u.has_device || u.deviceCount > 0);
 
                             return (
                                 <motion.div
@@ -344,21 +378,21 @@ const MfaManager = () => {
                                             <div className="flex items-center justify-between text-[11px]">
                                                 <span className="text-slate-400 font-medium">Method:</span>
                                                 <select
-                                                    value={u.mfa_method || 'totp'}
+                                                    value={u.mfaMethod || u.mfa_method || 'totp'}
                                                     onChange={(e) => handleMethodChange(u.id, e.target.value, u.username)}
                                                     disabled={isUpdating}
-                                                    className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 outline-none"
+                                                    className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 outline-none cursor-pointer"
                                                 >
                                                     <option value="totp">Authenticator (TOTP)</option>
-                                                    <option value="companion">Android Companion App</option>
-                                                    <option value="email">Email Verification</option>
+                                                    <option value="push">Android Companion Push</option>
+                                                    <option value="both">Both (TOTP + Push)</option>
                                                 </select>
                                             </div>
 
                                             <div className="flex items-center justify-between text-[11px] text-slate-400">
                                                 <span>Device Status:</span>
                                                 <span className="font-semibold text-slate-300">
-                                                    {u.has_device ? 'Paired Smartphone' : (isEnabled ? 'Software TOTP' : 'No Device')}
+                                                    {hasDevice ? 'Paired Smartphone' : (isEnabled ? 'Software TOTP' : 'No Device')}
                                                 </span>
                                             </div>
                                         </div>
