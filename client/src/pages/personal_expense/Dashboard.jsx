@@ -619,6 +619,16 @@ const Dashboard = () => {
                         <InvestmentPanel />
                     </motion.div>
                 </section>
+
+                {/* 6. Emergency Fund Runway Intelligence (Overview End) */}
+                <motion.div className="mt-4 pb-6" {...enter(0)}>
+                    <EmergencyFundRunwayCard
+                        banks={banks}
+                        transactions={transactions}
+                        currency={currency}
+                        loading={loading}
+                    />
+                </motion.div>
             </main>
 
             {/* ------------------------------------------------ overlays -- */}
