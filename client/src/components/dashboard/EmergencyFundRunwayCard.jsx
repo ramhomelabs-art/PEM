@@ -3,11 +3,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Sparkles, ChevronUp, ChevronDown, TrendingUp, Info } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 
-export const EmergencyFundRunwayCard = ({ banks = [], transactions = [], currency = 'INR', loading = false }) => {
+export const EmergencyFundRunwayCard = ({
+    banks = [],
+    transactions = [],
+    kpiBalance = 0,
+    liquidBalance = null,
+    currency = 'INR',
+    loading = false
+}) => {
     const [showRunwayTips, setShowRunwayTips] = useState(false);
 
     const runwayData = useMemo(() => {
-        const totalLiquid = (banks || []).reduce((s, b) => s + (Number(b.balance) || 0), 0);
+        const bankSum = (banks || []).reduce((s, b) => s + (Number(b.balance) || 0), 0);
+        
+        // Calculate cumulative net cash from all transactions (income - expense)
+        const netFromTx = (transactions || []).reduce((sum, t) => {
+            const amt = Number(t.amount) || 0;
+            if (t.type === 'income') return sum + amt;
+            if (t.type === 'expense') return sum - amt;
+            return sum;
+        }, 0);
+
+        // Real liquid cash calculation: uses linked bank balances, or live Safe-to-Spend cash, or net transaction balance
+        const totalLiquid = liquidBalance != null && Number(liquidBalance) > 0
+            ? Number(liquidBalance)
+            : bankSum > 0
+                ? bankSum
+                : Number(kpiBalance) > 0
+                    ? Number(kpiBalance)
+                    : Math.max(0, netFromTx);
 
         // Calculate last 90 days expenses for accurate monthly burn rate
         const now = new Date();
@@ -16,7 +40,7 @@ export const EmergencyFundRunwayCard = ({ banks = [], transactions = [], currenc
         const recentExpenses = (transactions || []).filter((t) => {
             if (t.type !== 'expense') return false;
             const d = new Date(t.date);
-            return d >= ninetyDaysAgo;
+            return !isNaN(d.getTime()) && d >= ninetyDaysAgo;
         });
 
         const totalExpenseLast90 = recentExpenses.reduce((s, t) => s + (Number(t.amount) || 0), 0);
@@ -64,7 +88,7 @@ export const EmergencyFundRunwayCard = ({ banks = [], transactions = [], currenc
             badgeColor,
             remainingNeeded,
         };
-    }, [banks, transactions]);
+    }, [banks, transactions, kpiBalance, liquidBalance]);
 
     if (loading) {
         return (

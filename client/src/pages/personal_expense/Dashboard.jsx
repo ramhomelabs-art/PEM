@@ -625,6 +625,8 @@ const Dashboard = () => {
                     <EmergencyFundRunwayCard
                         banks={banks}
                         transactions={transactions}
+                        kpiBalance={kpi.current.balance}
+                        liquidBalance={safeToSpendData.liquidCash}
                         currency={currency}
                         loading={loading}
                     />
