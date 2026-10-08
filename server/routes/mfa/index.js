@@ -175,15 +175,13 @@ router.get('/auth/setup', authenticateToken, setupRateLimiter, async (req, res) 
 router.get('/auth/status/:requestId', async (req, res) => {
     try {
         const { requestId } = req.params;
-        console.log(`[DEBUG] Polling status for requestId: ${requestId}`);
-
+        if (!requestId || requestId === 'undefined' || requestId === 'null') {
+            return res.json({ status: 'not_found' });
+        }
         const status = await mfaService.getPushRequestStatus(requestId);
-        console.log(`[DEBUG] Status found: ${status.status}`);
-
         res.json(status);
     } catch (error) {
-        console.error('Status check error:', error);
-        res.status(404).json({ error: error.message });
+        res.json({ status: 'not_found', message: error.message });
     }
 });
 

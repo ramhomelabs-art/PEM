@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, CheckCircle, ArrowRight, Smartphone as PhoneIcon, Lock, Loader2, User as UserIcon, Star, Flame } from 'lucide-react';
-import { API_URL, BASE_URL } from '../../config';
+import { Shield, CheckCircle2, ArrowRight, Smartphone, Lock, Loader2, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
+import { API_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
 
@@ -11,14 +11,14 @@ const MfaVerify = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
     const { userId, mfaMethod, requestId } = location.state || {};
-    const { theme, mode } = useTheme();
+    const { theme } = useTheme();
+
+    const hasPushRequest = Boolean(requestId && (mfaMethod === 'push' || mfaMethod === 'both'));
 
     const [otp, setOtp] = useState('');
-    const [status, setStatus] = useState(() =>
-        mfaMethod === 'push' || mfaMethod === 'both' ? 'polling' : 'idle'
-    ); // idle, polling, verifying, success, error
+    const [status, setStatus] = useState(() => (hasPushRequest ? 'polling' : 'idle')); // idle | polling | verifying | success | error
     const [error, setError] = useState('');
-    const [showTotp, setShowTotp] = useState(false);
+    const [showTotp, setShowTotp] = useState(() => !hasPushRequest || mfaMethod === 'totp');
     const [authenticatedUser, setAuthenticatedUser] = useState(null);
 
     const handleSuccess = useCallback((token, user) => {
@@ -31,32 +31,39 @@ const MfaVerify = () => {
         }, 900);
     }, [login, navigate]);
 
-    // Polls the MFA approval endpoint until the request is approved, denied or
-    // expires. Not async: it returns the interval cleanup so the effect below
-    // can always tear the timer down on unmount or method change.
+    // Polls push approval status
     const startPolling = useCallback(() => {
+        if (!requestId) return undefined;
+
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(`${API_URL}/mfa/auth/status/${requestId}`);
-                if (!response.ok) return;
+                if (!response.ok) {
+                    setShowTotp(true);
+                    return;
+                }
                 const data = await response.json();
                 if (data.status === 'approved') {
-                    if (!data.user) {
-                        console.error('MFA approved but no user in response', data);
-                    }
                     clearInterval(pollInterval);
-                    handleSuccess(data.token, data.user || { username: 'Unknown User' });
+                    handleSuccess(data.token, data.user || { username: 'User' });
                 } else if (data.status === 'denied') {
                     clearInterval(pollInterval);
                     setStatus('error');
-                    setError('Login request was denied on your device.');
+                    setError('Login request was denied on your companion device.');
+                    setShowTotp(true);
                 } else if (data.status === 'expired') {
                     clearInterval(pollInterval);
                     setStatus('error');
-                    setError('Approval request expired.');
+                    setError('Approval request expired. Please enter authenticator code below.');
+                    setShowTotp(true);
+                } else if (data.status === 'not_found') {
+                    // No pending push request on server -> show TOTP
+                    clearInterval(pollInterval);
+                    setShowTotp(true);
+                    setStatus('idle');
                 }
             } catch {
-                // Transient poll failure; the next tick retries.
+                // Transient network failure
             }
         }, 2000);
 
@@ -69,16 +76,15 @@ const MfaVerify = () => {
             return undefined;
         }
 
-        if (mfaMethod === 'push' || mfaMethod === 'both') {
+        if (hasPushRequest && !showTotp) {
             return startPolling();
         }
         return undefined;
-    }, [userId, mfaMethod, navigate, startPolling]);
+    }, [userId, hasPushRequest, showTotp, navigate, startPolling]);
 
     const handleOtpSubmit = async (e) => {
-        e.preventDefault();
-        if (otp.length !== 6) return;
-
+        e?.preventDefault?.();
+        if (otp.length !== 6 || status === 'verifying') return;
         setStatus('verifying');
         setError('');
 
@@ -89,345 +95,158 @@ const MfaVerify = () => {
                 body: JSON.stringify({ userId, code: otp })
             });
 
-            const data = await response.json();
             if (response.ok) {
+                const data = await response.json();
                 handleSuccess(data.token, data.user);
             } else {
-                setStatus('error');
-                setError(data.error || 'Invalid OTP');
-                setTimeout(() => setStatus('idle'), 3000);
+                const data = await response.json();
+                setStatus('idle');
+                setError(data.error || 'Invalid verification code. Please try again.');
             }
         } catch {
-            setStatus('error');
-            setError('Verification failed. Please try again.');
-            setTimeout(() => setStatus('idle'), 3000);
+            setStatus('idle');
+            setError('Verification failed. Please check connection.');
         }
     };
 
-    // --- STYLES COPIED FROM LOGIN.JSX FOR CONSISTENCY ---
-    const containerStyle = {
-        minHeight: '100vh',
-        width: '100vw',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: theme.bg
-    };
-
-    const cardStyle = {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '32px',
-        background: mode === 'dark' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.85)',
-        backdropFilter: 'blur(20px)',
-        border: `1px solid ${theme.border}`,
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-        position: 'relative',
-        zIndex: 100,
-        textAlign: 'center',
-        boxSizing: 'border-box'
-    };
-
-    const inputStyle = {
-        height: '52px',
-        fontSize: '24px',
-        letterSpacing: '0.5em',
-        borderRadius: '16px',
-        width: '100%',
-        textAlign: 'center',
-        boxSizing: 'border-box',
-        fontFamily: 'monospace'
-    };
-
-    const buttonStyle = {
-        height: '52px',
-        fontSize: '18px',
-        borderRadius: '16px',
-        width: '100%',
-        boxSizing: 'border-box'
-    };
-
     return (
-        <div style={containerStyle}>
-            {/* Background Elements matching Login */}
-            <div className="animated-bg"></div>
-            <div className="shape shape-1"></div>
-            <div className="shape shape-2"></div>
+        <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white relative overflow-hidden">
+            {/* Ambient background glow */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
+            <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="auth-card"
-                style={cardStyle}
+                initial={{ opacity: 0, scale: 0.96, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full max-w-md rounded-3xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl shadow-black/80 relative z-10"
             >
+                {/* Header */}
+                <div className="flex items-center gap-3.5 mb-6 pb-5 border-b border-slate-800">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+                        <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                            Security Verification
+                        </h1>
+                        <p className="text-xs text-slate-400 font-medium">
+                            Two-Factor Authentication required to sign in
+                        </p>
+                    </div>
+                </div>
+
                 <AnimatePresence mode="wait">
+                    {/* Success state */}
                     {status === 'success' ? (
                         <motion.div
                             key="success"
-                            initial={{ scale: 0.95, opacity: 0 }}
+                            initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="w-full max-w-md mx-auto"
+                            className="text-center py-6 space-y-4"
                         >
-                            {/* Modal-style Card */}
-                            <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl success-inner-card border border-slate-700/50 shadow-2xl">
-                                <div className="flex flex-col items-center space-y-6">
-
-                                    {/* Circular Avatar with Ring - Corrected Layout */}
-                                    <motion.div
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ delay: 0.1, duration: 0.5 }}
-                                        className="success-avatar-wrapper"
-                                    >
-                                        {/* Animated Success Rings - ABSOLUTE POSITIONED */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            width: '100%',
-                                            height: '100%',
-                                            pointerEvents: 'none'
-                                        }}>
-                                            <svg viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                                                <motion.circle
-                                                    cx="110"
-                                                    cy="110"
-                                                    r="90"
-                                                    stroke="#10b981"
-                                                    strokeWidth="4"
-                                                    strokeLinecap="round"
-                                                    fill="none"
-                                                    initial={{ pathLength: 0, opacity: 0, rotate: -90 }}
-                                                    animate={{ pathLength: 1, opacity: 1, rotate: -90 }}
-                                                    transition={{ duration: 0.6, delay: 0.05, ease: "easeOut" }}
-                                                />
-                                                <motion.circle
-                                                    cx="110"
-                                                    cy="110"
-                                                    r="102"
-                                                    stroke="#10b981"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    fill="none"
-                                                    opacity="0.4"
-                                                    initial={{ pathLength: 0, opacity: 0, rotate: 90 }}
-                                                    animate={{ pathLength: 1, opacity: 0.4, rotate: 90 }}
-                                                    transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-                                                />
-                                            </svg>
-                                        </div>
-
-                                        {/* Avatar Image - ABSOLUTE CENTERED */}
-                                        <div className="success-avatar-img">
-                                            {authenticatedUser?.profilePhoto ? (
-                                                <img
-                                                    src={authenticatedUser.profilePhoto.startsWith('http') ? authenticatedUser.profilePhoto : `${BASE_URL}/${authenticatedUser.profilePhoto.replace(/\\/g, '/')}`}
-                                                    alt="Profile"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                        if (e.currentTarget.nextSibling) {
-                                                            e.currentTarget.nextSibling.style.display = 'flex';
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover',
-                                                        borderRadius: '50%'
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <div
-                                                style={{
-                                                    display: authenticatedUser?.profilePhoto ? 'none' : 'flex',
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    backgroundColor: '#334155'
-                                                }}
-                                            >
-                                                <UserIcon size={70} className="text-slate-500" />
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Star Icon - OUTSIDE Ring Container */}
-                                    <motion.div
-                                        initial={{ scale: 0, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 10 }}
-                                        className="flex justify-center"
-                                    >
-                                        <Star size={42} fill="white" className="text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
-                                    </motion.div>
-
-                                    {/* Text Hierarchy */}
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.15 }}
-                                        className="space-y-3 text-center"
-                                    >
-                                        <h1 className="text-3xl font-black sm:text-4xl text-white tracking-wide">SUCCESS!</h1>
-
-                                        <div className="space-y-1">
-                                            <p className="text-lg text-slate-200 font-medium">
-                                                Welcome, {authenticatedUser?.fullName || authenticatedUser?.username || 'User'}
-                                            </p>
-                                            <p className="text-sm text-slate-400 italic">
-                                                &quot;Your financial journey continues today&quot;
-                                            </p>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Flame Icons with Bounce Animation */}
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.8 }}
-                                        className="flex flex-col items-center gap-0 pt-2"
-                                    >
-                                        <motion.div
-                                            animate={{ y: [0, -8, 0] }}
-                                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                                        >
-                                            <Flame size={32} fill="white" className="text-white/60" />
-                                        </motion.div>
-                                        <motion.div
-                                            animate={{ y: [0, -8, 0] }}
-                                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                                            className="-mt-2"
-                                        >
-                                            <Flame size={24} fill="white" className="text-white/40" />
-                                        </motion.div>
-                                    </motion.div>
-
-                                    {/* Loading Indicator */}
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 1 }}
-                                        className="pt-4 flex items-center gap-2"
-                                    >
-                                        <Loader2 className="animate-spin text-emerald-400" size={18} />
-                                        <p className="text-emerald-400/90 text-sm font-semibold tracking-wide">Entering Dashboard...</p>
-                                    </motion.div>
-                                </div>
+                            <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                <CheckCircle2 className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-1">
+                                <h2 className="text-lg font-bold text-white">Authenticated!</h2>
+                                <p className="text-xs text-slate-400">
+                                    Welcome back{authenticatedUser?.fullName ? `, ${authenticatedUser.fullName}` : ''}. Redirecting...
+                                </p>
                             </div>
                         </motion.div>
                     ) : (
-                        <motion.div key="form" className="w-full">
-                            {/* Header Icon */}
-                            <div className="flex flex-col items-center mb-10">
-                                <motion.div
-                                    whileHover={{ scale: 1.1, rotate: 10 }}
-                                    className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-cyan-500 rounded-[28px] flex items-center justify-center shadow-2xl mb-6 shadow-emerald-500/20"
-                                >
-                                    <Shield size={48} className="text-white" />
-                                </motion.div>
-                                <h1 className="text-3xl font-black sm:text-4xl tracking-tighter mb-2" style={{ color: theme.text }}>SECURITY CHECK</h1>
-                                <p className="text-lg font-bold uppercase tracking-[0.1em]" style={{ color: theme.textSecondary }}>
-                                    Two-Step Verification
-                                </p>
-                            </div>
-
-                            {(mfaMethod === 'push' || mfaMethod === 'both') && !showTotp && (
-                                <div className="w-full">
-                                    <div className="mb-8 p-6 bg-blue-500/10 rounded-3xl border border-blue-500/30 flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400 shrink-0">
-                                            <PhoneIcon size={24} />
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <p className="text-white font-bold text-lg">App Approval Sent</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="relative flex h-3 w-3">
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                                                </span>
-                                                <p className="text-sm text-blue-300 font-medium">Waiting for response...</p>
-                                            </div>
-                                        </div>
+                        <motion.div key="challenge" className="space-y-6">
+                            {/* Push Waiting Card if companion notification active */}
+                            {hasPushRequest && !showTotp && (
+                                <div className="p-6 rounded-2xl bg-slate-950/80 border border-slate-800 text-center space-y-4">
+                                    <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                                        <div className="absolute inset-0 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin" />
+                                        <Smartphone className="w-7 h-7 text-emerald-400 animate-pulse" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-bold text-white">Check Your Mobile Device</p>
+                                        <p className="text-xs text-slate-400">
+                                            Tap <span className="text-emerald-400 font-semibold">Approve</span> on your PEM Companion notification to sign in.
+                                        </p>
                                     </div>
 
-                                    {mfaMethod === 'push' && (
-                                        <button
-                                            onClick={() => setShowTotp(true)}
-                                            className="mb-8 text-blue-400 hover:text-blue-300 font-bold transition-colors text-sm uppercase tracking-wider flex items-center justify-center w-full gap-2"
-                                        >
-                                            <span>Try another way</span>
-                                            <ArrowRight size={14} />
-                                        </button>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTotp(true)}
+                                        className="w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                    >
+                                        <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Enter 6-Digit Authenticator Code Instead</span>
+                                    </button>
                                 </div>
                             )}
 
-                            {(mfaMethod === 'totp' || mfaMethod === 'both' || showTotp) && (
-                                <form onSubmit={handleOtpSubmit} className="flex flex-col gap-6 w-full px-4">
-
-                                    {mfaMethod === 'both' && (
-                                        <div className="relative my-2">
-                                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-gray-700/50"></div>
-                                            <span className="relative z-10 mx-auto block w-fit px-4 text-xs font-black uppercase tracking-widest text-gray-500" style={{ backgroundColor: mode === 'dark' ? '#0f172a' : '#fff' }}>
-                                                OR ENTER CODE
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-4">
-                                        <div className="relative w-full">
+                            {/* OTP Form (shown by default for TOTP or when user toggles) */}
+                            {(showTotp || !hasPushRequest) && (
+                                <form onSubmit={handleOtpSubmit} className="space-y-6">
+                                    <div className="space-y-3 text-center">
+                                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1.5">
+                                            <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>Enter 6-Digit Security Code</span>
+                                        </label>
+                                        <div className="relative max-w-xs mx-auto">
                                             <input
                                                 type="text"
-                                                maxLength="6"
+                                                inputMode="numeric"
+                                                pattern="[0-9]*"
+                                                maxLength={6}
                                                 value={otp}
                                                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                                                placeholder="000000"
-                                                style={{ ...inputStyle, background: theme.inputBg, color: theme.text, borderColor: theme.border }}
-                                                className="focus:outline-none focus:border-emerald-500 transition-all font-bold border-2"
-                                                autoFocus={mfaMethod !== 'push'} // Don't autofocus if push is primary, unless only totp
+                                                placeholder="••••••"
+                                                className="w-full text-center text-3xl font-mono tracking-[0.35em] py-3.5 px-4 rounded-2xl bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 text-white placeholder:text-slate-600 outline-none transition-all shadow-inner"
+                                                autoFocus
                                             />
                                         </div>
+                                        <p className="text-xs text-slate-400">
+                                            From Google Authenticator, Microsoft Authenticator, or 1Password.
+                                        </p>
                                     </div>
 
                                     {error && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="bg-red-500/10 border border-red-500/50 rounded-2xl p-4 text-red-500 font-bold text-center"
-                                        >
-                                            {error}
-                                        </motion.div>
+                                        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2 justify-center text-center">
+                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                            <span>{error}</span>
+                                        </div>
                                     )}
 
-                                    <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        type="submit"
-                                        disabled={otp.length !== 6 || status === 'verifying'}
-                                        style={buttonStyle}
-                                        className="bg-gradient-to-r from-emerald-600 to-emerald-400 text-white font-black shadow-2xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {status === 'verifying' ? <Loader2 className="animate-spin" /> : (
-                                            <>
-                                                <span>VERIFY NOW</span>
-                                                <ArrowRight size={24} />
-                                            </>
+                                    <div className="space-y-3">
+                                        <motion.button
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.99 }}
+                                            type="submit"
+                                            disabled={otp.length !== 6 || status === 'verifying'}
+                                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                        >
+                                            {status === 'verifying' ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <span>Verify & Sign In</span>
+                                                    <ArrowRight className="w-4 h-4" />
+                                                </>
+                                            )}
+                                        </motion.button>
+
+                                        {hasPushRequest && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowTotp(false);
+                                                    setError('');
+                                                }}
+                                                className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                            >
+                                                <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                                                <span>Wait for Mobile Push Approval</span>
+                                            </button>
                                         )}
-                                    </motion.button>
-
-                                    {showTotp && mfaMethod === 'push' && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowTotp(false)}
-                                            className="text-gray-400 hover:text-white font-bold transition-colors text-sm uppercase tracking-wider mt-2"
-                                        >
-                                            Use App Approval
-                                        </button>
-                                    )}
+                                    </div>
                                 </form>
                             )}
                         </motion.div>

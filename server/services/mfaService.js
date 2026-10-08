@@ -938,32 +938,42 @@ class MFAService {
         const user = await User.findByPk(userId);
         if (!user) throw new Error('User not found');
 
-        let requestId = uuidv4();
+        let requestId = null;
+        let effectiveMethod = user.mfaMethod || 'totp';
 
-        // If Push or Both, send the push notification
-        if (user.mfaMethod === 'push' || user.mfaMethod === 'both') {
-            try {
-                const pushResult = await this.sendPushRequest(userId, null, {
-                    ipAddress,
-                    userAgent,
-                    type: 'login_request'
-                });
-                requestId = pushResult.requestId;
-            } catch (err) {
-                console.error('Failed to send push request:', err);
-                // Fallback to just logging if push fails, but still require MFA
+        // Check if user has an active push device
+        const activeDevice = await MfaDevice.findOne({
+            where: { userId: userId, isActive: true }
+        });
+
+        if (effectiveMethod === 'push' || effectiveMethod === 'both') {
+            if (activeDevice) {
+                try {
+                    const pushResult = await this.sendPushRequest(userId, null, {
+                        ipAddress,
+                        userAgent,
+                        type: 'login_request'
+                    });
+                    requestId = pushResult.requestId;
+                } catch (err) {
+                    console.error('Failed to send push request:', err);
+                    requestId = null;
+                }
+            } else {
+                // No active companion device paired -> fallback to TOTP
+                effectiveMethod = 'totp';
             }
         }
 
         // Log the MFA challenge
         await this.logMFAEvent(userId, 'mfa_challenge_issued', null, ipAddress, {
-            method: user.mfaMethod,
+            method: effectiveMethod,
             requestId
         });
 
         return {
             mfaRequired: true,
-            mfaMethod: user.mfaMethod,
+            mfaMethod: effectiveMethod,
             requestId: requestId
         };
     }
