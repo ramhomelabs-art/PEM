@@ -40,7 +40,7 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            frameAncestors: ["'self'", CLIENT_URL, "http://localhost:5173", "http://localhost:5174", "https://finance.ramhomelab.com", "*"],
+            frameAncestors: ["'self'", CLIENT_URL, "http://localhost:5173", "http://localhost:5174", "https://finance.ramhomelab.com"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "blob:", "*"],
         }
