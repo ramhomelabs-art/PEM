@@ -38,6 +38,7 @@ import { CreditCardsPanel } from '../../components/dashboard/CreditCardsPanel';
 import { InvestmentPanel } from '../../components/dashboard/InvestmentPanel';
 import { InsightsCard } from '../../components/dashboard/InsightsCard';
 import { CommandPalette } from '../../components/dashboard/CommandPalette';
+import { EmergencyFundRunwayCard } from '../../components/dashboard/EmergencyFundRunwayCard';
 import { SafeToSpendWidget } from '../../components/dashboard/SafeToSpendWidget';
 
 import WeatherLocationModal from '../../components/personal_expense/WeatherLocationModal';
