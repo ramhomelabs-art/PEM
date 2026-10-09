@@ -26,10 +26,7 @@ services:
       - pem_network
 
   python-service:
-    build:
-      context: ./python-extraction-service
-      dockerfile: Dockerfile
-    image: pem-python-extraction:latest
+    image: ${PYTHON_IMAGE:-ghcr.io/ramhomelabs-art/pem-python-extraction:latest}
     container_name: pem_python_service
     restart: unless-stopped
     ports:
@@ -43,10 +40,7 @@ services:
       - pem_network
 
   backend:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: pem-backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/ramhomelabs-art/pem-backend:latest}
     container_name: pem_backend
     restart: unless-stopped
     depends_on:
@@ -85,10 +79,7 @@ services:
       - pem_network
 
   frontend:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    image: pem-frontend:latest
+    image: ${FRONTEND_IMAGE:-ghcr.io/ramhomelabs-art/pem-frontend:latest}
     container_name: pem_frontend
     restart: unless-stopped
     depends_on:

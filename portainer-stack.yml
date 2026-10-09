@@ -3,22 +3,23 @@ version: '3.8'
 # ==============================================================================
 # PEM FINANCE & AUTOMATION - PORTAINER PRODUCTION STACK
 # ==============================================================================
-# DEPLOYMENT GUIDE IN PORTAINER:
+# DEPLOYMENT GUIDE:
 #
-# Method 1: Git Repository (Recommended)
-#   1. In Portainer -> Stacks -> Add stack -> Select "Repository"
-#   2. Repository URL: https://github.com/ramhomelabs-art/PEM.git
-#   3. Reference: refs/heads/main
-#   4. Compose path: portainer-stack.yml
-#   5. Under "Environment variables", add these TWO variables to prevent BuildKit error:
-#        DOCKER_BUILDKIT=0
-#        COMPOSE_DOCKER_CLI_BUILD=0
-#   6. Paste the rest of your env vars and click "Deploy the stack".
+# Option A: GitHub Container Registry (Recommended - Zero build on server)
+#   Images are published to GitHub Container Registry (ghcr.io):
+#     - ghcr.io/ramhomelabs-art/pem-frontend:latest
+#     - ghcr.io/ramhomelabs-art/pem-backend:latest
+#     - ghcr.io/ramhomelabs-art/pem-python-extraction:latest
+#   In Portainer -> Registries: Add GitHub Registry (ghcr.io) if repository is private,
+#   or make packages public under github.com/ramhomelabs-art/PEM -> Packages.
 #
-# Method 2: Host Build + Web Editor
-#   1. On your Docker server terminal, run:
-#        docker compose build
-#   2. Then deploy via Web Editor using the built local images.
+# Option B: Local Docker Build on Host
+#   On your Docker server terminal, run:
+#     docker compose build
+#   Then set in Portainer Environment variables:
+#     FRONTEND_IMAGE=pem-frontend:latest
+#     BACKEND_IMAGE=pem-backend:latest
+#     PYTHON_IMAGE=pem-python-extraction:latest
 # ==============================================================================
 
 services:
@@ -43,10 +44,7 @@ services:
       - pem_network
 
   python-service:
-    build:
-      context: ./python-extraction-service
-      dockerfile: Dockerfile
-    image: pem-python-extraction:latest
+    image: ${PYTHON_IMAGE:-ghcr.io/ramhomelabs-art/pem-python-extraction:latest}
     container_name: pem_python_service
     restart: unless-stopped
     ports:
@@ -60,10 +58,7 @@ services:
       - pem_network
 
   backend:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: pem-backend:latest
+    image: ${BACKEND_IMAGE:-ghcr.io/ramhomelabs-art/pem-backend:latest}
     container_name: pem_backend
     restart: unless-stopped
     depends_on:
@@ -102,10 +97,7 @@ services:
       - pem_network
 
   frontend:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    image: pem-frontend:latest
+    image: ${FRONTEND_IMAGE:-ghcr.io/ramhomelabs-art/pem-frontend:latest}
     container_name: pem_frontend
     restart: unless-stopped
     depends_on:
