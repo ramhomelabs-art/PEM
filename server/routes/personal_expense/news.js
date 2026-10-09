@@ -7,12 +7,20 @@ const cache = new NodeCache({ stdTTL: 1800 });
 
 // Using NewsAPI.org (Free tier: 100 requests/day)
 // Alternative: Google News RSS or web scraping
-const NEWS_API_KEY = process.env.NEWS_API_KEY || 'YOUR_API_KEY_HERE';
+const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_API_URL = 'https://newsapi.org/v2/everything';
 
 // GET /api/news/financial?country=in
 router.get('/financial', async (req, res) => {
     try {
+        if (!NEWS_API_KEY || NEWS_API_KEY === 'YOUR_API_KEY_HERE') {
+            return res.status(503).json({
+                articles: [],
+                totalResults: 0,
+                error: 'News service is not configured (missing NEWS_API_KEY)'
+            });
+        }
+
         const country = req.query.country || 'in';
         const cacheKey = `news_${country}`;
 
@@ -69,11 +77,12 @@ router.get('/financial', async (req, res) => {
     } catch (error) {
         console.error('[News] Error:', error);
 
-        // Return fallback mock data if API fails
-        res.json({
-            articles: getFallbackNews(),
-            _fallback: true,
-            error: error.message
+        // Never fabricate headlines. Report the failure and let the client
+        // present an unavailable state instead of fake news.
+        res.status(503).json({
+            articles: [],
+            totalResults: 0,
+            error: error.message || 'News service is currently unavailable'
         });
     }
 });
@@ -117,48 +126,6 @@ function getRelativeTime(timestamp) {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return then.toLocaleDateString();
-}
-
-// Fallback news data
-function getFallbackNews() {
-    return [
-        {
-            id: 1,
-            title: "Sensex surges 500 points as IT stocks rally",
-            summary: "The benchmark BSE Sensex jumped 500 points led by strong gains in IT and banking stocks. TCS and Infosys led the rally with gains of over 3% each.",
-            fullContent: "The benchmark BSE Sensex jumped 500 points led by strong gains in IT and banking stocks. TCS and Infosys led the rally with gains of over 3% each. Market analysts attribute this surge to positive quarterly results and strong global cues.",
-            category: "Markets",
-            score: "positive",
-            source: "Economic Times",
-            time: "2 hours ago",
-            url: "https://economictimes.indiatimes.com",
-            image: null
-        },
-        {
-            id: 2,
-            title: "RBI maintains repo rate at 6.5%",
-            summary: "The Reserve Bank of India's Monetary Policy Committee decided to keep the key lending rate unchanged, citing balanced inflation and growth outlook.",
-            fullContent: "The Reserve Bank of India's Monetary Policy Committee decided to keep the key lending rate unchanged at 6.5%, citing balanced inflation and growth outlook. This marks the eighth consecutive time the central bank has maintained status quo on policy rates.",
-            category: "Economy",
-            score: "neutral",
-            source: "Mint",
-            time: "3 hours ago",
-            url: "https://www.livemint.com",
-            image: null
-        },
-        {
-            id: 3,
-            title: "Gold prices hit new record high",
-            summary: "Gold prices surged to an all-time high of ₹72,500 per 10 grams as investors sought safe-haven assets amid geopolitical tensions.",
-            fullContent: "Gold prices surged to an all-time high of ₹72,500 per 10 grams as investors sought safe-haven assets amid geopolitical tensions. Silver also rallied, gaining 4% to reach ₹85,000 per kg.",
-            category: "Commodities",
-            score: "positive",
-            source: "Reuters",
-            time: "4 hours ago",
-            url: "https://www.reuters.com",
-            image: null
-        }
-    ];
 }
 
 module.exports = router;

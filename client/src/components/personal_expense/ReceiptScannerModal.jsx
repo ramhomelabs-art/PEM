@@ -114,12 +114,12 @@ export default function ReceiptScannerModal({
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sunken/80 backdrop-blur-md">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="w-full max-w-lg p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-5 text-slate-100"
+                    className="w-full max-w-lg p-6 rounded-3xl bg-surface border border-line shadow-2xl space-y-5 text-ink"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -127,13 +127,13 @@ export default function ReceiptScannerModal({
                                 <ScanText className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="text-base font-bold text-white">Smart Receipt Scanner (OCR)</h3>
-                                <p className="text-xs text-slate-400">Upload receipt image or PDF to extract charges</p>
+                                <h3 className="text-base font-bold text-ink">Smart Receipt Scanner (OCR)</h3>
+                                <p className="text-xs text-ink-muted">Upload receipt image or PDF to extract charges</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400"
+                            className="p-1.5 rounded-xl bg-raised hover:bg-line text-ink-muted"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -143,7 +143,7 @@ export default function ReceiptScannerModal({
                     {!scannedData && (
                         <div
                             onClick={() => fileInputRef.current?.click()}
-                            className="border-2 border-dashed border-slate-700 hover:border-indigo-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all bg-slate-950/50 hover:bg-slate-950/80 group"
+                            className="border-2 border-dashed border-line hover:border-indigo-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all bg-sunken/50 hover:bg-sunken/80 group"
                         >
                             <input
                                 ref={fileInputRef}
@@ -155,7 +155,7 @@ export default function ReceiptScannerModal({
                             {isScanning ? (
                                 <div className="space-y-3">
                                     <Loader className="w-8 h-8 mx-auto text-indigo-400 animate-spin" />
-                                    <p className="text-xs font-bold text-slate-300">Extracting receipt items with OCR...</p>
+                                    <p className="text-xs font-bold text-ink-muted">Extracting receipt items with OCR...</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -163,8 +163,8 @@ export default function ReceiptScannerModal({
                                         <UploadCloud className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-bold text-slate-200">Click to upload or take a receipt photo</p>
-                                        <p className="text-[10px] text-slate-500 mt-1">Supports PNG, JPG, WEBP, and PDF receipts</p>
+                                        <p className="text-xs font-bold text-ink">Click to upload or take a receipt photo</p>
+                                        <p className="text-[10px] text-ink-faint mt-1">Supports PNG, JPG, WEBP, and PDF receipts</p>
                                     </div>
                                 </div>
                             )}
@@ -181,22 +181,22 @@ export default function ReceiptScannerModal({
                     {/* Parsed Receipt View */}
                     {scannedData && (
                         <div className="space-y-4">
-                            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
+                            <div className="p-4 rounded-2xl bg-sunken/80 border border-line space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-white">{scannedData.merchant}</span>
+                                    <span className="text-xs font-bold text-ink">{scannedData.merchant}</span>
                                     <span className="text-base font-black text-emerald-400">{formatCurrency(scannedData.amount)}</span>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
-                                    <div>Date: <span className="text-slate-200 font-semibold">{scannedData.date}</span></div>
-                                    <div>Category: <span className="text-slate-200 font-semibold">{scannedData.category}</span></div>
+                                <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                                    <div>Date: <span className="text-ink font-semibold">{scannedData.date}</span></div>
+                                    <div>Category: <span className="text-ink font-semibold">{scannedData.category}</span></div>
                                 </div>
                             </div>
 
                             {/* Split with friends */}
-                            <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 space-y-3">
+                            <div className="p-4 rounded-2xl bg-sunken/40 border border-line space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-xs font-bold text-slate-300 flex items-center gap-2 cursor-pointer">
+                                    <label className="text-xs font-bold text-ink-muted flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={splitWithFriends}
@@ -211,18 +211,18 @@ export default function ReceiptScannerModal({
                                 </div>
 
                                 {splitWithFriends && (
-                                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                                    <div className="space-y-2 pt-2 border-t border-line">
                                         <div className="flex gap-2">
                                             <input
                                                 type="text"
                                                 placeholder="Add friend name..."
                                                 value={newFriendName}
                                                 onChange={(e) => setNewFriendName(e.target.value)}
-                                                className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white outline-none"
+                                                className="flex-1 px-3 py-1.5 bg-surface border border-line rounded-xl text-xs text-ink outline-none"
                                             />
                                             <button
                                                 onClick={handleAddMember}
-                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl"
+                                                className="px-3 py-1.5 bg-raised hover:bg-line text-ink text-xs font-bold rounded-xl"
                                             >
                                                 Add
                                             </button>
@@ -230,10 +230,10 @@ export default function ReceiptScannerModal({
 
                                         <div className="flex flex-wrap gap-1.5">
                                             {splitMembers.map((m, idx) => (
-                                                <span key={idx} className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                                                <span key={idx} className="px-2.5 py-1 rounded-lg bg-surface border border-line text-xs font-semibold text-ink-muted flex items-center gap-1.5">
                                                     {m.name}
                                                     {!m.isSelf && (
-                                                        <button onClick={() => handleRemoveMember(idx)} className="text-slate-500 hover:text-rose-400">
+                                                        <button onClick={() => handleRemoveMember(idx)} className="text-ink-faint hover:text-rose-400">
                                                             <X className="w-3 h-3" />
                                                         </button>
                                                     )}
@@ -247,7 +247,7 @@ export default function ReceiptScannerModal({
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setScannedData(null)}
-                                    className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                                    className="flex-1 py-2.5 rounded-xl bg-raised hover:bg-line text-ink-muted font-bold text-xs"
                                 >
                                     Rescan
                                 </button>

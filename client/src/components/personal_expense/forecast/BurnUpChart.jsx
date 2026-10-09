@@ -18,7 +18,7 @@ function MiniBurnUpTooltip({ active, payload, currency = 'INR', limit }) {
     if (!data) return null;
 
     return (
-        <div className="rounded-lg border border-white/[0.08] bg-[#0c1427]/95 p-2 shadow-xl backdrop-blur-md">
+        <div className="rounded-lg border border-line bg-surface/95 p-2 shadow-xl backdrop-blur-md">
             <div className="text-[10px] font-semibold text-ink-muted">Day {data.day}</div>
             <div className="mt-1 space-y-1 text-[11px]">
                 {data.actual !== undefined && (
@@ -38,7 +38,7 @@ function MiniBurnUpTooltip({ active, payload, currency = 'INR', limit }) {
                     </div>
                 )}
                 {limit !== undefined && (
-                    <div className="flex items-center justify-between gap-3 border-t border-white/[0.06] pt-0.5 text-rose-400/90">
+                    <div className="flex items-center justify-between gap-3 border-t border-line pt-0.5 text-rose-400/90">
                         <span>Limit:</span>
                         <span className="font-semibold tabular-nums">{formatCurrency(limit, currency)}</span>
                     </div>

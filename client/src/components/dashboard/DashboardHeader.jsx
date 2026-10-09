@@ -190,8 +190,6 @@ export function DashboardHeader({
     onRangeChange,
     customRange,
     onCustomRangeChange,
-    compare,
-    onToggleCompare,
     onSearch,
     onAdd,
     onOpenWeather,
@@ -207,7 +205,7 @@ export function DashboardHeader({
     const { isDark, toggleTheme } = useTheme();
 
     return (
-        <header className="no-print sticky top-0 z-30 border-b border-line bg-bg backdrop-blur-xl">
+        <header className="no-print sticky top-0 z-20 border-b border-line bg-bg backdrop-blur-xl">
             <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-2 gap-y-2 px-4 py-3 sm:px-6">
                 <div className="min-w-[140px] flex-1">
                     <h1 className="truncate text-base font-extrabold tracking-tight text-ink">
@@ -241,21 +239,6 @@ export function DashboardHeader({
                     customRange={customRange}
                     onCustomRangeChange={onCustomRangeChange}
                 />
-
-                <button
-                    type="button"
-                    onClick={onToggleCompare}
-                    aria-pressed={compare}
-                    title="Compare with previous period"
-                    className={cx(
-                        'hidden h-9 items-center rounded-control border px-3 text-xs font-semibold transition-colors lg:inline-flex',
-                        compare
-                            ? 'border-brand bg-brand-soft text-brand'
-                            : 'border-line text-ink-muted hover:text-ink'
-                    )}
-                >
-                    Compare
-                </button>
 
                 <WeatherChip location={weatherLocation} onClick={onOpenWeather} />
 

@@ -198,7 +198,7 @@ const WeatherLocationModal = ({ isOpen, onClose, onSelectLocation, currentLocati
                                             alignItems: 'center',
                                             gap: '15px',
                                             padding: '15px',
-                                            backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.03)',
+                                            backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : theme.inputBg,
                                             border: isSelected ? '2px solid #3b82f6' : 'none',
                                             borderRadius: '16px',
                                             cursor: 'pointer',
@@ -206,8 +206,8 @@ const WeatherLocationModal = ({ isOpen, onClose, onSelectLocation, currentLocati
                                             color: theme.text,
                                             transition: 'all 0.2s'
                                         }}
-                                        onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)')}
-                                        onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)')}
+                                        onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = theme.border)}
+                                        onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = theme.inputBg)}
                                     >
                                         <div style={{ padding: '10px', backgroundColor: isSelected ? 'rgba(59,130,246,0.3)' : 'rgba(59,130,246,0.1)', borderRadius: '12px', color: '#3b82f6' }}>
                                             <MapPin size={20} />

@@ -22,7 +22,7 @@ function CustomHeroTooltip({ active, payload, label, currency = 'INR' }) {
     if (!data) return null;
 
     return (
-        <div className="rounded-xl border border-white/[0.08] bg-[#0c1427]/95 p-3 shadow-2xl backdrop-blur-md">
+        <div className="rounded-xl border border-line bg-surface/95 p-3 shadow-2xl backdrop-blur-md">
             <div className="text-xs font-semibold text-ink-muted">
                 {data.label || `Day ${data.day}`}
             </div>
@@ -77,7 +77,7 @@ function CustomHeroTooltip({ active, payload, label, currency = 'INR' }) {
                 )}
 
                 {data.limit !== undefined && (
-                    <div className="flex items-center justify-between gap-4 border-t border-white/[0.06] pt-1.5">
+                    <div className="flex items-center justify-between gap-4 border-t border-line pt-1.5">
                         <span className="flex items-center gap-1.5 text-rose-400/90">
                             <span className="h-2 w-2 rounded-full bg-rose-500" />
                             Budget Limit:
@@ -124,7 +124,7 @@ export function ForecastHeroChart({ macroData, currency = 'INR' }) {
             className="overflow-hidden rounded-2xl bg-surface-raised/70 p-4 shadow-sm"
         >
             {/* Header + Single Unified Modal Legend */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.04] pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                 <div className="min-w-0">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                         Cumulative Spend Trajectory
@@ -180,12 +180,12 @@ export function ForecastHeroChart({ macroData, currency = 'INR' }) {
                             </linearGradient>
                         </defs>
 
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.25)" vertical={false} />
 
                         <XAxis
                             dataKey="day"
                             tickLine={false}
-                            axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+                            axisLine={{ stroke: 'rgba(148,163,184,0.35)' }}
                             tick={{ fill: '#64748b', fontSize: 11 }}
                             ticks={[1, Math.round(daysInMonth / 4), Math.round(daysInMonth / 2), Math.round((daysInMonth * 3) / 4), daysInMonth]}
                             tickFormatter={(v) => `D${v}`}

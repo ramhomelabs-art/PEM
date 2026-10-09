@@ -1,4 +1,3 @@
-import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCategories } from '../../context/CategoryContext'; // Import context
@@ -189,16 +188,16 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                     <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                            width: '100%', maxWidth: '500px', backgroundColor: '#0f172a', borderRadius: '32px', border: '1px solid rgba(255,255,255,0.1)', padding: '40px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', zIndex: 20
+                            width: '100%', maxWidth: '500px', backgroundColor: 'var(--pem-surface)', borderRadius: '32px', border: '1px solid var(--pem-border)', padding: '40px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', zIndex: 20
                         }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
                             <div>
-                                <h2 style={{ fontSize: '28px', fontWeight: '900', color: 'white', margin: 0 }}>
+                                <h2 style={{ fontSize: '28px', fontWeight: '900', color: 'var(--pem-text)', margin: 0 }}>
                                     {mode === 'edit' ? 'Edit Entry' : 'Add Entry'}
                                 </h2>
                                 <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '11px', letterSpacing: '2px' }}>V 5.0 CORE</p>
                             </div>
-                            <button onClick={handleClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={24} /></button>
+                            <button onClick={handleClose} style={{ background: 'none', border: 'none', color: 'var(--pem-text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
                         </div>
 
                         {success && mode === 'add' ? (
@@ -206,14 +205,14 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                 <div style={{ width: '80px', height: '80px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                                     <Check size={40} color="#10b981" />
                                 </div>
-                                <h3 style={{ color: 'white', fontSize: '24px', fontWeight: '900', marginBottom: '10px' }}>Transaction Added</h3>
-                                <p style={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '30px' }}>Your records have been synchronized.</p>
+                                <h3 style={{ color: 'var(--pem-text)', fontSize: '24px', fontWeight: '900', marginBottom: '10px' }}>Transaction Added</h3>
+                                <p style={{ color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '30px' }}>Your records have been synchronized.</p>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     <button onClick={handleAddMore} style={{ padding: '18px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
                                         DO YOU WANT TO ADD MORE?
                                     </button>
-                                    <button onClick={handleFinish} style={{ padding: '18px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
+                                    <button onClick={handleFinish} style={{ padding: '18px', backgroundColor: 'var(--pem-surface-raised)', color: 'var(--pem-text)', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
                                         FINISH & CLOSE
                                     </button>
                                 </div>
@@ -223,11 +222,11 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                 <div style={{ width: '80px', height: '80px', backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                                     <AlertTriangle size={40} color="#ef4444" />
                                 </div>
-                                <h3 style={{ color: 'white', fontSize: '24px', fontWeight: '900', marginBottom: '10px' }}>Budget Limit Exceeded!</h3>
+                                <h3 style={{ color: 'var(--pem-text)', fontSize: '24px', fontWeight: '900', marginBottom: '10px' }}>Budget Limit Exceeded!</h3>
                                 <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '30px' }}>
                                     This transaction will exceed your monthly budget for {formData.category}.
                                     <br /><br />
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>
                                         Limit: {budgetExceeded?.limit} • Predicted: {budgetExceeded?.projected}
                                     </span>
                                 </p>
@@ -236,14 +235,14 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                     <button onClick={handleSubmit} style={{ padding: '18px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
                                         YES, PROCEED ANYWAY
                                     </button>
-                                    <button onClick={() => setShowWarning(false)} style={{ padding: '18px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
+                                    <button onClick={() => setShowWarning(false)} style={{ padding: '18px', backgroundColor: 'var(--pem-surface-raised)', color: 'var(--pem-text)', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
                                         CANCEL & EDIT
                                     </button>
                                 </div>
                             </motion.div>
                         ) : (
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '4px' }}>
+                                <div style={{ display: 'flex', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '16px', padding: '4px' }}>
                                     {['expense', 'income'].map(t => (
                                         <button key={t} type="button" onClick={() => {
                                             const newType = t;
@@ -255,7 +254,7 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                             }));
                                         }} style={{
                                             flex: 1, padding: '12px', borderRadius: '12px', border: 'none', fontWeight: '900', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px', cursor: 'pointer',
-                                            backgroundColor: formData.type === t ? (t === 'expense' ? '#f43f5e' : '#10b981') : 'transparent', color: formData.type === t ? 'white' : '#64748b', transition: 'all 0.2s'
+                                            backgroundColor: formData.type === t ? (t === 'expense' ? '#f43f5e' : '#10b981') : 'transparent', color: formData.type === t ? 'white' : 'var(--pem-text-secondary)', transition: 'all 0.2s'
                                         }}>{t}</button>
                                     ))}
                                 </div>
@@ -272,28 +271,28 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                         }}
                                         required
                                         style={{
-                                            width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '20px 20px 20px 50px', fontSize: '32px', fontWeight: '900', color: 'white', outline: 'none', boxSizing: 'border-box'
+                                            width: '100%', backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '20px', padding: '20px 20px 20px 50px', fontSize: '32px', fontWeight: '900', color: 'var(--pem-text)', outline: 'none', boxSizing: 'border-box'
                                         }}
                                     />
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <select value={formData.category} onChange={(e) => setFormData(p => ({ ...p, category: e.target.value }))} style={{
-                                        backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px', color: 'white', fontWeight: '700', outline: 'none'
+                                        backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '16px', padding: '16px', color: 'var(--pem-text)', fontWeight: '700', outline: 'none'
                                     }}>
                                         {availableCategories.length > 0 ? availableCategories.map(c => (
-                                            <option key={c} value={c} style={{ backgroundColor: '#0f172a' }}>{c}</option>
+                                            <option key={c} value={c} style={{ backgroundColor: 'var(--pem-surface)' }}>{c}</option>
                                         )) : (
                                             <option value="General">General</option>
                                         )}
                                     </select>
 
                                     <select value={formData.paymentMode} onChange={(e) => setFormData(p => ({ ...p, paymentMode: e.target.value }))} style={{
-                                        backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px', color: 'white', fontWeight: '700', outline: 'none'
+                                        backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '16px', padding: '16px', color: 'var(--pem-text)', fontWeight: '700', outline: 'none'
                                     }}>
-                                        <option value="Cash" style={{ backgroundColor: '#0f172a' }}>Cash</option>
-                                        <option value="UPI" style={{ backgroundColor: '#0f172a' }}>UPI</option>
-                                        <option value="NetBanking" style={{ backgroundColor: '#0f172a' }}>Net Banking</option>
-                                        <option value="Other" style={{ backgroundColor: '#0f172a' }}>Other</option>
+                                        <option value="Cash" style={{ backgroundColor: 'var(--pem-surface)' }}>Cash</option>
+                                        <option value="UPI" style={{ backgroundColor: 'var(--pem-surface)' }}>UPI</option>
+                                        <option value="NetBanking" style={{ backgroundColor: 'var(--pem-surface)' }}>Net Banking</option>
+                                        <option value="Other" style={{ backgroundColor: 'var(--pem-surface)' }}>Other</option>
                                     </select>
                                 </div>
 
@@ -307,7 +306,7 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                         onChange={(e) => setFormData(p => ({ ...p, otherPaymentMode: e.target.value }))}
                                         required
                                         style={{
-                                            width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px', color: 'white', fontWeight: '700', outline: 'none', boxSizing: 'border-box'
+                                            width: '100%', backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '16px', padding: '16px', color: 'var(--pem-text)', fontWeight: '700', outline: 'none', boxSizing: 'border-box'
                                         }}
                                     />
                                 )}
@@ -321,7 +320,7 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                         setFormData(prev => ({ ...prev, description: val }));
                                     }}
                                     style={{
-                                        width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px', color: 'white', fontWeight: '700', outline: 'none', boxSizing: 'border-box'
+                                        width: '100%', backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '16px', padding: '16px', color: 'var(--pem-text)', fontWeight: '700', outline: 'none', boxSizing: 'border-box'
                                     }}
                                 />
                                 <motion.button

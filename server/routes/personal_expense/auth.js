@@ -115,15 +115,20 @@ router.post('/login', async (req, res) => {
             if (!user.mfaConfigured) {
                 console.log(`[AUTH] MFA Enabled but NOT Configured. Redirecting to setup.`);
 
-                // Generate a temporary token restricted for setup (or full token, since password verified)
-                const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+                // Issue a short-lived token scoped ONLY to the MFA setup flow.
+                // It must never grant full account access before MFA is bound.
+                const token = jwt.sign(
+                    { id: user.id, role: user.role, username: user.username, purpose: 'mfa_setup' },
+                    JWT_SECRET,
+                    { expiresIn: '30m' }
+                );
 
                 return res.json({
                     success: true,
                     needsSetup: true,
                     userId: user.id,
                     username: user.username,
-                    token: token // Return token for setup
+                    token: token // Return scoped token for setup
                 });
             }
 

@@ -38,15 +38,15 @@ export function MethodPopover() {
                 <div
                     role="dialog"
                     aria-label="Forecast Calculation Methodology"
-                    className="absolute bottom-full left-0 z-50 mb-2 w-80 rounded-xl border border-white/[0.08] bg-[#0c1427]/98 p-4 shadow-2xl backdrop-blur-xl sm:w-96"
+                    className="absolute bottom-full left-0 z-50 mb-2 w-80 rounded-xl border border-line bg-surface/98 p-4 shadow-2xl backdrop-blur-xl sm:w-96"
                 >
-                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                    <div className="flex items-center justify-between border-b border-line pb-2">
                         <span className="text-xs font-bold text-ink">Forecast Methodology</span>
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
                             aria-label="Close explanation"
-                            className="grid h-5 w-5 place-items-center rounded text-ink-muted hover:bg-white/[0.08] hover:text-ink"
+                            className="grid h-5 w-5 place-items-center rounded text-ink-muted hover:bg-line hover:text-ink"
                         >
                             <X size={12} />
                         </button>

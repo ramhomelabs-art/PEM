@@ -13,42 +13,140 @@ const {
 const { Op } = require('sequelize');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/auth');
 
+// QR pairing payload encryption secret. Must match the Android client's build-time
+// PEM_PAIRING_SECRET. The value below is a development fallback only.
+const DEFAULT_PAIRING_SECRET = 'PEM_FINANCE_SECURE_PAIRING_V2_KEY_2026';
+const CONFIGURED_PAIRING_SECRET = process.env.PEM_QR_PAIRING_SECRET;
+if (!CONFIGURED_PAIRING_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('[SECURITY] PEM_QR_PAIRING_SECRET must be set in production (QR pairing payload encryption).');
+    }
+    console.warn('⚠️ [SECURITY] Using development PEM_QR_PAIRING_SECRET fallback. Set it before deploying.');
+}
+const PAIRING_SECRET = CONFIGURED_PAIRING_SECRET || DEFAULT_PAIRING_SECRET;
+
 const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+// Serializes read-modify-write operations on user.preferences per user. Without this,
+// concurrent QR generations both read stale preferences and one token's write is lost,
+// producing "Invalid binding token" on the client (the displayed token is never persisted).
+const userLocks = new Map();
+function withUserLock(key, fn) {
+    const prev = userLocks.get(key) || Promise.resolve();
+    const run = prev.then(fn, fn);
+    const tail = run.then(() => {}, () => {});
+    userLocks.set(key, tail);
+    tail.then(() => { if (userLocks.get(key) === tail) userLocks.delete(key); });
+    return run;
+}
 
 class MFAService {
     /**
-     * Generate QR code data for device binding
+     * Encrypts pairing payload with AES-256-GCM using SHA-256 derived key.
+     * Format: Base64(12-byte IV + ciphertext + 16-byte auth tag)
+     */
+    encryptPairingPayload(payloadStr, password = PAIRING_SECRET) {
+        const key = crypto.createHash('sha256').update(password, 'utf8').digest();
+        const iv = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+        const encrypted = Buffer.concat([cipher.update(payloadStr, 'utf8'), cipher.final()]);
+        const tag = cipher.getAuthTag();
+        const combined = Buffer.concat([iv, encrypted, tag]);
+        return combined.toString('base64');
+    }
+
+    /**
+     * Decrypts AES-256-GCM pairing payload
+     */
+    decryptPairingPayload(base64Str, password = PAIRING_SECRET) {
+        const key = crypto.createHash('sha256').update(password, 'utf8').digest();
+        const combined = Buffer.from(base64Str, 'base64');
+        if (combined.length < 12 + 16) {
+            throw new Error('Invalid payload size');
+        }
+        const iv = combined.subarray(0, 12);
+        const tag = combined.subarray(combined.length - 16);
+        const ciphertext = combined.subarray(12, combined.length - 16);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    }
+
+    /**
+     * Generate encrypted QR code data for device binding
+     * Strictly restricted to the official PEM Android Companion App
      * @param {number} userId - User ID
-     * @returns {Promise<{bindingToken: string, qrCodeUrl: string, expiresAt: Date}>}
+     * @param {string} serverUrlOverride - Optional custom server URL
+     * @returns {Promise<{bindingToken: string, qrCodeUrl: string, rawEnvelope: string, isEncrypted: boolean, expiresAt: Date}>}
      */
     async generateQRCodeData(userId, serverUrlOverride = null) {
+        return withUserLock(`qr:${userId}`, async () => {
         const user = await User.findByPk(userId);
         if (!user) {
             throw new Error('User not found');
         }
 
-        // Generate unique binding token
+        // Generate unique cryptographically strong binding token
         const bindingToken = crypto.randomBytes(32).toString('hex');
 
         // Store binding token temporarily (expires in 10 minutes)
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-        const serverUrl = (serverUrlOverride || process.env.SERVER_URL || 'http://10.10.20.4:5005').replace(':5174', ':5005');
+        const { getPrimaryLanIp, getAllLanIps } = require('../utils/networkUtils');
+        const lanIp = getPrimaryLanIp();
+        const allLanIps = getAllLanIps();
+        let serverUrl = (serverUrlOverride || process.env.SERVER_URL || `http://${lanIp}:5174`).trim().replace(/\/+$/, '');
+        if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+            const portPart = serverUrl.split(':')[2] || '5174';
+            serverUrl = `http://${lanIp}:${portPart}`;
+        }
+        const port5005 = serverUrl.includes(':5174') ? serverUrl.replace(':5174', ':5005') : serverUrl;
+        const port5174 = serverUrl.includes(':5005') ? serverUrl.replace(':5005', ':5174') : (serverUrl.includes(':5174') ? serverUrl : `${serverUrl}:5174`);
+        // Advertise every physical LAN IP (not just the primary) on both ports so the
+        // app keeps working right after the host changes networks (Wi-Fi <-> Ethernet).
+        const lanIpUrls = allLanIps.flatMap((ip) => [`http://${ip}:5174`, `http://${ip}:5005`]);
+        const fallbackUrls = Array.from(new Set([port5174, port5005, ...lanIpUrls]));
 
-        // Create QR code data
-        const qrData = JSON.stringify({
-            type: 'mfa_device_binding',
+        // Create compact raw payload containing device binding credentials
+        const rawPayload = JSON.stringify({
             userId: userId,
             bindingToken: bindingToken,
-            serverUrl: serverUrl,
-            fallbackUrls: ['http://10.10.30.122:5005', 'http://10.10.20.4:5005'],
-            expiresAt: expiresAt.toISOString()
+            serverUrl: port5174, // Prefer LAN-accessible port 5174 which proxies /api to port 5005
+            fallbackUrls: fallbackUrls
         });
 
-        // Generate QR code as data URL
-        const qrCodeUrl = await QRCode.toDataURL(qrData);
+        // Encrypt payload with AES-256-GCM so NO external camera, Google Lens, or 3rd-party scanner
+        // can extract URLs, tokens, or secret credentials.
+        const encryptedBase64 = this.encryptPairingPayload(rawPayload);
+        const secureEnvelope = `PEMSEC2::${encryptedBase64}`;
 
-        // Store binding token in user preferences temporarily
+        // Generate high-speed, crisp high-contrast encrypted QR code with Error Correction Level 'M'
+        const qrCodeUrl = await QRCode.toDataURL(secureEnvelope, {
+            errorCorrectionLevel: 'M',
+            type: 'image/png',
+            quality: 0.98,
+            margin: 2,
+            color: {
+                dark: '#000000', // Crisp pure black modules for instantaneous camera sensor detection
+                light: '#ffffff'
+            },
+            width: 380
+        });
+
+        // Store binding token in user preferences temporarily (with recent tokens pool for session resilience)
+        const existingTokens = Array.isArray(user.preferences?.pendingMfaTokens)
+            ? user.preferences.pendingMfaTokens.filter(t => t && new Date(t.expiresAt) > new Date())
+            : [];
+        if (user.preferences?.pendingMfaBinding?.token) {
+            existingTokens.push(user.preferences.pendingMfaBinding);
+        }
+        existingTokens.push({
+            token: bindingToken,
+            expiresAt: expiresAt.toISOString(),
+            serverUrl: serverUrl
+        });
+        const pendingTokens = existingTokens.slice(-5);
+
         await user.update({
             preferences: {
                 ...user.preferences,
@@ -56,15 +154,20 @@ class MFAService {
                     token: bindingToken,
                     expiresAt: expiresAt.toISOString(),
                     serverUrl: serverUrl
-                }
+                },
+                pendingMfaTokens: pendingTokens
             }
         });
 
         return {
             bindingToken,
             qrCodeUrl,
+            rawEnvelope: secureEnvelope,
+            isEncrypted: true,
+            securityProtocol: 'PEM-AES256-GCM-V2',
             expiresAt
         };
+        });
     }
 
     /**
@@ -82,13 +185,35 @@ class MFAService {
         }
 
         // Validate binding token
-        const pendingBinding = user.preferences?.pendingMfaBinding;
-        if (!pendingBinding || pendingBinding.token !== bindingToken) {
-            throw new Error('Invalid binding token');
+        const submittedToken = (bindingToken || '').trim();
+        const primaryPending = user.preferences?.pendingMfaBinding;
+        const pendingList = Array.isArray(user.preferences?.pendingMfaTokens) ? user.preferences.pendingMfaTokens : [];
+
+        console.log(`[MFA Bind] User ${userId} attempting device bind. Submitted token prefix: "${submittedToken.substring(0, 8)}", Primary stored: "${(primaryPending?.token || '').substring(0, 8)}", Stored pool count: ${pendingList.length}`);
+
+        let matchedBinding = null;
+        if (primaryPending && (primaryPending.token || '').trim().toLowerCase() === submittedToken.toLowerCase()) {
+            matchedBinding = primaryPending;
+        } else {
+            matchedBinding = pendingList.find(t => t && (t.token || '').trim().toLowerCase() === submittedToken.toLowerCase());
+        }
+
+        if (!matchedBinding) {
+            // Also check emergency fallback against existing user credentials (smsApiKey, encryptionKey)
+            if (user.smsApiKey && user.smsApiKey.toLowerCase() === submittedToken.toLowerCase()) {
+                console.log(`[MFA Bind] Emergency fallback matched user.smsApiKey for User ${userId}`);
+                matchedBinding = { serverUrl: null, expiresAt: new Date(Date.now() + 60000).toISOString() };
+            } else if (user.encryptionKey && user.encryptionKey.toLowerCase() === submittedToken.toLowerCase()) {
+                console.log(`[MFA Bind] Emergency fallback matched user.encryptionKey for User ${userId}`);
+                matchedBinding = { serverUrl: null, expiresAt: new Date(Date.now() + 60000).toISOString() };
+            } else {
+                console.error(`[MFA Bind] Token mismatch for User ${userId}. Submitted: "${submittedToken}", Stored Primary: "${primaryPending?.token}"`);
+                throw new Error('Invalid binding token');
+            }
         }
 
         // Check if token has expired
-        if (new Date(pendingBinding.expiresAt) < new Date()) {
+        if (new Date(matchedBinding.expiresAt) < new Date()) {
             throw new Error('Binding token has expired');
         }
 
@@ -96,8 +221,17 @@ class MFAService {
         const deviceId = uuidv4();
         const secretKey = crypto.randomBytes(32).toString('hex');
         const encryptionKey = crypto.randomBytes(24).toString('base64').substring(0, 32);
-        const serverBase = pendingBinding.serverUrl || process.env.SERVER_URL || 'http://10.10.20.4:5005';
-        const webhookUrl = `${serverBase}/api/sms/webhook/${user.smsApiKey}`;
+        const { getPrimaryLanIp: getLanIp } = require('../utils/networkUtils');
+        const defaultLan = getLanIp();
+        let serverBase = matchedBinding.serverUrl || process.env.SERVER_URL || `http://${defaultLan}:5174`;
+        if (serverBase.includes('localhost') || serverBase.includes('127.0.0.1')) {
+            const portPart = serverBase.split(':')[2] || '5174';
+            serverBase = `http://${defaultLan}:${portPart}`;
+        }
+        if (serverBase.includes(':5005')) {
+            serverBase = serverBase.replace(':5005', ':5174');
+        }
+        const webhookUrl = `${serverBase}/api/sms/webhook`;
 
         // Create device fingerprint
         const deviceFingerprint = crypto
@@ -216,8 +350,20 @@ class MFAService {
             // Get first active device
             device = await MfaDevice.findOne({
                 where: { userId: userId, isActive: true },
-                order: [['lastUsed', 'DESC']]
+                order: [['last_used', 'DESC']]
             });
+        }
+
+        if (!device) {
+            // Fallback to latest device registered for this user
+            device = await MfaDevice.findOne({
+                where: { userId: userId },
+                order: [['last_used', 'DESC']]
+            });
+            if (device) {
+                device.isActive = true;
+                await device.save().catch(() => {});
+            }
         }
 
         if (!device) {

@@ -8,13 +8,9 @@ const transactionRoutes = require('./transaction');
 const dashboardRoutes = require('./dashboard');
 const goalRoutes = require('./goals');
 const taxRoutes = require('./tax');
-const newsRoutes = require('./news');
 const marketRoutes = require('./market');
 const planRoutes = require('./plan');
 const alphaRoutes = require('./alphaVantage');
-
-// Public routes FIRST (before auth middleware)
-router.use('/news', newsRoutes);
 
 // Protected routes (Specific first)
 router.use('/dashboard', authenticateToken, dashboardRoutes);

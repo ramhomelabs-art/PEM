@@ -100,6 +100,9 @@ const SharedResource = require('./personal_expense/SharedResource')(sequelize);
 const Group = require('./personal_expense/Group')(sequelize);
 const GroupMember = require('./personal_expense/GroupMember')(sequelize);
 
+// Alerting Models
+const Alert = require('./personal_expense/Alert')(sequelize);
+
 // MFA Models
 const MfaDevice = require('./personal_expense/MfaDevice')(sequelize);
 const MfaPushRequest = require('./personal_expense/MfaPushRequest')(sequelize);
@@ -292,6 +295,10 @@ MfaAuditLog.belongsTo(User, { foreignKey: 'userId' });
 MfaDevice.hasMany(MfaAuditLog, { foreignKey: 'deviceId', as: 'auditLogs' });
 MfaAuditLog.belongsTo(MfaDevice, { foreignKey: 'deviceId' });
 
+// Alert Associations
+User.hasMany(Alert, { foreignKey: 'userId', as: 'alerts' });
+Alert.belongsTo(User, { foreignKey: 'userId' });
+
 
 // Sync Database - DISABLED (handled in main index.js)
 // sequelize.sync({ alter: true })
@@ -336,6 +343,7 @@ module.exports = {
     SharedResource,
     Group,
     GroupMember,
+    Alert,
     MfaDevice,
     MfaPushRequest,
     MfaTotpSecret,

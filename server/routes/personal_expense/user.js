@@ -1,8 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const { User } = require('../../models');
+const { authenticateToken } = require('../../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+
+// Only the owner of the profile (or an admin) may read/modify it.
+const isSelfOrAdmin = (req, res, next) => {
+    const paramId = Number(req.params.userId);
+    const authId = Number(req.user.id);
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'administrator';
+    if (!Number.isFinite(paramId) || (!isAdmin && paramId !== authId)) {
+        return res.status(403).json({ error: 'Forbidden: you can only access your own profile' });
+    }
+    next();
+};
 
 // Configure Multer for file upload
 const storage = multer.diskStorage({
@@ -25,7 +37,7 @@ const upload = multer({ storage: storage });
 const fs = require('fs');
 
 // Update Profile Photo
-router.post('/upload-photo/:userId', upload.single('photo'), async (req, res) => {
+router.post('/upload-photo/:userId', authenticateToken, isSelfOrAdmin, upload.single('photo'), async (req, res) => {
     try {
         const { userId } = req.params;
         const photoPath = req.file.path; // Absolute path from multer
@@ -57,10 +69,10 @@ router.post('/upload-photo/:userId', upload.single('photo'), async (req, res) =>
 });
 
 // Update Profile Details (Currency, Timezone etc mostly handled on signup but editable)
-router.put('/profile/:userId', async (req, res) => {
+router.put('/profile/:userId', authenticateToken, isSelfOrAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fullName, mobile, email, country, currency, timezone, role, profilePhoto, dob } = req.body;
+        const { fullName, mobile, email, country, currency, timezone, profilePhoto, dob } = req.body;
 
         console.log('[PROFILE UPDATE] User ID:', userId);
         console.log('[PROFILE UPDATE] Request body:', req.body);
@@ -68,7 +80,9 @@ router.put('/profile/:userId', async (req, res) => {
         // Sanitize dob to null if it's empty or invalid to prevent PostgreSQL schema crashes
         const sanitizedDob = (!dob || dob === '' || dob === 'Invalid date') ? null : dob;
 
-        await User.update({ fullName, mobile, email, country, currency, timezone, role, profilePhoto, dob: sanitizedDob }, { where: { id: userId } });
+        // NOTE: `role` is intentionally NOT updatable here. Role changes must go
+        // through the admin-only endpoint to prevent privilege escalation.
+        await User.update({ fullName, mobile, email, country, currency, timezone, profilePhoto, dob: sanitizedDob }, { where: { id: userId } });
         res.json({ message: 'Profile updated' });
     } catch (error) {
         console.error('[PROFILE UPDATE ERROR]', error);
@@ -77,7 +91,7 @@ router.put('/profile/:userId', async (req, res) => {
 });
 
 // Get Profile Details
-router.get('/profile/:userId', async (req, res) => {
+router.get('/profile/:userId', authenticateToken, isSelfOrAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
         const user = await User.findByPk(userId);

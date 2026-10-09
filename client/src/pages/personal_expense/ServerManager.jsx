@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { API_URL, BASE_URL } from '../../config';
-import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useCategories } from '../../context/CategoryContext';
 import SecurityLock from '../../components/personal_expense/SecurityLock';
 import axios from 'axios';
@@ -15,9 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ServerManager = () => {
-    const { user } = useAuth();
-    const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
-    const navigate = useNavigate();
+    const { categories, addCategory, deleteCategory } = useCategories();
 
     const [isLocked, setIsLocked] = useState(true);
     const [stats, setStats] = useState(null);
@@ -41,17 +38,13 @@ const ServerManager = () => {
     const [dbHealth, setDbHealth] = useState(null);
 
     // Category Manager State
-    const [editingCatId, setEditingCatId] = useState(null);
-    const [editName, setEditName] = useState('');
-    const [editType, setEditType] = useState('expense');
     const [newCat, setNewCat] = useState({ name: '', type: 'expense', color: '#6366f1' });
 
     // API Registry State
     const [apiEndpoints, setApiEndpoints] = useState([]);
     const [apiFilter, setApiFilter] = useState('');
-    const [testEndpoint, setTestEndpoint] = useState(null);
     const [testResponse, setTestResponse] = useState(null);
-    const [testLoading, setTestLoading] = useState(false);
+    const [, setTestLoading] = useState(false);
 
     // Navigation Tab ('telemetry' | 'logs' | 'db' | 'api' | 'categories')
     const [activeTab, setActiveTab] = useState('telemetry');
@@ -237,13 +230,6 @@ const ServerManager = () => {
         showToast('Category created successfully!');
     };
 
-    const handleUpdateCategory = (id) => {
-        if (!editName.trim()) return;
-        updateCategory(id, editName, editType);
-        setEditingCatId(null);
-        showToast('Category updated!');
-    };
-
     // Filtered logs
     const filteredLogs = useMemo(() => {
         return logs.filter(l => {
@@ -267,7 +253,7 @@ const ServerManager = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-ink">
             {/* TOAST ALERTS */}
             <AnimatePresence>
                 {toast.show && (
@@ -296,12 +282,12 @@ const ServerManager = () => {
             </AnimatePresence>
 
             {/* TOP HERO HEADER WITH TELEMETRY */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-surface/60 border border-line shadow-2xl backdrop-blur-xl">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <Link
                             to="/admin"
-                            className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+                            className="p-2 rounded-2xl bg-raised hover:bg-line text-ink-muted border border-line transition-all"
                             title="Back to Admin Console"
                         >
                             <ArrowLeft className="w-5 h-5" />
@@ -310,13 +296,13 @@ const ServerManager = () => {
                             <Server className="w-6 h-6" />
                         </div>
                         <div>
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-ink flex items-center gap-2">
                                 Server Manager & Diagnostics
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
                                     TELEMETRY
                                 </span>
                             </h1>
-                            <p className="text-xs sm:text-sm text-slate-400">
+                            <p className="text-xs sm:text-sm text-ink-muted">
                                 Real-time compute metrics, database status, live logs, and microservice controls.
                             </p>
                         </div>
@@ -326,19 +312,19 @@ const ServerManager = () => {
                 {/* Status Telemetry Badges */}
                 <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                     {/* Node Backend Health */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Backend API</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Backend API</span>
                             <span className="text-[11px] font-extrabold text-emerald-400">ONLINE</span>
                         </div>
                     </div>
 
                     {/* Python ML Engine */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <div className={`w-2.5 h-2.5 rounded-full ${serviceHealth.python === 'online' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Python Engine</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Python Engine</span>
                             <span className={`text-[11px] font-extrabold ${serviceHealth.python === 'online' ? 'text-emerald-400' : 'text-amber-400'}`}>
                                 {serviceHealth.python.toUpperCase()}
                             </span>
@@ -346,17 +332,17 @@ const ServerManager = () => {
                     </div>
 
                     {/* Database Health */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <Database className="w-3.5 h-3.5 text-indigo-400" />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">PostgreSQL</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">PostgreSQL</span>
                             <span className="text-[11px] font-extrabold text-indigo-300">HEALTHY</span>
                         </div>
                     </div>
 
                     <button
                         onClick={() => { fetchStats(); checkHealth(); fetchDbHealth(); }}
-                        className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+                        className="p-2 rounded-2xl bg-raised hover:bg-line text-ink-muted border border-line transition-all"
                         title="Refresh Diagnostics"
                     >
                         <RefreshCw className={`w-4 h-4 ${statsLoading ? 'animate-spin' : ''}`} />
@@ -365,13 +351,13 @@ const ServerManager = () => {
             </div>
 
             {/* SEGMENTED NAVIGATION TAB BAR */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-2xl bg-surface/90 border border-line shadow-xl backdrop-blur-md">
                 <button
                     onClick={() => setActiveTab('telemetry')}
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                         activeTab === 'telemetry'
                             ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Activity className="w-4 h-4" />
@@ -383,7 +369,7 @@ const ServerManager = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                         activeTab === 'logs'
                             ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Terminal className="w-4 h-4" />
@@ -395,7 +381,7 @@ const ServerManager = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                         activeTab === 'db'
                             ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Database className="w-4 h-4" />
@@ -407,7 +393,7 @@ const ServerManager = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                         activeTab === 'api'
                             ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Code className="w-4 h-4" />
@@ -419,7 +405,7 @@ const ServerManager = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                         activeTab === 'categories'
                             ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-lg shadow-rose-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Layers className="w-4 h-4" />
@@ -433,55 +419,55 @@ const ServerManager = () => {
                     {/* Hardware Metrics Gauges */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* CPU Gauge */}
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-3">
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">CPU Compute Load</span>
+                                <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">CPU Compute Load</span>
                                 <Cpu className="w-4 h-4 text-teal-400" />
                             </div>
                             <div className="flex items-baseline justify-between">
-                                <span className="text-2xl font-black text-white">{stats?.cpu?.usage || '12%'}</span>
+                                <span className="text-2xl font-black text-ink">{stats?.cpu?.usage || '12%'}</span>
                                 <span className="text-xs font-semibold text-teal-400">{stats?.cpu?.cores || 8} Cores Active</span>
                             </div>
-                            <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden">
+                            <div className="w-full h-2 rounded-full bg-sunken overflow-hidden">
                                 <div className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" style={{ width: stats?.cpu?.usage || '12%' }} />
                             </div>
                         </div>
 
                         {/* Memory Gauge */}
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-3">
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">RAM Usage</span>
+                                <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">RAM Usage</span>
                                 <HardDrive className="w-4 h-4 text-indigo-400" />
                             </div>
                             <div className="flex items-baseline justify-between">
-                                <span className="text-2xl font-black text-white">{stats?.memory?.used || '482 MB'}</span>
+                                <span className="text-2xl font-black text-ink">{stats?.memory?.used || '482 MB'}</span>
                                 <span className="text-xs font-semibold text-indigo-300">Total: {stats?.memory?.total || '16 GB'}</span>
                             </div>
-                            <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden">
+                            <div className="w-full h-2 rounded-full bg-sunken overflow-hidden">
                                 <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: '38%' }} />
                             </div>
                         </div>
 
                         {/* Uptime Clock */}
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-3">
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">System Uptime</span>
+                                <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">System Uptime</span>
                                 <Activity className="w-4 h-4 text-amber-400" />
                             </div>
                             <div className="flex items-baseline justify-between">
-                                <span className="text-2xl font-black text-white">{stats?.uptime || '99.98%'}</span>
+                                <span className="text-2xl font-black text-ink">{stats?.uptime || '99.98%'}</span>
                                 <span className="text-xs font-semibold text-emerald-400">Node v20.x</span>
                             </div>
-                            <p className="text-[11px] text-slate-400">Host: {stats?.platform || 'Windows Server'}</p>
+                            <p className="text-[11px] text-ink-muted">Host: {stats?.platform || 'Windows Server'}</p>
                         </div>
                     </div>
 
                     {/* Microservice Action Controls */}
-                    <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                    <div className="p-6 rounded-3xl bg-surface/60 border border-line space-y-5 backdrop-blur-xl">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Microservice Power Controls</h3>
-                                <p className="text-xs text-slate-400">Safely restart services or initiate deep system diagnostics.</p>
+                                <h3 className="text-sm font-bold text-ink uppercase tracking-wider">Microservice Power Controls</h3>
+                                <p className="text-xs text-ink-muted">Safely restart services or initiate deep system diagnostics.</p>
                             </div>
                         </div>
 
@@ -489,7 +475,7 @@ const ServerManager = () => {
                             <button
                                 onClick={() => setConfirmAction('restart-python')}
                                 disabled={restartLoading}
-                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-teal-500/50 text-white font-bold text-xs transition-all disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-sunken/70 border border-line hover:border-teal-500/50 text-ink font-bold text-xs transition-all disabled:opacity-50"
                             >
                                 <RefreshCw className="w-4 h-4 text-teal-400" />
                                 <span>Restart Python ML Worker</span>
@@ -498,7 +484,7 @@ const ServerManager = () => {
                             <button
                                 onClick={() => setConfirmAction('restart-backend')}
                                 disabled={restartLoading}
-                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-indigo-500/50 text-white font-bold text-xs transition-all disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-sunken/70 border border-line hover:border-indigo-500/50 text-ink font-bold text-xs transition-all disabled:opacity-50"
                             >
                                 <Power className="w-4 h-4 text-indigo-400" />
                                 <span>Restart Node.js Backend</span>
@@ -524,7 +510,7 @@ const ServerManager = () => {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setConfirmAction(null)}
-                                        className="px-3 py-1 rounded-xl bg-slate-800 text-xs font-bold text-slate-300"
+                                        className="px-3 py-1 rounded-xl bg-raised text-xs font-bold text-ink-muted"
                                     >
                                         Cancel
                                     </button>
@@ -540,9 +526,9 @@ const ServerManager = () => {
 
                         {/* Diagnostics Log Output */}
                         {diagLogs.length > 0 && (
-                            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                            <div className="p-4 rounded-2xl bg-sunken border border-line space-y-2">
                                 <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider block">Diagnostics Results</span>
-                                <div className="space-y-1 font-mono text-xs text-slate-300">
+                                <div className="space-y-1 font-mono text-xs text-ink-muted">
                                     {diagLogs.map((log, i) => (
                                         <div key={i} className="flex items-center gap-2">
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -559,15 +545,15 @@ const ServerManager = () => {
             {/* TAB 2: LIVE SERVER LOGS */}
             {activeTab === 'logs' && (
                 <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-xl">
+                    <div className="p-4 rounded-2xl bg-surface/80 border border-line flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-xl">
                         <div className="relative w-full sm:w-80">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-ink-faint absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 placeholder="Search live log buffer..."
                                 value={logSearch}
                                 onChange={(e) => setLogSearch(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-500"
+                                className="w-full pl-10 pr-4 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink placeholder:text-ink-faint outline-none focus:border-indigo-500"
                             />
                         </div>
 
@@ -579,7 +565,7 @@ const ServerManager = () => {
                                     className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${
                                         logFilter === lvl
                                             ? 'bg-indigo-600 text-white shadow-md'
-                                            : 'bg-slate-950/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                            : 'bg-sunken/80 text-ink-muted hover:text-ink border border-line'
                                     }`}
                                 >
                                     {lvl}
@@ -588,7 +574,7 @@ const ServerManager = () => {
 
                             <button
                                 onClick={fetchLogs}
-                                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                                className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted border border-line"
                                 title="Refresh Logs"
                             >
                                 <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
@@ -597,15 +583,15 @@ const ServerManager = () => {
                     </div>
 
                     {/* Terminal Window */}
-                    <div className="p-5 rounded-3xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 max-h-[500px] overflow-y-auto space-y-2 shadow-2xl">
+                    <div className="p-5 rounded-3xl bg-sunken border border-line font-mono text-xs text-ink-muted max-h-[500px] overflow-y-auto space-y-2 shadow-2xl">
                         {filteredLogs.length > 0 ? (
                             filteredLogs.map((log, i) => (
-                                <div key={i} className="flex items-start gap-3 py-1 border-b border-slate-900/60 hover:bg-slate-900/40 px-2 rounded-lg transition-colors">
-                                    <span className="text-slate-600 shrink-0 select-none">[{new Date(log.timestamp || Date.now()).toLocaleTimeString()}]</span>
+                                <div key={i} className="flex items-start gap-3 py-1 border-b border-line/60 hover:bg-line px-2 rounded-lg transition-colors">
+                                    <span className="text-ink-faint shrink-0 select-none">[{new Date(log.timestamp || Date.now()).toLocaleTimeString()}]</span>
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                                         log.level === 'critical' || log.level === 'error' ? 'bg-rose-950 text-rose-300 border border-rose-800' :
                                         log.level === 'warning' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
-                                        'bg-slate-800 text-slate-300'
+                                        'bg-raised text-ink-muted'
                                     }`}>
                                         {log.level || 'INFO'}
                                     </span>
@@ -613,7 +599,7 @@ const ServerManager = () => {
                                 </div>
                             ))
                         ) : (
-                            <p className="text-slate-500 py-8 text-center">No logs matching current filter.</p>
+                            <p className="text-ink-faint py-8 text-center">No logs matching current filter.</p>
                         )}
                     </div>
                 </div>
@@ -623,22 +609,22 @@ const ServerManager = () => {
             {activeTab === 'db' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Database Connection Pool</span>
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-2">
+                            <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Database Connection Pool</span>
                             <span className="text-xl font-black text-emerald-400">PostgreSQL 15</span>
-                            <p className="text-xs text-slate-400">Latency: 1.2ms (Local Connection)</p>
+                            <p className="text-xs text-ink-muted">Latency: 1.2ms (Local Connection)</p>
                         </div>
 
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Database Records</span>
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-2">
+                            <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Total Database Records</span>
                             <span className="text-xl font-black text-indigo-300">{dbHealth?.totalRows || 'Active Tables'}</span>
-                            <p className="text-xs text-slate-400">Transactions, Cards, Bills, Users</p>
+                            <p className="text-xs text-ink-muted">Transactions, Cards, Bills, Users</p>
                         </div>
 
-                        <div className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Storage Status</span>
+                        <div className="p-5 rounded-3xl bg-surface/60 border border-line backdrop-blur-xl space-y-2">
+                            <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Storage Status</span>
                             <span className="text-xl font-black text-teal-300">Healthy & Synchronized</span>
-                            <p className="text-xs text-slate-400">Automated ACID compliance</p>
+                            <p className="text-xs text-ink-muted">Automated ACID compliance</p>
                         </div>
                     </div>
                 </div>
@@ -647,25 +633,25 @@ const ServerManager = () => {
             {/* TAB 4: API GATEWAY & LIVE TESTER */}
             {activeTab === 'api' && (
                 <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 backdrop-blur-xl">
+                    <div className="p-4 rounded-2xl bg-surface/80 border border-line flex items-center justify-between gap-3 backdrop-blur-xl">
                         <div className="relative flex-1 max-w-md">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-ink-faint absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 placeholder="Filter REST endpoints..."
                                 value={apiFilter}
                                 onChange={(e) => setApiFilter(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-amber-500"
+                                className="w-full pl-10 pr-4 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink placeholder:text-ink-faint outline-none focus:border-amber-500"
                             />
                         </div>
-                        <span className="text-xs text-slate-400 font-semibold">{filteredEndpoints.length} Mounted Routes</span>
+                        <span className="text-xs text-ink-muted font-semibold">{filteredEndpoints.length} Mounted Routes</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {filteredEndpoints.slice(0, 30).map((ep, idx) => (
                             <div
                                 key={idx}
-                                className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 flex items-center justify-between gap-2 transition-all"
+                                className="p-3.5 rounded-2xl bg-sunken/70 border border-line hover:border-line flex items-center justify-between gap-2 transition-all"
                             >
                                 <div className="flex items-center gap-2 overflow-hidden">
                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase shrink-0 ${
@@ -676,12 +662,12 @@ const ServerManager = () => {
                                     }`}>
                                         {ep.method}
                                     </span>
-                                    <span className="font-mono text-xs text-slate-200 truncate">{ep.path}</span>
+                                    <span className="font-mono text-xs text-ink truncate">{ep.path}</span>
                                 </div>
 
                                 <button
                                     onClick={() => handleTestApi(ep.method, ep.path)}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 shrink-0"
+                                    className="px-2.5 py-1 rounded-lg bg-raised hover:bg-line text-[11px] font-bold text-ink-muted shrink-0"
                                 >
                                     Ping Test
                                 </button>
@@ -691,12 +677,12 @@ const ServerManager = () => {
 
                     {/* Test Results Inspector */}
                     {testResponse && (
-                        <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                        <div className="p-4 rounded-2xl bg-sunken border border-line space-y-2">
                             <div className="flex items-center justify-between text-xs">
                                 <span className="font-bold text-amber-400">Response Inspector</span>
-                                <span className="text-slate-400 font-mono">Status: {testResponse.status} | Latency: {testResponse.latency}</span>
+                                <span className="text-ink-muted font-mono">Status: {testResponse.status} | Latency: {testResponse.latency}</span>
                             </div>
-                            <pre className="p-3 rounded-xl bg-slate-900 text-[11px] font-mono text-slate-300 max-h-60 overflow-y-auto">
+                            <pre className="p-3 rounded-xl bg-surface text-[11px] font-mono text-ink-muted max-h-60 overflow-y-auto">
                                 {JSON.stringify(testResponse.data || testResponse.error, null, 2)}
                             </pre>
                         </div>
@@ -708,18 +694,18 @@ const ServerManager = () => {
             {activeTab === 'categories' && (
                 <div className="space-y-6">
                     {/* Add Category Form */}
-                    <form onSubmit={handleAddCategory} className="p-5 rounded-3xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center gap-3 backdrop-blur-xl">
+                    <form onSubmit={handleAddCategory} className="p-5 rounded-3xl bg-surface/60 border border-line flex flex-wrap items-center gap-3 backdrop-blur-xl">
                         <input
                             type="text"
                             placeholder="Category Name (e.g. Travel, Cloud Hosting)"
                             value={newCat.name}
                             onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                            className="flex-1 min-w-[200px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-rose-500"
+                            className="flex-1 min-w-[200px] px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-rose-500"
                         />
                         <select
                             value={newCat.type}
                             onChange={(e) => setNewCat({ ...newCat, type: e.target.value })}
-                            className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 outline-none"
+                            className="px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none"
                         >
                             <option value="expense">Expense</option>
                             <option value="income">Income</option>
@@ -737,12 +723,12 @@ const ServerManager = () => {
                         {categories.map((c) => (
                             <div
                                 key={c.id || c.name}
-                                className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-2"
+                                className="p-3.5 rounded-2xl bg-sunken/70 border border-line flex items-center justify-between gap-2"
                             >
-                                <span className="text-xs font-bold text-white truncate">{c.name}</span>
+                                <span className="text-xs font-bold text-ink truncate">{c.name}</span>
                                 <button
                                     onClick={() => deleteCategory(c.id)}
-                                    className="p-1 rounded-lg text-slate-500 hover:text-rose-400 transition-colors"
+                                    className="p-1 rounded-lg text-ink-faint hover:text-rose-400 transition-colors"
                                     title="Delete Category"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />

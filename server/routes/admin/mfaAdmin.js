@@ -119,11 +119,16 @@ router.get('/users/:userId', authenticateToken, requireAdmin, async (req, res) =
             attributes: ['id', 'isVerified', 'createdAt', 'lastUsed']
         });
 
-        const recentLogs = await MfaAuditLog.findAll({
-            where: { userId: userId },
-            limit: 10,
-            order: [['createdAt', 'DESC']]
-        });
+        let recentLogs = [];
+        try {
+            recentLogs = await MfaAuditLog.findAll({
+                where: { userId: userId },
+                limit: 10,
+                order: [['created_at', 'DESC']]
+            });
+        } catch (logErr) {
+            console.warn('Could not fetch audit logs:', logErr.message);
+        }
 
         res.json({
             success: true,
@@ -168,12 +173,14 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
         let isConfigured = false;
         if (isEnable) {
             if (!user.mfaMethod) user.mfaMethod = 'both';
-            const verifiedSecret = await MfaTotpSecret.findOne({ where: { userId, isVerified: true } });
+            // Only mark as configured if they have an active device (full companion pairing)
+            // A plain unverified TOTP secret does NOT count as configured
             const activeDevice = await MfaDevice.findOne({ where: { userId, isActive: true } });
-            isConfigured = !!(verifiedSecret || activeDevice);
-
-            let secret = await MfaTotpSecret.findOne({ where: { userId } });
-            if (!secret) {
+            const verifiedTotp = await MfaTotpSecret.findOne({ where: { userId, isVerified: true } });
+            isConfigured = !!(activeDevice || verifiedTotp);
+            // Ensure a pending TOTP secret exists for QR generation on next login
+            const existingSecret = await MfaTotpSecret.findOne({ where: { userId } });
+            if (!existingSecret) {
                 await mfaService.generateTOTPSecret(userId);
             }
         }
@@ -181,7 +188,7 @@ router.post('/enable/:userId', authenticateToken, requireAdmin, async (req, res)
         const updates = {
             mfaEnabled: isEnable,
             mfaMethod: isEnable ? (user.mfaMethod || 'both') : null,
-            mfaConfigured: isConfigured
+            mfaConfigured: isConfigured // false until user scans QR
         };
 
         await user.update(updates);
@@ -225,14 +232,22 @@ router.post('/reset/:userId', authenticateToken, requireAdmin, async (req, res) 
 
         await mfaService.resetUserMFA(userId, adminUserId);
 
+        // Re-enable MFA requirement so user must scan QR and re-register on next login
+        await user.reload();
+        await user.update({
+            mfaEnabled: true,
+            mfaConfigured: false,
+            mfaMethod: user.mfaMethod || 'both'
+        });
+
         res.json({
             success: true,
-            message: `MFA reset and cleared for ${user.username}`,
+            message: `MFA devices cleared for ${user.username}. They will re-register on next login.`,
             user: {
                 id: user.id,
                 username: user.username,
-                mfaEnabled: false,
-                mfa_enabled: false,
+                mfaEnabled: true,
+                mfa_enabled: true,
                 mfaConfigured: false
             }
         });
@@ -312,18 +327,17 @@ router.post('/generate-qr/:userId', authenticateToken, requireAdmin, async (req,
             return res.status(404).json({ error: 'User not found' });
         }
 
+        const { getPrimaryLanIp } = require('../../utils/networkUtils');
+        const lanIp = getPrimaryLanIp();
         const clientHost = req.headers['x-forwarded-host'] || req.get('host') || '';
-        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? req.protocol + '://' + clientHost : 'http://10.10.20.4:5005');
-        if (currentServerUrl.includes(':5174')) {
-            currentServerUrl = currentServerUrl.replace(':5174', ':5005');
-        }
+        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? `${req.protocol}://${clientHost}` : `http://${lanIp}:5174`);
         if (currentServerUrl.includes('localhost') || currentServerUrl.includes('127.0.0.1')) {
             if (req.headers['x-forwarded-host']) {
-                currentServerUrl = req.protocol + '://' + req.headers['x-forwarded-host'];
-            } else if (clientHost && !clientHost.includes('localhost')) {
-                currentServerUrl = req.protocol + '://' + clientHost.split(':')[0] + ':5005';
+                currentServerUrl = `${req.protocol}://${req.headers['x-forwarded-host']}`;
+            } else if (clientHost && !clientHost.includes('localhost') && !clientHost.includes('127.0.0.1')) {
+                currentServerUrl = `${req.protocol}://${clientHost.split(':')[0]}:5174`;
             } else {
-                currentServerUrl = 'http://10.10.20.4:5005';
+                currentServerUrl = `http://${lanIp}:5174`;
             }
         }
 

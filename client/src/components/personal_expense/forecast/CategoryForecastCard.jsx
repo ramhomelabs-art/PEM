@@ -55,7 +55,6 @@ export function CategoryForecastCard({
     if (!categoryForecast) return null;
 
     const {
-        id,
         category,
         limit,
         spentSoFar,
@@ -71,7 +70,6 @@ export function CategoryForecastCard({
         oneOffTxs = [],
         regularExpenseTxs = [],
         oneOffTotal,
-        hasHistory,
         trailing3MonthDailyAvg,
     } = categoryForecast;
 
@@ -111,7 +109,7 @@ export function CategoryForecastCard({
             case 'insufficient_data':
                 return {
                     label: 'Not enough data',
-                    className: 'bg-white/[0.06] text-ink-muted border-none',
+                    className: 'bg-raised text-ink-muted border-none',
                     icon: Info,
                 };
             case 'on_track':
@@ -140,7 +138,6 @@ export function CategoryForecastCard({
     // 3-Month Sparkline Bars (Mock / Computed from Trailing Avg)
     const trailingBar1 = Math.round(limit * 0.85);
     const trailingBar2 = Math.round(limit * 0.92);
-    const trailingBar3 = Math.round(trailing3MonthDailyAvg * 30 || limit * 0.95);
 
     return (
         <article className="overflow-hidden rounded-2xl bg-surface-raised/80 shadow-sm transition-all duration-200 hover:bg-surface-raised">
@@ -149,14 +146,14 @@ export function CategoryForecastCard({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     {/* Left: Icon, Category Name, Spent of Limit */}
                     <div className="flex items-center gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] text-ink">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-raised text-ink">
                             <Icon size={18} aria-hidden="true" />
                         </span>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h4 className="text-sm font-bold text-ink">{category}</h4>
                                 {/* Small Confidence Label */}
-                                <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-ink-muted uppercase tracking-wider">
+                                <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] font-medium text-ink-muted uppercase tracking-wider">
                                     {confidence} conf
                                 </span>
                             </div>
@@ -183,7 +180,7 @@ export function CategoryForecastCard({
                             onClick={() => setIsExpanded((prev) => !prev)}
                             aria-expanded={isExpanded}
                             aria-label={`Toggle details for ${category}`}
-                            className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.04] text-ink-muted transition hover:bg-white/[0.08] hover:text-ink active:scale-95"
+                            className="grid h-8 w-8 place-items-center rounded-lg bg-raised text-ink-muted transition hover:bg-line hover:text-ink active:scale-95"
                         >
                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>
@@ -200,7 +197,7 @@ export function CategoryForecastCard({
                 </div>
 
                 {/* Three Figures in One Row */}
-                <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-surface-sunken/50 p-2.5">
+                <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-sunken/50 p-2.5">
                     {/* Figure 1: Projected */}
                     <div className="min-w-0">
                         <div className="text-[10px] font-medium text-ink-muted">Projected</div>
@@ -215,7 +212,7 @@ export function CategoryForecastCard({
                     </div>
 
                     {/* Figure 2: Safe Daily Spend */}
-                    <div className="min-w-0 border-l border-white/[0.04] pl-2">
+                    <div className="min-w-0 border-l border-line pl-2">
                         <div className="text-[10px] font-medium text-ink-muted">Safe daily spend</div>
                         <div
                             className={cx(
@@ -231,7 +228,7 @@ export function CategoryForecastCard({
                     </div>
 
                     {/* Figure 3: Runway */}
-                    <div className="min-w-0 border-l border-white/[0.04] pl-2">
+                    <div className="min-w-0 border-l border-line pl-2">
                         <div className="text-[10px] font-medium text-ink-muted">Runway</div>
                         <div className="mt-0.5 truncate text-xs font-bold text-ink sm:text-sm">
                             {runwayText}
@@ -272,7 +269,7 @@ export function CategoryForecastCard({
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="border-t border-white/[0.06] bg-surface-sunken/30 p-4 sm:p-5 space-y-4"
+                        className="border-t border-line bg-sunken/30 p-4 sm:p-5 space-y-4"
                     >
                         {/* 1. What-If Live Spend Slider */}
                         <WhatIfSlider
@@ -282,7 +279,7 @@ export function CategoryForecastCard({
                         />
 
                         {/* 2. 3-Month Actual vs Budget Sparkline */}
-                        <div className="rounded-xl bg-surface-sunken/60 p-3.5">
+                        <div className="rounded-xl bg-sunken/60 p-3.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-ink">
                                     3-Month Spend History
@@ -296,21 +293,21 @@ export function CategoryForecastCard({
                             </div>
 
                             <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                                <div className="rounded-lg bg-white/[0.03] p-2">
+                                <div className="rounded-lg bg-raised p-2">
                                     <div className="text-[10px] text-ink-muted">2 Months Ago</div>
                                     <div className="mt-1 font-bold text-ink tabular-nums">
                                         {formatCurrency(trailingBar1, currency)}
                                     </div>
                                     <div className="mt-0.5 text-[10px] text-emerald-400">Within Budget</div>
                                 </div>
-                                <div className="rounded-lg bg-white/[0.03] p-2">
+                                <div className="rounded-lg bg-raised p-2">
                                     <div className="text-[10px] text-ink-muted">Last Month</div>
                                     <div className="mt-1 font-bold text-ink tabular-nums">
                                         {formatCurrency(trailingBar2, currency)}
                                     </div>
                                     <div className="mt-0.5 text-[10px] text-emerald-400">Within Budget</div>
                                 </div>
-                                <div className="rounded-lg bg-white/[0.03] p-2 border border-brand/20">
+                                <div className="rounded-lg bg-raised p-2 border border-brand/20">
                                     <div className="text-[10px] text-brand">This Month (Proj.)</div>
                                     <div className="mt-1 font-bold text-ink tabular-nums">
                                         {formatCurrency(projected, currency)}
@@ -323,7 +320,7 @@ export function CategoryForecastCard({
                         </div>
 
                         {/* 3. The Transactions That Count */}
-                        <div className="rounded-xl bg-surface-sunken/60 p-3.5">
+                        <div className="rounded-xl bg-sunken/60 p-3.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-ink">
                                     Month Transactions ({regularExpenseTxs.length + oneOffTxs.length})
@@ -378,7 +375,7 @@ export function CategoryForecastCard({
                                                                 'rounded px-1.5 py-0.5 text-[10px] font-medium transition',
                                                                 isOneOffItem
                                                                     ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-                                                                    : 'bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-ink'
+                                                                    : 'bg-raised text-ink-muted hover:bg-line hover:text-ink'
                                                             )}
                                                         >
                                                             {isOneOffItem ? 'One-off' : 'Flag one-off'}

@@ -55,10 +55,10 @@ const PrivateRoute = ({ children, role }) => {
 };
 
 const PageLoader = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-slate-400">
+  <div className="flex h-screen w-full items-center justify-center bg-sunken text-ink-muted">
     <div className="flex flex-col items-center gap-3">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-      <span className="text-xs font-medium text-slate-400">Loading module...</span>
+      <span className="text-xs font-medium text-ink-muted">Loading module...</span>
     </div>
   </div>
 );
@@ -78,7 +78,9 @@ function App() {
                       <Routes>
                         <Route path="/login" element={<Login />} />
                         <Route path="/mfa-setup" element={<MfaSetup />} />
+                        <Route path="/mfa/setup" element={<MfaSetup />} />
                         <Route path="/mfa-verify" element={<MfaVerify />} />
+                        <Route path="/mfa/verify" element={<MfaVerify />} />
                         <Route path="/signup" element={<Signup />} />
 
                         <Route

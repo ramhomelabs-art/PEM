@@ -1,15 +1,14 @@
 const hostname = window.location.hostname;
-const port = window.location.port;
 
-const API_PORT = import.meta.env.VITE_API_PORT || '5005';
-const API_HOST = import.meta.env.VITE_API_HOST || hostname;
+// Using relative '/api' leverages Vite dev proxy (port 5174) or Nginx reverse proxy,
+// preventing CORS and Windows Firewall blocks when accessing via LAN IP.
+let API_URL = '/api';
+let BASE_URL = '';
 
-let API_URL;
-let BASE_URL;
-
-if (import.meta.env.DEV || port === '5174' || port === '5173') {
-    API_URL = `http://${API_HOST}:${API_PORT}/api`;
-    BASE_URL = `http://${API_HOST}:${API_PORT}`;
+// If accessing directly from localhost dev server, allow direct or proxy
+if (import.meta.env.DEV && (hostname === 'localhost' || hostname === '127.0.0.1')) {
+    API_URL = '/api';
+    BASE_URL = '';
 } else {
     API_URL = '/api';
     BASE_URL = '';

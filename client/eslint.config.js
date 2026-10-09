@@ -37,7 +37,14 @@ export default defineConfig([
       'react/react-in-jsx-scope': 'off',
       // Prop validation is not used anywhere in this project.
       'react/prop-types': 'off',
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Apostrophes/quotes inside JSX copy are intentional prose; escaping them
+      // adds noise without changing output.
+      'react/no-unescaped-entities': 'off',
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        args: 'none',
+        caughtErrors: 'none',
+      }],
       // This rule flags every legitimate "fetch on mount" hook, which is the
       // data-loading pattern used throughout this app. Kept as a warning so
       // genuinely accidental cascading renders remain visible in review.

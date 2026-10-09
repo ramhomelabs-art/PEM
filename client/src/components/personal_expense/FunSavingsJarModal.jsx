@@ -1,5 +1,6 @@
 import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import {
@@ -522,9 +523,9 @@ export function FunSavingsJarModal({
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
                 {/* Backdrop */}
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -539,19 +540,19 @@ export function FunSavingsJarModal({
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                    className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
+                    className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
                 >
                     {/* Top ambient highlight line */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 opacity-90" />
 
                     {/* Modal Header */}
-                    <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#080e1d] px-5 py-4 sm:px-6">
+                    <div className="flex items-center justify-between border-b border-line bg-sunken px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
                             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-amber-400/20 to-pink-500/20 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                                 <Gift size={20} />
                             </span>
                             <div>
-                                <h3 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+                                <h3 className="text-base font-extrabold tracking-tight text-ink flex items-center gap-2">
                                     "Guilt-Free" Fun Money Jar
                                     <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full">
                                         Physical &amp; Digital Pot
@@ -566,14 +567,14 @@ export function FunSavingsJarModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
+                            className="grid h-8 w-8 place-items-center rounded-xl bg-raised text-ink-muted hover:bg-line hover:text-ink transition cursor-pointer"
                         >
                             <X size={17} />
                         </button>
                     </div>
 
                     {/* Body Content */}
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 bg-[#0c1427]">
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 bg-surface">
                         {/* Toast Alert Message */}
                         <AnimatePresence>
                             {toastMessage && (
@@ -590,7 +591,7 @@ export function FunSavingsJarModal({
                         </AnimatePresence>
 
                         {/* Live Daily Underspend Alert Banner */}
-                        <div className="rounded-2xl bg-gradient-to-r from-amber-500/15 via-[#101a33] to-[#101a33] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
+                        <div className="rounded-2xl bg-gradient-to-r from-amber-500/15 via-[color:var(--pem-surface-raised)] to-[color:var(--pem-surface-raised)] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
                             <div className="flex items-center gap-3">
                                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-300">
                                     {isStashedToday ? <CheckCircle2 size={20} className="text-emerald-400" /> : <Zap size={20} />}
@@ -661,7 +662,7 @@ export function FunSavingsJarModal({
                             <motion.div
                                 initial={{ opacity: 0, y: -6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl bg-gradient-to-r from-amber-500/20 via-[#121c35] to-[#121c35] border border-amber-500/40 p-4 shadow-xl space-y-3"
+                                className="rounded-2xl bg-gradient-to-r from-amber-500/20 via-[color:var(--pem-surface-raised)] to-[color:var(--pem-surface-raised)] border border-amber-500/40 p-4 shadow-xl space-y-3"
                             >
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div className="flex items-center gap-2.5">
@@ -682,7 +683,7 @@ export function FunSavingsJarModal({
                                     </span>
                                 </div>
 
-                                <p className="text-xs font-medium text-white/90 leading-relaxed">
+                                <p className="text-xs font-medium text-ink leading-relaxed">
                                     Did you put this liquid cash into your physical jar? Confirming makes it a permanent savings record. Rolling back removes the hold and refunds your Main Balance.
                                 </p>
 
@@ -712,7 +713,7 @@ export function FunSavingsJarModal({
                         {/* Middle Section: Fun Jar Tank + Goals + Actions */}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                             {/* Visual Liquid Fun Jar */}
-                            <div className="md:col-span-5 rounded-3xl bg-[#080e1d] p-5 flex flex-col items-center justify-between relative overflow-hidden shadow-2xl">
+                            <div className="md:col-span-5 rounded-3xl bg-sunken p-5 flex flex-col items-center justify-between relative overflow-hidden shadow-2xl">
                                 <div className="w-full flex items-center justify-between text-xs font-bold text-ink-muted">
                                     <span className="uppercase tracking-wider text-[10px]">Available Fun Pool</span>
                                     <span className="text-emerald-400 font-extrabold bg-emerald-500/10 px-2.5 py-0.5 rounded-full text-[10px]">
@@ -721,7 +722,7 @@ export function FunSavingsJarModal({
                                 </div>
 
                                 {/* Animated Glass Jar Container */}
-                                <div className="my-5 relative w-36 h-48 rounded-[36px] border-4 border-amber-400/30 bg-[#0c1427]/80 overflow-hidden shadow-[0_0_40px_rgba(245,158,11,0.15)] flex flex-col justify-end">
+                                <div className="my-5 relative w-36 h-48 rounded-[36px] border-4 border-amber-400/30 bg-surface/80 overflow-hidden shadow-[0_0_40px_rgba(245,158,11,0.15)] flex flex-col justify-end">
                                     {/* Jar Neck/Cap */}
                                     <div className="absolute top-0 inset-x-4 h-3 bg-amber-400/40 rounded-b-md" />
 
@@ -741,7 +742,7 @@ export function FunSavingsJarModal({
                                 </div>
 
                                 <div className="text-center w-full">
-                                    <p className="text-3xl font-black text-white tracking-tight tnum">
+                                    <p className="text-3xl font-black text-ink tracking-tight tnum">
                                         {formatCurrency(jarBalance, currency)}
                                     </p>
                                     <div className="flex items-center justify-center gap-1.5 mt-0.5">
@@ -766,7 +767,7 @@ export function FunSavingsJarModal({
                                         <button
                                             type="button"
                                             onClick={clearJarBalance}
-                                            className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-ink-muted hover:text-amber-300 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                            className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-ink-muted hover:text-amber-300 bg-raised hover:bg-line px-2.5 py-1 rounded-lg transition cursor-pointer"
                                         >
                                             <RotateCcw size={12} />
                                             Reset Pool to {formatCurrency(0, currency)}
@@ -801,14 +802,14 @@ export function FunSavingsJarModal({
                                                 animate={{ opacity: 1, height: 'auto' }}
                                                 exit={{ opacity: 0, height: 0 }}
                                                 onSubmit={handleCreateCustomGoal}
-                                                className="mb-3 rounded-2xl bg-[#080e1d] border border-teal-500/30 p-3.5 space-y-3 shadow-xl overflow-hidden"
+                                                className="mb-3 rounded-2xl bg-sunken border border-teal-500/30 p-3.5 space-y-3 shadow-xl overflow-hidden"
                                             >
                                                 <div className="flex items-center justify-between text-xs font-bold text-teal-300">
                                                     <span>Create New Custom Goal</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowAddGoal(false)}
-                                                        className="text-ink-muted hover:text-white"
+                                                        className="text-ink-muted hover:text-ink"
                                                     >
                                                         <X size={14} />
                                                     </button>
@@ -823,7 +824,7 @@ export function FunSavingsJarModal({
                                                             onChange={(e) => setNewGoalTitle(e.target.value)}
                                                             placeholder="e.g. Apple Watch Ultra, Bali Trip"
                                                             required
-                                                            className="w-full rounded-xl bg-[#101a33] px-3 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                            className="w-full rounded-xl bg-raised px-3 py-1.5 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                                         />
                                                     </div>
                                                     <div>
@@ -834,7 +835,7 @@ export function FunSavingsJarModal({
                                                             onChange={(e) => setNewGoalTarget(e.target.value)}
                                                             placeholder="e.g. 35000"
                                                             required
-                                                            className="w-full rounded-xl bg-[#101a33] px-3 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                            className="w-full rounded-xl bg-raised px-3 py-1.5 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                                         />
                                                     </div>
                                                 </div>
@@ -855,7 +856,7 @@ export function FunSavingsJarModal({
                                                                         'h-7 w-7 grid place-items-center rounded-lg transition cursor-pointer',
                                                                         isSel
                                                                             ? 'bg-teal-500 text-black shadow-md'
-                                                                            : 'bg-[#101a33] text-ink-muted hover:text-white'
+                                                                            : 'bg-raised text-ink-muted hover:text-ink'
                                                                     )}
                                                                     title={opt.label}
                                                                 >
@@ -870,7 +871,7 @@ export function FunSavingsJarModal({
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowAddGoal(false)}
-                                                        className="px-3 py-1.5 rounded-xl bg-white/[0.05] text-xs font-semibold text-ink-muted hover:text-white"
+                                                        className="px-3 py-1.5 rounded-xl bg-raised text-xs font-semibold text-ink-muted hover:text-ink"
                                                     >
                                                         Cancel
                                                     </button>
@@ -893,14 +894,14 @@ export function FunSavingsJarModal({
                                                 animate={{ opacity: 1, height: 'auto' }}
                                                 exit={{ opacity: 0, height: 0 }}
                                                 onSubmit={handleSaveEditTarget}
-                                                className="mb-3 rounded-2xl bg-[#080e1d] border border-amber-500/30 p-3.5 space-y-2.5 shadow-xl overflow-hidden"
+                                                className="mb-3 rounded-2xl bg-sunken border border-amber-500/30 p-3.5 space-y-2.5 shadow-xl overflow-hidden"
                                             >
                                                 <div className="flex items-center justify-between text-xs font-bold text-amber-300">
                                                     <span>Set Target for "{selectedGoal.title}"</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowEditTarget(false)}
-                                                        className="text-ink-muted hover:text-white"
+                                                        className="text-ink-muted hover:text-ink"
                                                     >
                                                         <X size={14} />
                                                     </button>
@@ -913,7 +914,7 @@ export function FunSavingsJarModal({
                                                         onChange={(e) => setEditingTargetAmount(e.target.value)}
                                                         placeholder="New Target Amount"
                                                         required
-                                                        className="flex-1 rounded-xl bg-[#101a33] px-3.5 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-amber-400"
+                                                        className="flex-1 rounded-xl bg-raised px-3.5 py-1.5 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-amber-400"
                                                     />
                                                     <button
                                                         type="submit"
@@ -938,12 +939,12 @@ export function FunSavingsJarModal({
                                                     className={cx(
                                                         'group relative p-3 rounded-2xl text-left transition overflow-hidden flex flex-col justify-between h-24 cursor-pointer select-none',
                                                         isSel
-                                                            ? 'bg-[#101a33] border border-teal-400/50 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
-                                                            : 'bg-[#101a33]/60 hover:bg-[#101a33]'
+                                                            ? 'bg-raised border border-teal-400/50 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
+                                                            : 'bg-raised/60 hover:bg-raised'
                                                     )}
                                                 >
                                                     <div className="flex items-center justify-between">
-                                                        <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSel ? 'bg-teal-400/20 text-teal-300' : 'bg-white/[0.05] text-ink-muted')}>
+                                                        <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSel ? 'bg-teal-400/20 text-teal-300' : 'bg-raised text-ink-muted')}>
                                                             <Icon size={14} />
                                                         </span>
                                                         {g.isCustom && (
@@ -958,7 +959,7 @@ export function FunSavingsJarModal({
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[11px] font-bold text-white leading-tight truncate">
+                                                        <p className="text-[11px] font-bold text-ink leading-tight truncate">
                                                             {g.title}
                                                         </p>
                                                         <p className="text-[10px] text-ink-muted tnum font-semibold mt-0.5">
@@ -972,12 +973,12 @@ export function FunSavingsJarModal({
                                 </div>
 
                                 {/* Manual Action Box */}
-                                <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner space-y-3">
+                                <div className="rounded-2xl bg-raised p-4 shadow-inner space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold uppercase tracking-wider text-white">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-ink">
                                             Quick Jar Action
                                         </span>
-                                        <div className="inline-flex rounded-xl bg-[#080e1d] p-1 gap-1">
+                                        <div className="inline-flex rounded-xl bg-sunken p-1 gap-1">
                                             <button
                                                 type="button"
                                                 onClick={() => setActionTab('deposit')}
@@ -985,7 +986,7 @@ export function FunSavingsJarModal({
                                                     'px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer',
                                                     actionTab === 'deposit'
                                                         ? 'bg-amber-500/20 text-amber-300 shadow-sm'
-                                                        : 'text-ink-muted hover:text-white'
+                                                        : 'text-ink-muted hover:text-ink'
                                                 )}
                                             >
                                                 + Stash Fun Money
@@ -997,7 +998,7 @@ export function FunSavingsJarModal({
                                                     'px-2.5 py-1 text-xs font-bold rounded-lg transition cursor-pointer',
                                                     actionTab === 'withdraw'
                                                         ? 'bg-teal-500/20 text-teal-300 shadow-sm'
-                                                        : 'text-ink-muted hover:text-white'
+                                                        : 'text-ink-muted hover:text-ink'
                                                 )}
                                             >
                                                 - Withdraw / Return to Main
@@ -1011,7 +1012,7 @@ export function FunSavingsJarModal({
                                             value={customAmount}
                                             onChange={(e) => setCustomAmount(e.target.value)}
                                             placeholder={actionTab === 'deposit' ? 'Enter amount to stash (e.g. 1000)' : 'Amount to withdraw (e.g. 500)'}
-                                            className="flex-1 rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-amber-400"
+                                            className="flex-1 rounded-xl bg-sunken px-3.5 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-amber-400"
                                         />
                                         <button
                                             type="button"
@@ -1073,7 +1074,7 @@ export function FunSavingsJarModal({
                                 )}
                             </div>
                             {history.length === 0 ? (
-                                <div className="rounded-2xl bg-[#101a33]/60 p-6 text-center text-xs text-ink-muted">
+                                <div className="rounded-2xl bg-raised/60 p-6 text-center text-xs text-ink-muted">
                                     No stash activity recorded yet. Beat today's Safe-to-Spend target to auto-stash or add funds above!
                                 </div>
                             ) : (
@@ -1085,7 +1086,7 @@ export function FunSavingsJarModal({
                                                 key={h.id}
                                                 className={cx(
                                                     'flex items-center justify-between p-3 rounded-xl text-xs font-semibold',
-                                                    isHold ? 'bg-[#101a33] border border-amber-500/30' : 'bg-[#101a33]'
+                                                    isHold ? 'bg-raised border border-amber-500/30' : 'bg-raised'
                                                 )}
                                             >
                                                 <div className="flex items-center gap-2.5">
@@ -1099,7 +1100,7 @@ export function FunSavingsJarModal({
                                                     </span>
                                                     <div>
                                                         <div className="flex items-center gap-1.5">
-                                                            <p className="font-bold text-white">{h.desc}</p>
+                                                            <p className="font-bold text-ink">{h.desc}</p>
                                                             {isHold && (
                                                                 <span className="text-[9px] font-extrabold uppercase bg-amber-500/20 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded-full">
                                                                     🕒 Hold
@@ -1127,7 +1128,8 @@ export function FunSavingsJarModal({
                     </div>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }
 

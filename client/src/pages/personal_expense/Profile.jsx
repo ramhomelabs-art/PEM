@@ -127,7 +127,9 @@ const Profile = () => {
             setPreviewUrl(user.profilePhoto ? (user.profilePhoto.startsWith('http') ? user.profilePhoto : `${BASE_URL}/${user.profilePhoto.replace(/\\/g, '/')}`) : null);
 
             // Fetch fresh data from server (accurate)
-            fetch(`${API_URL}/user/profile/${user.id}`)
+            fetch(`${API_URL}/user/profile/${user.id}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            })
                 .then(res => res.json())
                 .then(data => {
                     if (data && !data.error) {
@@ -217,6 +219,38 @@ const Profile = () => {
         }
     };
 
+    const handleRoleChange = async (e) => {
+        const newRole = e.target.value;
+        if (!confirm(`Change this account's role to ${newRole.toUpperCase()}?`)) return;
+
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/admin/users/${user.id}/role`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ role: newRole })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setFormData(p => ({ ...p, role: newRole }));
+                updateUser({ role: newRole });
+                alert(data.message || 'Role updated successfully.');
+            } else {
+                alert(`Error: ${data.error || 'Failed to update role'}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update role');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePhotoChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -255,6 +289,7 @@ const Profile = () => {
 
                 const uploadRes = await fetch(`${API_URL}/user/upload-photo/${user.id}`, {
                     method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                     body: photoData
                 });
                 const uploadData = await uploadRes.json();
@@ -266,7 +301,10 @@ const Profile = () => {
             // Always update profile details (even if photo didn't change, path might be the same)
             const response = await fetch(`${API_URL}/user/profile/${user.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 body: JSON.stringify({ ...formData, profilePhoto: currentPhotoPath })
             });
 
@@ -411,7 +449,7 @@ const Profile = () => {
                                     <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">System Role</label>
                                     <select
                                         value={formData.role}
-                                        onChange={(e) => setFormData(p => ({ ...p, role: e.target.value }))}
+                                        onChange={handleRoleChange}
                                         className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
                                     >
                                         <option value="user">Standard Operator</option>

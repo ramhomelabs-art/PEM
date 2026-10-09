@@ -13,7 +13,7 @@ const { authenticateToken } = require('../../middleware/auth');
 // --- SERVER STATS ---
 router.get('/ping', (req, res) => res.json({ message: 'PONG from server_mgr' }));
 
-router.get('/stats', async (req, res) => {
+router.get('/stats', authenticateToken, async (req, res) => {
     console.log("Stats route hit - VERIFYING FILE IDENTITY");
     try {
         const cpus = os.cpus();
@@ -134,7 +134,7 @@ router.post('/diagnose', authenticateToken, async (req, res) => {
 // --- CATEGORY MANAGEMENT ---
 
 // Get all categories
-router.get('/categories', async (req, res) => {
+router.get('/categories', authenticateToken, async (req, res) => {
     try {
         const categories = await Category.findAll();
         res.json(categories);
@@ -144,7 +144,7 @@ router.get('/categories', async (req, res) => {
 });
 
 // Create category
-router.post('/categories', async (req, res) => {
+router.post('/categories', authenticateToken, async (req, res) => {
     try {
         const { name, type, color } = req.body;
         const category = await Category.create({ name, type, color });
@@ -155,7 +155,7 @@ router.post('/categories', async (req, res) => {
 });
 
 // Update category (Just visual properties)
-router.put('/categories/:id', async (req, res) => {
+router.put('/categories/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { color, type } = req.body; // Name handled by rename endpoint
@@ -167,7 +167,7 @@ router.put('/categories/:id', async (req, res) => {
 });
 
 // Rename Category (BULK ACTION)
-router.put('/categories/rename/:id', async (req, res) => {
+router.put('/categories/rename/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { newName } = req.body;
@@ -180,10 +180,10 @@ router.put('/categories/rename/:id', async (req, res) => {
         // 1. Update Category Name
         await Category.update({ name: newName }, { where: { id } });
 
-        // 2. Bulk Update Transactions
+        // 2. Bulk Update Transactions (scoped to the requesting user)
         const result = await Transaction.update(
             { category: newName },
-            { where: { category: oldName } }
+            { where: { category: oldName, userId: req.user.id } }
         );
 
         res.json({
@@ -196,11 +196,14 @@ router.put('/categories/rename/:id', async (req, res) => {
 });
 
 // Delete Category
-router.delete('/categories/:id', async (req, res) => {
+router.delete('/categories/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const category = await Category.findByPk(id);
 
+        if (!category) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
         if (category.isSystem) {
             return res.status(403).json({ error: 'Cannot delete system category' });
         }
@@ -213,7 +216,10 @@ router.delete('/categories/:id', async (req, res) => {
 });
 
 // --- USER GROUP MANAGEMENT ---
-router.put('/users/:id/group', async (req, res) => {
+router.put('/users/:id/group', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
     try {
         const { id } = req.params;
         const { group, role } = req.body;
@@ -240,7 +246,10 @@ const crypto = require('crypto');
 const DB_PATH = path.join(__dirname, '../../database.sqlite');
 
 // Encrypt and Stream Backup
-router.get('/backup', (req, res) => {
+router.get('/backup', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
     try {
         const { password } = req.query;
         if (!password) return res.status(400).json({ error: 'Password required' });
@@ -275,7 +284,10 @@ router.get('/backup', (req, res) => {
 });
 
 // Restore Database
-router.post('/restore', upload.single('backupFile'), (req, res) => {
+router.post('/restore', authenticateToken, upload.single('backupFile'), (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
     try {
         const { password } = req.body;
         const file = req.file;
@@ -338,7 +350,7 @@ router.post('/restore', upload.single('backupFile'), (req, res) => {
 
 // --- API DISCOVERY ---
 
-router.get('/endpoints', (req, res) => {
+router.get('/endpoints', authenticateToken, (req, res) => {
     // Static list generated from scan (Dynamic discovery is fragile on some environments)
     const endpoints = [
         { method: 'POST', path: '/api/auth/login', group: 'auth' },
@@ -427,7 +439,11 @@ router.post('/restart/python', authenticateToken, async (req, res) => {
         const fs = require('fs');
         const logStream = fs.createWriteStream(path.join(__dirname, '../../../python-extraction-service/python_stdout.log'), { flags: 'a' });
 
-        const pythonProcess = spawn('python', [scriptPath], {
+        const venvWin = path.join(__dirname, '../../../python-extraction-service/venv_win/Scripts/python.exe');
+        const venvLinux = path.join(__dirname, '../../../python-extraction-service/venv/bin/python');
+        const pythonCmd = fs.existsSync(venvWin) ? venvWin : (fs.existsSync(venvLinux) ? venvLinux : 'python');
+
+        const pythonProcess = spawn(pythonCmd, [scriptPath], {
             cwd: path.dirname(scriptPath),
             detached: true,
             stdio: ['ignore', 'pipe', 'pipe'] // Pipe stdout/stderr

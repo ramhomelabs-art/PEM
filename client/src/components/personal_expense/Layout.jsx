@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -222,6 +222,17 @@ const Layout = ({ children }) => {
             return next;
         });
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     const go = (id) => {
         navigate(id);
         setDrawerOpen(false);
@@ -273,7 +284,7 @@ const Layout = ({ children }) => {
             {/* Desktop / tablet sidebar (collapsible) */}
             <aside
                 className={cx(
-                    'sidebar-aside relative z-30 hidden shrink-0 flex-col border-r border-line bg-surface transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] md:flex',
+                    'sidebar-aside relative z-40 hidden shrink-0 flex-col border-r border-line bg-surface transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] md:flex',
                     collapsed ? 'md:w-[76px] md:p-3' : 'md:w-[260px] md:p-5'
                 )}
                 style={{ backgroundColor: theme.sidebar }}
@@ -282,19 +293,19 @@ const Layout = ({ children }) => {
                 <button
                     type="button"
                     onClick={toggleSidebar}
-                    aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    aria-label={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+                    title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
                     className={cx(
-                        'absolute -right-3.5 top-6 z-50 hidden md:flex h-7 w-7 items-center justify-center rounded-full border shadow-md transition-all duration-200 cursor-pointer',
+                        'absolute -right-4 top-6 z-50 hidden md:flex h-8 w-8 items-center justify-center rounded-full border-2 ring-4 ring-bg shadow-xl transition-all duration-200 cursor-pointer',
                         collapsed
-                            ? 'border-brand bg-surface text-brand hover:scale-115 hover:bg-brand hover:text-slate-950 shadow-brand/20 active:scale-95'
-                            : 'border-line-strong bg-surface text-ink-muted hover:scale-115 hover:border-brand hover:text-brand hover:bg-surface-hover active:scale-95'
+                            ? 'border-brand bg-raised text-brand hover:scale-110 hover:bg-brand hover:text-slate-950 shadow-brand/30 active:scale-95'
+                            : 'border-brand/60 bg-raised text-brand hover:scale-110 hover:border-brand hover:bg-brand hover:text-slate-950 shadow-black/50 active:scale-95'
                     )}
                 >
                     {collapsed ? (
-                        <ChevronRight size={15} className="stroke-[2.5]" aria-hidden="true" />
+                        <ChevronRight size={16} className="stroke-[2.8]" aria-hidden="true" />
                     ) : (
-                        <ChevronLeft size={15} className="stroke-[2.5]" aria-hidden="true" />
+                        <ChevronLeft size={16} className="stroke-[2.8]" aria-hidden="true" />
                     )}
                 </button>
 
@@ -315,7 +326,7 @@ const Layout = ({ children }) => {
                 </div>
             </aside>
 
-            <main className="relative z-[1] flex-1 overflow-y-auto overflow-x-hidden min-w-0">{children}</main>
+            <main className="relative flex-1 overflow-y-auto overflow-x-hidden min-w-0">{children}</main>
 
             {/* Mobile drawer */}
             {drawerOpen ? (

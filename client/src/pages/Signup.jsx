@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Wallet, User, Mail, Lock, Globe, ArrowRight } from 'lucide-react';
 import { API_URL } from '../config';
+import { useTheme } from '../context/personal_expense/ThemeContext';
 
 const Signup = () => {
+    const { theme, mode } = useTheme();
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -102,7 +104,7 @@ const Signup = () => {
         overflowY: 'auto',
         padding: '45px 20px',
         boxSizing: 'border-box',
-        backgroundColor: '#0f172a'
+        backgroundColor: theme.bg
     };
 
     const cardStyle = {
@@ -110,9 +112,9 @@ const Signup = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         borderRadius: '32px',
-        background: 'rgba(15, 23, 42, 0.95)',
+        background: mode === 'dark' ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.9)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: `1px solid ${theme.border}`,
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
         position: 'relative',
         zIndex: 50
@@ -122,7 +124,10 @@ const Signup = () => {
         height: '52px',          // Reduced height
         fontSize: '18px',          // Big text
         borderRadius: '16px',
-        paddingLeft: '56px'
+        paddingLeft: '56px',
+        background: theme.inputBg,
+        color: theme.text,
+        borderColor: theme.border
     };
 
     return (
@@ -144,7 +149,7 @@ const Signup = () => {
                     >
                         <Wallet size={44} className="text-white" />
                     </motion.div>
-                    <h2 className="auth-header-title text-white tracking-tight">JOIN PEM</h2>
+                    <h2 className="auth-header-title tracking-tight" style={{ color: theme.text }}>JOIN PEM</h2>
                 </div>
 
                 {/* LOCK ALERT */}
@@ -235,7 +240,7 @@ const Signup = () => {
                                     style={inputStyle}
                                     className="w-full bg-white/5 border-2 border-white/5 text-white focus:outline-none focus:border-indigo-500 transition-all font-bold appearance-none cursor-pointer"
                                 >
-                                    {countries.map(c => <option key={c.name} value={c.name} className="bg-slate-900">{c.name}</option>)}
+                                    {countries.map(c => <option key={c.name} value={c.name} style={{ backgroundColor: theme.sidebar, color: theme.text }}>{c.name}</option>)}
                                 </select>
                             </div>
 
@@ -280,8 +285,8 @@ const Signup = () => {
                 )}
 
                 <div className="mt-10 text-center">
-                    <p className="text-gray-400 text-lg font-bold">
-                        Already joined? <Link to="/login" className="text-indigo-400 font-extrabold underline underline-offset-8">Login</Link>
+                    <p className="text-lg font-bold" style={{ color: theme.textSecondary }}>
+                        Already joined? <Link to="/login" className="text-indigo-500 font-extrabold underline underline-offset-8">Login</Link>
                     </p>
                 </div>
             </motion.div>

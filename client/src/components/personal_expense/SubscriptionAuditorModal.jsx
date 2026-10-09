@@ -221,10 +221,10 @@ export function SubscriptionAuditorModal({
             size="xl"
             bodyClassName="p-0 overflow-hidden"
         >
-            <div className="flex flex-col max-h-[80vh] bg-[#0c1427]">
+            <div className="flex flex-col max-h-[80vh] bg-surface">
                 {/* Metric Summary Cards */}
-                <div className="grid grid-cols-2 gap-3 border-b border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-4 sm:grid-cols-4">
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                <div className="grid grid-cols-2 gap-3 border-b border-line bg-sunken p-4 sm:grid-cols-4">
+                    <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Monthly Bleed</span>
                         <div className="mt-1 text-base font-extrabold text-ink tnum">
                             {formatCurrency(metrics.totalMonthlyBleed, currency)}
@@ -232,7 +232,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                    <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Annualized Impact</span>
                         <div className="mt-1 text-base font-extrabold text-amber-400 tnum">
                             {formatCurrency(metrics.totalAnnualBleed, currency)}
@@ -240,7 +240,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                    <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Untracked in Bills</span>
                         <div className="mt-1 text-base font-extrabold text-violet tnum">
                             {metrics.untrackedCount}{' '}
@@ -248,7 +248,7 @@ export function SubscriptionAuditorModal({
                         </div>
                     </div>
 
-                    <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                    <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                         <span className="text-[11px] font-semibold text-ink-muted">Price Increases</span>
                         <div className="mt-1 text-base font-extrabold text-neg tnum">
                             {metrics.hikeCount}{' '}
@@ -285,7 +285,7 @@ export function SubscriptionAuditorModal({
                 )}
 
                 {/* Filter and Search Bar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.05)] px-4 py-3 bg-[#0c1427]">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-line px-4 py-3 bg-surface">
                     <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
                         {[
                             { id: 'all', label: `All (${auditedSubscriptions.length})` },
@@ -300,7 +300,7 @@ export function SubscriptionAuditorModal({
                                     'rounded-lg px-2.5 py-1 text-xs font-semibold transition',
                                     filterTab === t.id
                                         ? 'bg-brand/20 text-brand shadow-sm'
-                                        : 'bg-[#101a33] text-ink-muted hover:text-ink'
+                                        : 'bg-raised text-ink-muted hover:text-ink'
                                 )}
                             >
                                 {t.label}
@@ -315,7 +315,7 @@ export function SubscriptionAuditorModal({
                             placeholder="Search subscriptions..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-lg bg-[#101a33] pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink-faint outline-none focus:ring-1 focus:ring-brand"
+                            className="w-full rounded-lg bg-raised pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink-faint outline-none focus:ring-1 focus:ring-brand"
                         />
                     </div>
                 </div>
@@ -341,8 +341,8 @@ export function SubscriptionAuditorModal({
                                     className={cx(
                                         'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-3.5 transition-all duration-200',
                                         isCancelled
-                                            ? 'opacity-40 bg-[#080e1d] line-through'
-                                            : 'bg-[#101a33]/90 hover:bg-[#152243] shadow-sm'
+                                            ? 'opacity-40 bg-sunken line-through'
+                                            : 'bg-raised/90 hover:bg-line shadow-sm'
                                     )}
                                 >
                                     {/* Left: Info */}
@@ -385,7 +385,7 @@ export function SubscriptionAuditorModal({
                                     </div>
 
                                     {/* Right: Cost & Quick Actions */}
-                                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(255,255,255,0.04)]">
+                                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-line">
                                         <div className="text-left sm:text-right">
                                             <div className="text-sm font-extrabold text-ink tnum">
                                                 {formatCurrency(sub.latestAmount, currency)}
@@ -423,7 +423,7 @@ export function SubscriptionAuditorModal({
                                                     'rounded-lg px-2.5 py-1 text-xs font-semibold transition',
                                                     isCancelled
                                                         ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
-                                                        : 'bg-white/[0.04] text-ink-muted hover:text-neg hover:bg-neg/10'
+                                                        : 'bg-raised text-ink-muted hover:text-neg hover:bg-neg/10'
                                                 )}
                                                 title={isCancelled ? 'Re-enable subscription' : 'Simulate cancellation to test runway savings'}
                                             >
@@ -438,7 +438,7 @@ export function SubscriptionAuditorModal({
                 </div>
 
                 {/* Footer Insight */}
-                <div className="border-t border-[rgba(255,255,255,0.05)] bg-[#080e1d] p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
+                <div className="border-t border-line bg-sunken p-3 px-4 text-xs text-ink-muted flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-ink-faint">
                         <Zap size={13} className="text-brand" />
                         Auditor continuously scans all incoming transactions for repeating billing cycles.

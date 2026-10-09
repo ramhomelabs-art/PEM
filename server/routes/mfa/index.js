@@ -12,6 +12,26 @@ const { JWT_SECRET, JWT_EXPIRES_IN } = require('../../config/auth');
 const mobileRoutes = require('./mobile');
 router.use('/mobile', mobileRoutes);
 
+// Ensure the device referenced in the request belongs to the authenticated user.
+const requireDeviceOwnership = async (req, res, next) => {
+    try {
+        const deviceId = req.params.deviceId || req.body.deviceId;
+        if (!deviceId) {
+            return res.status(400).json({ error: 'Device ID is required' });
+        }
+        const { MfaDevice } = require('../../models');
+        const device = await MfaDevice.findOne({ where: { id: deviceId, userId: req.user.id } });
+        if (!device) {
+            return res.status(403).json({ error: 'Device not found or not owned by user' });
+        }
+        req.mfaDevice = device;
+        next();
+    } catch (e) {
+        console.error('Device ownership check error:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 /**
  * POST /api/mfa/auth/login
  * Initial login with username/password
@@ -99,7 +119,7 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
                 const pushRequest = await mfaService.sendPushRequest(user.id, null, {
                     ipAddress: req.ip,
                     userAgent: req.headers['user-agent'],
-                    location: null // TODO: Add IP geolocation
+                    location: null
                 });
 
                 return res.json({
@@ -241,20 +261,19 @@ router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLim
     try {
         const userId = req.user.id;
         const requestedUrl = req.body?.serverUrl;
+        const { getPrimaryLanIp } = require('../../utils/networkUtils');
+        const lanIp = getPrimaryLanIp();
         const clientHost = req.headers['x-forwarded-host'] || req.get('host') || '';
-        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? `${req.protocol}://${clientHost}` : 'http://10.10.20.4:5005');
-        if (currentServerUrl.includes(':5174')) {
-            currentServerUrl = currentServerUrl.replace(':5174', ':5005');
-        }
+        let currentServerUrl = requestedUrl || process.env.SERVER_URL || (clientHost ? `${req.protocol}://${clientHost}` : `http://${lanIp}:5174`);
         
         // If it resolved to localhost, replace localhost with LAN IP or request host
         if (currentServerUrl.includes('localhost') || currentServerUrl.includes('127.0.0.1')) {
             if (req.headers['x-forwarded-host']) {
                 currentServerUrl = `${req.protocol}://${req.headers['x-forwarded-host']}`;
-            } else if (clientHost && !clientHost.includes('localhost')) {
-                currentServerUrl = `${req.protocol}://${clientHost.split(':')[0]}:5005`;
+            } else if (clientHost && !clientHost.includes('localhost') && !clientHost.includes('127.0.0.1')) {
+                currentServerUrl = `${req.protocol}://${clientHost.split(':')[0]}:5174`;
             } else {
-                currentServerUrl = 'http://10.10.20.4:5005';
+                currentServerUrl = `http://${lanIp}:5174`;
             }
         }
         
@@ -283,9 +302,12 @@ router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLim
 
         res.json({
             success: true,
-            qrCodeUrl: totpQr || qrData.qrCodeUrl,
-            totpQrCodeUrl: totpQr,
+            qrCodeUrl: qrData.qrCodeUrl,
             companionQrCodeUrl: qrData.qrCodeUrl,
+            totpQrCodeUrl: totpQr,
+            rawEnvelope: qrData.rawEnvelope,
+            isEncrypted: true,
+            securityProtocol: 'PEM-AES256-GCM-V2',
             secret: totpSecret,
             bindingToken: qrData.bindingToken,
             expiresAt: qrData.expiresAt
@@ -303,6 +325,7 @@ router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLim
 router.post('/setup/bind-device', setupRateLimiter, async (req, res) => {
     try {
         const { userId, bindingToken, deviceInfo, fcmToken } = req.body;
+        console.log(`[MFA Route] POST /setup/bind-device received for userId: ${userId}, tokenPrefix: ${(bindingToken || '').substring(0, 8)}, device: ${deviceInfo?.manufacturer} ${deviceInfo?.model}`);
 
         if (!userId || !bindingToken || !deviceInfo) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -349,16 +372,16 @@ router.post('/setup/totp/generate', authenticateToken, setupRateLimiter, async (
 });
 
 /**
- * POST /api/mfa/setup/totp/verify
+ * POST /api/mfa/setup/totp/verify (and /setup/verify)
  * Verify TOTP setup
  */
-router.post('/setup/totp/verify', authenticateToken, setupRateLimiter, async (req, res) => {
+router.post(['/setup/totp/verify', '/setup/verify'], authenticateToken, setupRateLimiter, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code } = req.body;
+        const code = req.body.code || req.body.token;
 
         if (!code) {
-            return res.status(400).json({ error: 'TOTP code is required' });
+            return res.status(400).json({ error: 'TOTP verification code is required' });
         }
 
         const result = await mfaService.verifyTOTP(userId, code, true);
@@ -614,7 +637,7 @@ router.post('/mobile/login', mfaRateLimiter, async (req, res) => {
  * GET /api/mfa/mobile/totp/:deviceId
  * Get current TOTP code for a bound device
  */
-router.get('/mobile/totp/:deviceId', async (req, res) => {
+router.get('/mobile/totp/:deviceId', authenticateToken, requireDeviceOwnership, async (req, res) => {
     try {
         const { deviceId } = req.params;
 
@@ -639,7 +662,7 @@ router.get('/mobile/totp/:deviceId', async (req, res) => {
  * POST /api/mfa/mobile/verify-device
  * Verify device binding is still valid
  */
-router.post('/mobile/verify-device', async (req, res) => {
+router.post('/mobile/verify-device', authenticateToken, requireDeviceOwnership, async (req, res) => {
     try {
         const { deviceId, deviceFingerprint } = req.body;
 
@@ -660,7 +683,7 @@ router.post('/mobile/verify-device', async (req, res) => {
  * GET /api/mfa/mobile/status/:deviceId
  * Get MFA status for a specific device
  */
-router.get('/mobile/status/:deviceId', async (req, res) => {
+router.get('/mobile/status/:deviceId', authenticateToken, requireDeviceOwnership, async (req, res) => {
     try {
         const { deviceId } = req.params;
 
@@ -684,7 +707,7 @@ router.get('/mobile/status/:deviceId', async (req, res) => {
  * POST /api/mfa/mobile/push/respond
  * Respond to a push notification (approve/deny)
  */
-router.post('/mobile/push/respond', async (req, res) => {
+router.post('/mobile/push/respond', authenticateToken, requireDeviceOwnership, async (req, res) => {
     try {
         const { requestId, deviceId, response } = req.body;
 

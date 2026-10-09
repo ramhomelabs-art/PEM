@@ -36,7 +36,7 @@ export function SpendTooltip({ active, payload, currency }) {
 
     return (
         <div className="min-w-[210px] rounded-[12px] bg-surface/95 p-3.5 shadow-2xl backdrop-blur-md">
-            <div className="mb-2 flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-1.5">
+            <div className="mb-2 flex items-center justify-between border-b border-line pb-1.5">
                 <span className="text-xs font-bold text-ink">
                     {formatDate(data.date, { weekday: 'short', day: 'numeric', month: 'short' })}
                 </span>
@@ -66,7 +66,7 @@ export function SpendTooltip({ active, payload, currency }) {
                     </div>
 
                     {data.topTransactions?.length > 0 ? (
-                        <div className="border-t border-[rgba(255,255,255,0.06)] pt-1.5 space-y-1">
+                        <div className="border-t border-line pt-1.5 space-y-1">
                             <span className="text-[10px] uppercase font-semibold tracking-wider text-ink-faint">
                                 Top Transactions
                             </span>
@@ -361,7 +361,7 @@ export function WeekdayHeat({ series = [], currency = 'INR' }) {
 
                 <div className="flex items-center gap-1.5 text-[11px] text-ink-faint self-end sm:self-auto">
                     <span>Less</span>
-                    <span className="w-2.5 h-2.5 rounded-[3px] bg-[rgba(255,255,255,0.03)]" />
+                    <span className="w-2.5 h-2.5 rounded-[3px] bg-raised" />
                     <span className="w-2.5 h-2.5 rounded-[3px] bg-[rgba(139,92,246,0.14)]" />
                     <span className="w-2.5 h-2.5 rounded-[3px] bg-[rgba(139,92,246,0.28)]" />
                     <span className="w-2.5 h-2.5 rounded-[3px] bg-[rgba(139,92,246,0.45)]" />
@@ -418,9 +418,8 @@ export function DailySpendingCard({
     }, [monthlyBudget, daysInMonth]);
 
     // Daily buckets with future days as faint tracks
-    const { chartData, totalSpent, maxDay, avgPerDay, projectedMonthEnd } = useMemo(() => {
+    const { chartData, maxDay, avgPerDay, projectedMonthEnd } = useMemo(() => {
         const days = [];
-        const monthKeyStr = `${y}-${String(m + 1).padStart(2, '0')}`;
 
         // Filter current month transactions
         const monthTxs = transactions.filter((t) => {
@@ -509,7 +508,7 @@ export function DailySpendingCard({
 
     if (error) {
         return (
-            <div className="flex h-[280px] items-center justify-center rounded-card bg-[rgba(255,255,255,0.03)] text-xs text-neg">
+            <div className="flex h-[280px] items-center justify-center rounded-card bg-raised text-xs text-neg">
                 Failed to load daily spending data.
             </div>
         );
@@ -529,7 +528,7 @@ export function DailySpendingCard({
                 <div
                     role="tablist"
                     aria-label="View format"
-                    className="bg-[rgba(255,255,255,0.04)] p-1 rounded-[12px] flex items-center shrink-0"
+                    className="bg-raised p-1 rounded-[12px] flex items-center shrink-0"
                 >
                     <button
                         type="button"
@@ -539,7 +538,7 @@ export function DailySpendingCard({
                         className={cx(
                             'px-3 py-1 text-xs rounded-[8px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none',
                             view === 'daily'
-                                ? 'bg-[rgba(255,255,255,0.09)] text-ink font-semibold shadow-xs'
+                                ? 'bg-line text-ink font-semibold shadow-xs'
                                 : 'text-ink-muted hover:text-ink font-medium'
                         )}
                     >
@@ -553,7 +552,7 @@ export function DailySpendingCard({
                         className={cx(
                             'px-3 py-1 text-xs rounded-[8px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none',
                             view === 'weekday'
-                                ? 'bg-[rgba(255,255,255,0.09)] text-ink font-semibold shadow-xs'
+                                ? 'bg-line text-ink font-semibold shadow-xs'
                                 : 'text-ink-muted hover:text-ink font-medium'
                         )}
                     >
@@ -588,7 +587,7 @@ export function DailySpendingCard({
 
             {/* Peak day callout (in Daily view) */}
             {view === 'daily' && maxDay && maxDay.amount > 0 ? (
-                <div className="flex items-center gap-2 text-[11px] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 rounded-[8px] self-start text-ink-muted">
+                <div className="flex items-center gap-2 text-[11px] bg-raised px-2.5 py-1 rounded-[8px] self-start text-ink-muted">
                     <span className="font-semibold text-warn">
                         Peak Day ({formatDate(maxDay.date, { day: 'numeric', month: 'short' })}):
                     </span>

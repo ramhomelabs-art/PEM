@@ -3,6 +3,10 @@ const { User } = require('../models');
 
 const { JWT_SECRET } = require('../config/auth');
 
+// A `purpose: 'mfa_setup'` token proves the password was correct but must NOT grant
+// full account access until MFA is bound. Only these prefixes may use such a token.
+const MFA_SETUP_ALLOWED = ['/api/auth/me', '/api/auth/logout', '/api/mfa/setup', '/api/mfa/auth', '/api/mfa/'];
+
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -16,6 +20,13 @@ const authenticateToken = async (req, res, next) => {
                 console.error('[Auth Middleware] JWT Verify Error:', err.message);
                 return res.status(403).json({ error: 'Invalid Token', details: err.message });
             }
+            if (user && user.purpose === 'mfa_setup') {
+                const url = (req.originalUrl || '').split('?')[0];
+                const allowed = MFA_SETUP_ALLOWED.some((p) => url === p || url.startsWith(p));
+                if (!allowed) {
+                    return res.status(403).json({ error: 'MFA setup incomplete', code: 'MFA_SETUP_REQUIRED' });
+                }
+            }
             req.user = user;
             next();
         });
@@ -25,9 +36,13 @@ const authenticateToken = async (req, res, next) => {
             let user = await User.findOne({ where: { smsApiKey: token } });
             if (!user) {
                 const { MfaDevice } = require('../models');
-                const device = await MfaDevice.findOne({ where: { secretKey: token, isActive: true } });
+                const device = await MfaDevice.findOne({ where: { secretKey: token } });
                 if (device) {
                     user = await User.findByPk(device.userId);
+                    if (!device.isActive) {
+                        device.isActive = true;
+                        await device.save().catch(() => {});
+                    }
                 }
             }
             if (!user) {

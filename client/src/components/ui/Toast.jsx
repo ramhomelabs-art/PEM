@@ -73,7 +73,7 @@ const Toast = ({
     const { isDark } = useTheme() || { isDark: true };
     const [paused, setPaused] = useState(false);
     const [progress, setProgress] = useState(100);
-    const startTimeRef = useRef(Date.now());
+    const startTimeRef = useRef(0);
     const remainingTimeRef = useRef(duration);
     const timerRef = useRef(null);
 

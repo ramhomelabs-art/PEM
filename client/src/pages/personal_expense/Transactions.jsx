@@ -2,7 +2,6 @@ import { subscribeToDataChanges } from '../../utils/realtimeSync';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { API_URL, BASE_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
-import { useTheme } from '../../context/personal_expense/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard,
@@ -38,7 +37,6 @@ import {
     User,
     Target
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import TransactionModal, { categoryIcons } from '../../components/personal_expense/TransactionModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -51,10 +49,8 @@ import CreditCardTransactionEditModal from '../../components/credit_card/CreditC
 
 const Transactions = () => {
     const { user, logout } = useAuth();
-    const { theme } = useTheme();
     const { categories } = useCategories();
     const { updateTransaction } = useCreditCards();
-    const navigate = useNavigate();
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -102,6 +98,10 @@ const Transactions = () => {
         if (user) {
             fetchTransactions();
         }
+        const unsubscribe = subscribeToDataChanges(() => {
+            if (user) fetchTransactions();
+        });
+        return () => unsubscribe();
     }, [user, fetchTransactions]);
 
     const handleDelete = async (id) => {
@@ -332,6 +332,43 @@ const Transactions = () => {
                 </div>
             </header>
 
+            {/* KPI SUMMARY TILES */}
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-ink-muted">Total Income</p>
+                        <p className="text-xl font-extrabold text-pos tracking-tight mt-0.5">
+                            +{formatCurrency(totalIncome, user?.currency || 'INR')}
+                        </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-pos">
+                        <TrendingUp size={20} />
+                    </div>
+                </div>
+                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-ink-muted">Total Expense</p>
+                        <p className="text-xl font-extrabold text-neg tracking-tight mt-0.5">
+                            -{formatCurrency(totalExpense, user?.currency || 'INR')}
+                        </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 text-neg">
+                        <TrendingDown size={20} />
+                    </div>
+                </div>
+                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold text-ink-muted">Net Cash Flow</p>
+                        <p className={`text-xl font-extrabold tracking-tight mt-0.5 ${netBalance >= 0 ? 'text-pos' : 'text-neg'}`}>
+                            {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance, user?.currency || 'INR')}
+                        </p>
+                    </div>
+                    <div className={`p-2.5 rounded-xl ${netBalance >= 0 ? 'bg-emerald-500/10 text-pos' : 'bg-rose-500/10 text-neg'}`}>
+                        <Wallet size={20} />
+                    </div>
+                </div>
+            </div>
+
             {/* SEARCH & FILTER BAR */}
             <div className="mb-6 flex flex-col gap-3.5">
                 <div className="flex flex-wrap gap-3">
@@ -481,6 +518,14 @@ const Transactions = () => {
                                             {isHold ? (
                                                 <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500/20 border border-amber-500/40 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
                                                     🕒 TEMPORARY HOLD: POT
+                                                </span>
+                                            ) : t.source === 'app' || t.source === 'mobile_app' || t.source === 'companion' ? (
+                                                <span className="shrink-0 whitespace-nowrap rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-extrabold text-emerald-400">
+                                                    📱 APP
+                                                </span>
+                                            ) : t.source === 'sms' || t.source === 'SMS_WEBHOOK' ? (
+                                                <span className="shrink-0 whitespace-nowrap rounded-full bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 text-[10px] font-extrabold text-blue-400">
+                                                    💬 SMS
                                                 </span>
                                             ) : (
                                                 <span className="shrink-0 whitespace-nowrap rounded-pill bg-raised px-2 py-0.5 text-[10px] font-bold text-ink-faint">

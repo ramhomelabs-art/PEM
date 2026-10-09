@@ -1,0 +1,40 @@
+version: '3.8'
+
+# ==============================================================================
+# PORTAINER COMMUNITY EDITION (CE) - STANDALONE DEPLOYMENT STACK
+# ==============================================================================
+# Deploy Portainer CE to manage your Docker environment:
+#
+#   docker compose -f portainer-ce.yml up -d
+#
+# Once started:
+# - Open https://<SERVER_IP>:9443 (recommended secure HTTPS)
+# - Or http://<SERVER_IP>:9000 (legacy HTTP)
+# ==============================================================================
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    networks:
+      - portainer_net
+
+volumes:
+  portainer_data:
+    name: portainer_data
+
+networks:
+  portainer_net:
+    name: portainer_net
+    driver: bridge

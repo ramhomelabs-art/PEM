@@ -171,18 +171,17 @@ export function KpiCard({
                         <AnimatedNumber value={value} format={format} />
                     </p>
                     <div className="mt-2 flex items-center gap-1.5">
-                        <span
-                            className={cx('tnum inline-flex items-center gap-0.5 text-xs font-bold', deltaTone)}
-                            title={delta == null ? 'No prior period to compare' : undefined}
-                        >
-                            {delta == null ? (
-                                <Minus size={13} aria-hidden="true" />
-                            ) : (
-                                <DeltaIcon size={13} aria-hidden="true" />
-                            )}
-                            {delta == null ? '—' : `${Math.abs(delta).toFixed(1)}%`}
-                        </span>
-                        <span className="text-xs text-ink-faint">vs prev</span>
+                        {delta != null ? (
+                            <>
+                                <span className={cx('tnum inline-flex items-center gap-0.5 text-xs font-bold', deltaTone)}>
+                                    <DeltaIcon size={13} aria-hidden="true" />
+                                    {`${Math.abs(delta).toFixed(1)}%`}
+                                </span>
+                                <span className="text-xs text-ink-faint">vs prev</span>
+                            </>
+                        ) : (
+                            <span className="text-xs text-ink-faint">Current period</span>
+                        )}
                         {hint ? <span className="text-xs text-ink-faint">• {hint}</span> : null}
                     </div>
                 </div>

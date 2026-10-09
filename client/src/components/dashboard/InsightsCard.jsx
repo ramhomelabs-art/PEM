@@ -48,7 +48,7 @@ export function InsightItem({ insight }) {
     const Icon = config.icon;
 
     return (
-        <li className="flex items-center justify-between gap-3 rounded-[12px] bg-[var(--pem-surface-raised,rgba(255,255,255,0.03))] hover:bg-[rgba(255,255,255,0.06)] p-3 transition-colors">
+        <li className="flex items-center justify-between gap-3 rounded-[12px] bg-[var(--pem-surface-raised,rgba(255,255,255,0.03))] hover:bg-line p-3 transition-colors">
             <div className="flex items-center gap-3 min-w-0">
                 <span
                     className={cx(
@@ -120,10 +120,10 @@ export function InsightsCard({
                         key={i}
                         className="flex items-center gap-3 rounded-[12px] bg-[var(--pem-surface-raised,rgba(255,255,255,0.03))] p-3 animate-pulse"
                     >
-                        <div className="w-9 h-9 rounded-[10px] bg-[rgba(255,255,255,0.06)] shrink-0" />
+                        <div className="w-9 h-9 rounded-[10px] bg-raised shrink-0" />
                         <div className="flex-1 space-y-1.5">
-                            <div className="h-3.5 w-1/2 rounded bg-[rgba(255,255,255,0.06)]" />
-                            <div className="h-2.5 w-3/4 rounded bg-[rgba(255,255,255,0.04)]" />
+                            <div className="h-3.5 w-1/2 rounded bg-raised" />
+                            <div className="h-2.5 w-3/4 rounded bg-raised" />
                         </div>
                     </div>
                 ))}
@@ -192,7 +192,7 @@ export function InsightsCard({
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="all-insights-title"
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sunken/80 backdrop-blur-md"
                     onClick={() => setModalOpen(false)}
                 >
                     <div
@@ -206,7 +206,7 @@ export function InsightsCard({
                             <button
                                 type="button"
                                 onClick={() => setModalOpen(false)}
-                                className="rounded-[10px] p-1.5 text-ink-muted hover:text-ink hover:bg-[rgba(255,255,255,0.06)]"
+                                className="rounded-[10px] p-1.5 text-ink-muted hover:text-ink hover:bg-line"
                             >
                                 ✕
                             </button>

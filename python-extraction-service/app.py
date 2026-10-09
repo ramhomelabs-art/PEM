@@ -1,10 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Header, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 import shutil
+import uuid
 from typing import Optional
 
 # Load environment variables
@@ -29,14 +30,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# CORS Configuration
+# CORS Configuration — restrict to explicitly configured origins.
+_allowed_origins = [o.strip() for o in os.getenv("PYTHON_CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=_allowed_origins,  # e.g. "http://localhost:5174,http://192.168.1.10:5174"
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Shared secret guarding service-control endpoints (e.g. /restart).
+SERVICE_API_KEY = os.getenv("PYTHON_API_KEY")
+
+
+async def require_api_key(x_api_key: Optional[str] = Header(None)):
+    if not SERVICE_API_KEY:
+        raise HTTPException(status_code=403, detail="Service control is disabled (PYTHON_API_KEY not configured)")
+    if x_api_key != SERVICE_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 # Configuration
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -103,7 +116,7 @@ async def extract_statement_endpoint(
     """
     try:
         # Validate file type
-        if not file.filename.endswith('.pdf'):
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
         
         # Check file size
@@ -114,8 +127,8 @@ async def extract_statement_endpoint(
         if file_size > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB")
         
-        # Save file temporarily
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        # Save file temporarily under a random, safe name (never trust client filename)
+        filepath = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}.pdf")
         
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -366,7 +379,7 @@ async def validate_extraction_endpoint(data: ValidationRequest):
 
 
 @app.post("/restart")
-async def restart_service():
+async def restart_service(_: bool = Depends(require_api_key)):
     """
     Restart the Python service
     """

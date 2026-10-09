@@ -241,20 +241,20 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
         width: '100%',
         padding: '12px',
         borderRadius: '10px',
-        border: '1px solid #334155',
-        backgroundColor: '#0f172a',
-        color: 'white',
+        border: '1px solid var(--pem-border)',
+        backgroundColor: 'var(--pem-bg-sunken)',
+        color: 'var(--pem-text)',
         fontSize: '14px',
         outline: 'none',
         fontWeight: '500',
         boxSizing: 'border-box'
     };
-    const labelCommon = { fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '6px', display: 'block' };
+    const labelCommon = { fontSize: '11px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '6px', display: 'block' };
 
     // Custom Scrollbar styles
     const scrollBarStyle = {
         scrollbarWidth: 'thin',
-        scrollbarColor: '#334155 #0f172a'
+        scrollbarColor: 'var(--pem-border) var(--pem-bg-sunken)'
     };
 
     const modalContentStyle = {
@@ -277,18 +277,18 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                         style={{
                             position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '420px',
-                            backgroundColor: '#0f172a', borderLeft: `1px solid rgba(255,255,255,0.1)`,
+                            backgroundColor: 'var(--pem-bg-sunken)', borderLeft: `1px solid var(--pem-border)`,
                             padding: '25px',
-                            zIndex: 1001, display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 40px rgba(0,0,0,0.6)', color: 'white'
+                            zIndex: 1001, display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 40px rgba(0,0,0,0.6)', color: 'var(--pem-text)'
                         }}
                     >
 
                         <style>
                             {`
                                 ::-webkit-scrollbar { width: 6px; }
-                                ::-webkit-scrollbar-track { background: #0f172a; }
-                                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-                                ::-webkit-scrollbar-thumb:hover { background: #475569; }
+                                ::-webkit-scrollbar-track { background: var(--pem-bg-sunken); }
+                                ::-webkit-scrollbar-thumb { background: var(--pem-border); border-radius: 3px; }
+                                ::-webkit-scrollbar-thumb:hover { background: var(--pem-text-secondary); }
                             `}
                         </style>
 
@@ -300,7 +300,7 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                 </div>
                                 <h2 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Calculator Pro</h2>
                             </div>
-                            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><X size={22} /></button>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--pem-text-secondary)', cursor: 'pointer' }}><X size={22} /></button>
                         </div>
 
                         {/* Tabs */}
@@ -315,8 +315,8 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                                     style={{
                                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '8px 2px', borderRadius: '10px',
-                                        backgroundColor: activeTab === tab.id ? '#3b82f6' : '#1e293b',
-                                        color: activeTab === tab.id ? 'white' : '#94a3b8',
+                                        backgroundColor: activeTab === tab.id ? '#3b82f6' : 'var(--pem-surface-raised)',
+                                        color: activeTab === tab.id ? 'white' : 'var(--pem-text-secondary)',
                                         border: 'none', cursor: 'pointer', fontSize: '9px', fontWeight: '600',
                                         transition: 'all 0.2s'
                                     }}
@@ -333,19 +333,19 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                             {/* --- STANDARD & SCIENTIFIC --- */}
                             {activeTab === 'standard' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '15px' }}>
-                                    <div style={{ backgroundColor: '#020617', padding: '20px', borderRadius: '16px', textAlign: 'right', minHeight: '100px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', border: '1px solid #1e293b', position: 'relative' }}>
-                                        <button onClick={() => setShowHistory(!showHistory)} style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: '#64748b' }}><History size={14} /></button>
-                                        <div style={{ color: '#64748b', fontSize: '12px', minHeight: '18px' }}>{equation}</div>
-                                        <div style={{ color: 'white', fontSize: '36px', fontWeight: '700', overflow: 'hidden' }}>{display}</div>
+                                    <div style={{ backgroundColor: 'var(--pem-bg)', padding: '20px', borderRadius: '16px', textAlign: 'right', minHeight: '100px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', border: '1px solid var(--pem-border)', position: 'relative' }}>
+                                        <button onClick={() => setShowHistory(!showHistory)} style={{ position: 'absolute', top: '10px', left: '10px', background: 'var(--pem-surface-raised)', border: 'none', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--pem-text-secondary)' }}><History size={14} /></button>
+                                        <div style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', minHeight: '18px' }}>{equation}</div>
+                                        <div style={{ color: 'var(--pem-text)', fontSize: '36px', fontWeight: '700', overflow: 'hidden' }}>{display}</div>
                                         {showHistory && (
-                                            <div style={{ position: 'absolute', top: '40px', left: '10px', right: '10px', bottom: '10px', backgroundColor: 'rgba(15, 23, 42, 0.98)', borderRadius: '10px', padding: '10px', overflowY: 'auto', zIndex: 10, border: '1px solid #334155' }}>
-                                                {history.map((item, i) => <div key={i} style={{ borderBottom: '1px solid #334155', padding: '4px' }}><div style={{ fontSize: '10px', color: '#64748b' }}>{item.eq}</div><div style={{ color: 'white', fontSize: '12px' }}>= {item.res}</div></div>)}
+                                            <div style={{ position: 'absolute', top: '40px', left: '10px', right: '10px', bottom: '10px', backgroundColor: 'var(--pem-surface)', borderRadius: '10px', padding: '10px', overflowY: 'auto', zIndex: 10, border: '1px solid var(--pem-border)' }}>
+                                                {history.map((item, i) => <div key={i} style={{ borderBottom: '1px solid var(--pem-border)', padding: '4px' }}><div style={{ fontSize: '10px', color: 'var(--pem-text-secondary)' }}>{item.eq}</div><div style={{ color: 'var(--pem-text)', fontSize: '12px' }}>= {item.res}</div></div>)}
                                             </div>
                                         )}
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                        <button onClick={() => setIsScientific(!isScientific)} style={{ color: isScientific ? '#60a5fa' : '#64748b', background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>{isScientific ? 'Hide Scientific' : 'Show Scientific'}</button>
+                                        <button onClick={() => setIsScientific(!isScientific)} style={{ color: isScientific ? '#60a5fa' : 'var(--pem-text-secondary)', background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>{isScientific ? 'Hide Scientific' : 'Show Scientific'}</button>
                                     </div>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: isScientific ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)', gap: '10px', flex: 1 }}>
@@ -365,11 +365,11 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                     <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '5px', scrollbarWidth: 'none' }}>
                                         {Object.entries(unitCategories).map(([key, config]) => (
-                                            <button key={key} onClick={() => setUnitCategory(key)} style={{ padding: '6px 10px', borderRadius: '8px', backgroundColor: unitCategory === key ? '#3b82f6' : '#1e293b', color: 'white', border: 'none', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{config.label}</button>
+                                            <button key={key} onClick={() => setUnitCategory(key)} style={{ padding: '6px 10px', borderRadius: '8px', backgroundColor: unitCategory === key ? '#3b82f6' : 'var(--pem-surface-raised)', color: 'var(--pem-text)', border: 'none', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{config.label}</button>
                                         ))}
                                     </div>
-                                    <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '32px', fontWeight: '800', color: 'white' }}>{convertUnit()} <span style={{ fontSize: '14px', color: '#94a3b8' }}>{toUnit}</span></div>
+                                    <div style={{ backgroundColor: 'var(--pem-surface-raised)', padding: '20px', borderRadius: '16px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--pem-text)' }}>{convertUnit()} <span style={{ fontSize: '14px', color: 'var(--pem-text-secondary)' }}>{toUnit}</span></div>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                         <div><label style={labelCommon}>Value</label><input type="number" value={unitValue} onChange={(e) => setUnitValue(e.target.value)} style={inputCommon} /></div>
@@ -380,7 +380,7 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                                     {Object.keys(unitCategories[unitCategory].units || {}).map(u => <option key={u}>{u}</option>)}
                                                     {unitCategory === 'temp' && ['c', 'f', 'k'].map(u => <option key={u}>{u}</option>)}
                                                 </select>
-                                                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                                                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--pem-text-secondary)', pointerEvents: 'none' }} />
                                             </div>
                                         </div>
                                     </div>
@@ -391,7 +391,7 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                                 {Object.keys(unitCategories[unitCategory].units || {}).map(u => <option key={u}>{u}</option>)}
                                                 {unitCategory === 'temp' && ['c', 'f', 'k'].map(u => <option key={u}>{u}</option>)}
                                             </select>
-                                            <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                                            <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--pem-text-secondary)', pointerEvents: 'none' }} />
                                         </div>
                                     </div>
                                 </div>
@@ -400,29 +400,29 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                             {/* --- PHYSICS --- */}
                             {activeTab === 'physics' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div style={{ display: 'flex', gap: '8px', backgroundColor: '#1e293b', padding: '4px', borderRadius: '10px' }}>
-                                        <button onClick={() => setPhysicsMode('ohm')} style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: physicsMode === 'ohm' ? '#3b82f6' : 'transparent', border: 'none', color: 'white', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚡ Electrical</button>
-                                        <button onClick={() => setPhysicsMode('sound')} style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: physicsMode === 'sound' ? '#3b82f6' : 'transparent', border: 'none', color: 'white', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>🔊 Sound</button>
+                                    <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--pem-surface-raised)', padding: '4px', borderRadius: '10px' }}>
+                                        <button onClick={() => setPhysicsMode('ohm')} style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: physicsMode === 'ohm' ? '#3b82f6' : 'transparent', border: 'none', color: 'var(--pem-text)', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚡ Electrical</button>
+                                        <button onClick={() => setPhysicsMode('sound')} style={{ flex: 1, padding: '8px', borderRadius: '8px', backgroundColor: physicsMode === 'sound' ? '#3b82f6' : 'transparent', border: 'none', color: 'var(--pem-text)', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>🔊 Sound</button>
                                     </div>
 
                                     {physicsMode === 'ohm' && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>Enter any TWO values (e.g. V and I).</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--pem-text-secondary)', fontStyle: 'italic' }}>Enter any TWO values (e.g. V and I).</div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                                 <div><label style={labelCommon}>Voltage (V)</label><input type="number" value={ohmValues.v} onChange={(e) => setOhmValues({ ...ohmValues, v: e.target.value })} style={inputCommon} placeholder="Volts" /></div>
                                                 <div><label style={labelCommon}>Current (I)</label><input type="number" value={ohmValues.i} onChange={(e) => setOhmValues({ ...ohmValues, i: e.target.value })} style={inputCommon} placeholder="Amps" /></div>
                                                 <div><label style={labelCommon}>Resistance (R)</label><input type="number" value={ohmValues.r} onChange={(e) => setOhmValues({ ...ohmValues, r: e.target.value })} style={inputCommon} placeholder="Ohms" /></div>
                                                 <div><label style={labelCommon}>Power (P)</label><input type="number" value={ohmValues.p} onChange={(e) => setOhmValues({ ...ohmValues, p: e.target.value })} style={inputCommon} placeholder="Watts" /></div>
                                             </div>
-                                            <button onClick={calculateOhm} style={{ padding: '12px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Calculate</button>
-                                            <button onClick={() => setOhmValues({ v: '', i: '', r: '', p: '' })} style={{ padding: '8px', backgroundColor: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Reset</button>
+                                            <button onClick={calculateOhm} style={{ padding: '12px', backgroundColor: '#8b5cf6', color: 'var(--pem-text)', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Calculate</button>
+                                            <button onClick={() => setOhmValues({ v: '', i: '', r: '', p: '' })} style={{ padding: '8px', backgroundColor: 'transparent', color: 'var(--pem-text-secondary)', border: '1px solid var(--pem-border)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Reset</button>
                                         </div>
                                     )}
 
                                     {physicsMode === 'sound' && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            <div style={{ backgroundColor: '#1e293b', padding: '15px', borderRadius: '14px', textAlign: 'center' }}>
-                                                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Total Noise Level</div>
+                                            <div style={{ backgroundColor: 'var(--pem-surface-raised)', padding: '15px', borderRadius: '14px', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Total Noise Level</div>
                                                 <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#3b82f6' }}>{calculateSound()} <span style={{ fontSize: '14px' }}>dB</span></div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -438,15 +438,15 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                             {activeTab === 'tax' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button onClick={() => setTaxType('exclusive')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: taxType === 'exclusive' ? '1px solid #3b82f6' : '1px solid #334155', backgroundColor: taxType === 'exclusive' ? 'rgba(59,130,246,0.1)' : 'transparent', color: taxType === 'exclusive' ? '#3b82f6' : '#94a3b8', fontSize: '12px', fontWeight: '600' }}>Exclusive (+)</button>
-                                        <button onClick={() => setTaxType('inclusive')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: taxType === 'inclusive' ? '1px solid #3b82f6' : '1px solid #334155', backgroundColor: taxType === 'inclusive' ? 'rgba(59,130,246,0.1)' : 'transparent', color: taxType === 'inclusive' ? '#3b82f6' : '#94a3b8', fontSize: '12px', fontWeight: '600' }}>Inclusive (-)</button>
+                                        <button onClick={() => setTaxType('exclusive')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: taxType === 'exclusive' ? '1px solid #3b82f6' : '1px solid var(--pem-border)', backgroundColor: taxType === 'exclusive' ? 'rgba(59,130,246,0.1)' : 'transparent', color: taxType === 'exclusive' ? '#3b82f6' : 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: '600' }}>Exclusive (+)</button>
+                                        <button onClick={() => setTaxType('inclusive')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: taxType === 'inclusive' ? '1px solid #3b82f6' : '1px solid var(--pem-border)', backgroundColor: taxType === 'inclusive' ? 'rgba(59,130,246,0.1)' : 'transparent', color: taxType === 'inclusive' ? '#3b82f6' : 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: '600' }}>Inclusive (-)</button>
                                     </div>
 
-                                    <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8', fontSize: '12px' }}>Net Amount</span><span style={{ color: 'white', fontWeight: 'bold' }}>{taxRes.base.toFixed(2)}</span></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8', fontSize: '12px' }}>GST Amount</span><span style={{ color: '#ef4444', fontWeight: 'bold' }}>{taxRes.gst.toFixed(2)}</span></div>
-                                        <div style={{ height: '1px', backgroundColor: '#334155', margin: '4px 0' }} />
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: '#94a3b8', fontSize: '12px' }}>Total Payable</span><span style={{ color: '#22c55e', fontSize: '20px', fontWeight: '900' }}>{taxRes.total.toFixed(2)}</span></div>
+                                    <div style={{ backgroundColor: 'var(--pem-surface-raised)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--pem-text-secondary)', fontSize: '12px' }}>Net Amount</span><span style={{ color: 'var(--pem-text)', fontWeight: 'bold' }}>{taxRes.base.toFixed(2)}</span></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--pem-text-secondary)', fontSize: '12px' }}>GST Amount</span><span style={{ color: '#ef4444', fontWeight: 'bold' }}>{taxRes.gst.toFixed(2)}</span></div>
+                                        <div style={{ height: '1px', backgroundColor: 'var(--pem-border)', margin: '4px 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: 'var(--pem-text-secondary)', fontSize: '12px' }}>Total Payable</span><span style={{ color: '#22c55e', fontSize: '20px', fontWeight: '900' }}>{taxRes.total.toFixed(2)}</span></div>
                                     </div>
 
                                     <div><label style={labelCommon}>Amount</label><input type="number" value={taxAmount} onChange={(e) => setTaxAmount(e.target.value)} style={inputCommon} placeholder="Enter Amount" /></div>
@@ -454,7 +454,7 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                     <div>
                                         <label style={labelCommon}>GST Rate (%)</label>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '8px' }}>
-                                            {[5, 12, 18, 28].map(r => (<button key={r} onClick={() => setTaxRate(r)} style={{ padding: '6px', borderRadius: '6px', backgroundColor: taxRate === r ? '#3b82f6' : '#1e293b', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>{r}%</button>))}
+                                            {[5, 12, 18, 28].map(r => (<button key={r} onClick={() => setTaxRate(r)} style={{ padding: '6px', borderRadius: '6px', backgroundColor: taxRate === r ? '#3b82f6' : 'var(--pem-surface-raised)', color: 'var(--pem-text)', border: 'none', cursor: 'pointer', fontSize: '12px' }}>{r}%</button>))}
                                         </div>
                                         <input type="number" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} style={inputCommon} />
                                     </div>
@@ -467,13 +467,13 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
                                         {['simple', 'compound', 'emi'].map(m => (
-                                            <button key={m} onClick={() => setIntMode(m)} style={{ padding: '8px 4px', borderRadius: '8px', backgroundColor: intMode === m ? '#3b82f6' : '#1e293b', color: 'white', border: 'none', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{m === 'emi' ? 'Loan EMI' : m.charAt(0).toUpperCase() + m.slice(1)}</button>
+                                            <button key={m} onClick={() => setIntMode(m)} style={{ padding: '8px 4px', borderRadius: '8px', backgroundColor: intMode === m ? '#3b82f6' : 'var(--pem-surface-raised)', color: 'var(--pem-text)', border: 'none', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{m === 'emi' ? 'Loan EMI' : m.charAt(0).toUpperCase() + m.slice(1)}</button>
                                         ))}
                                     </div>
 
-                                    <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{intRes.label}</div>
-                                        <div style={{ fontSize: '24px', color: 'white', fontWeight: '800' }}>₹{intRes.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                    <div style={{ backgroundColor: 'var(--pem-surface-raised)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--pem-text-secondary)' }}>{intRes.label}</div>
+                                        <div style={{ fontSize: '24px', color: 'var(--pem-text)', fontWeight: '800' }}>₹{intRes.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                         <div style={{ fontSize: '11px', color: '#ec4899' }}>Interest: ₹{intRes.interest.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                         {intMode === 'emi' && <div style={{ fontSize: '12px', color: '#34d399', fontWeight: 'bold', marginTop: '4px' }}>EMI: ₹{intRes.monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>}
                                     </div>
@@ -518,7 +518,7 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
                                                         <option value="52">Weekly</option>
                                                         <option value="365">Daily</option>
                                                     </select>
-                                                    <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+                                                    <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--pem-text-secondary)', pointerEvents: 'none' }} />
                                                 </div>
                                             </div>
                                         )}
@@ -540,11 +540,11 @@ const btnStyle = (type) => ({
     fontSize: type === 'action' ? '14px' : type === 'sci' ? '12px' : '18px',
     fontWeight: 'bold',
     cursor: 'pointer',
-    backgroundColor: type === 'num' ? '#1e293b' : type === 'primary' ? 'white' : type === 'action' ? 'rgba(239, 68, 68, 0.1)' : type === 'sci' ? '#0f172a' : '#020617',
-    color: type === 'num' ? 'white' : type === 'primary' ? '#0f172a' : type === 'action' ? '#ef4444' : type === 'sci' ? '#60a5fa' : '#94a3b8',
+    backgroundColor: type === 'num' ? 'var(--pem-surface-raised)' : type === 'primary' ? 'white' : type === 'action' ? 'rgba(239, 68, 68, 0.1)' : type === 'sci' ? 'var(--pem-bg-sunken)' : 'var(--pem-bg)',
+    color: type === 'num' ? 'var(--pem-text)' : type === 'primary' ? 'var(--pem-bg-sunken)' : type === 'action' ? '#ef4444' : type === 'sci' ? '#60a5fa' : 'var(--pem-text-secondary)',
     boxShadow: type === 'primary' ? '0 4px 15px rgba(255, 255, 255, 0.2)' : '0 2px 5px rgba(0,0,0,0.2)',
     transition: 'transform 0.1s',
-    border: type === 'sci' ? '1px solid #1e293b' : 'none'
+    border: type === 'sci' ? '1px solid var(--pem-border)' : 'none'
 });
 
 export default CalculatorPanel;

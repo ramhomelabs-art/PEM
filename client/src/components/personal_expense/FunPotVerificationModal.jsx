@@ -1,5 +1,6 @@
 import { notifyDataChanged } from '../../utils/realtimeSync';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Coins,
@@ -32,7 +33,7 @@ export function FunPotVerificationModal({
 
     if (!isOpen || !verificationItem) return null;
 
-    const { id, transactionId, amount, goalTitle, date, dateStr } = verificationItem;
+    const { id, transactionId, amount, goalTitle, date } = verificationItem;
 
     const formattedDate = date ? new Date(date).toLocaleDateString(undefined, {
         weekday: 'short',
@@ -134,9 +135,9 @@ export function FunPotVerificationModal({
         }
     };
 
-    return (
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
                 {/* Backdrop */}
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -151,7 +152,7 @@ export function FunPotVerificationModal({
                     initial={{ opacity: 0, scale: 0.94, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.94, y: 20 }}
-                    className="relative w-full max-w-md overflow-hidden rounded-3xl bg-[#0c1427] border border-amber-500/30 shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 p-6 space-y-5 text-center"
+                    className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface border border-amber-500/30 shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 p-6 space-y-5 text-center"
                 >
                     {/* Top ambient highlight */}
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500" />
@@ -161,7 +162,7 @@ export function FunPotVerificationModal({
                         type="button"
                         onClick={onClose}
                         title="Close (will remind you next time you log in)"
-                        className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
+                        className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-xl bg-raised text-ink-muted hover:bg-line hover:text-ink transition cursor-pointer"
                     >
                         <X size={16} />
                     </button>
@@ -171,7 +172,7 @@ export function FunPotVerificationModal({
                         <span className="grid h-16 w-16 place-items-center rounded-3xl bg-gradient-to-br from-amber-400/20 to-orange-500/20 text-amber-300 shadow-[0_0_30px_rgba(245,158,11,0.3)] mb-3">
                             <Coins size={32} />
                         </span>
-                        <h3 className="text-lg font-black tracking-tight text-white">
+                        <h3 className="text-lg font-black tracking-tight text-ink">
                             Physical Pot Deposit Check-In
                         </h3>
                         <p className="text-xs text-ink-muted mt-1 max-w-xs">
@@ -180,7 +181,7 @@ export function FunPotVerificationModal({
                     </div>
 
                     {/* Pending Stash Card */}
-                    <div className="rounded-2xl bg-[#080e1d] border border-white/[0.06] p-4 text-left space-y-2">
+                    <div className="rounded-2xl bg-sunken border border-line p-4 text-left space-y-2">
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-ink-muted flex items-center gap-1.5 font-medium">
                                 <Clock size={13} />
@@ -193,7 +194,7 @@ export function FunPotVerificationModal({
 
                         <div className="flex items-baseline justify-between pt-1">
                             <div>
-                                <p className="text-xs font-bold text-white">
+                                <p className="text-xs font-bold text-ink">
                                     {goalTitle || 'Fun Money Goal'}
                                 </p>
                                 <p className="text-[11px] text-ink-muted">
@@ -206,7 +207,7 @@ export function FunPotVerificationModal({
                         </div>
                     </div>
 
-                    <p className="text-xs font-semibold text-white/90 leading-relaxed px-1">
+                    <p className="text-xs font-semibold text-ink leading-relaxed px-1">
                         Did you physically put this <span className="text-amber-300 font-bold">{formatCurrency(amount, currency)}</span> into your cash jar or savings pot?
                     </p>
 
@@ -241,7 +242,7 @@ export function FunPotVerificationModal({
                                     type="button"
                                     onClick={handleRollback}
                                     disabled={loading}
-                                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-raised hover:bg-line text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                                 >
                                     <RotateCcw size={15} />
                                     <span>No, Roll It Back</span>
@@ -251,7 +252,7 @@ export function FunPotVerificationModal({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="text-[11px] font-semibold text-ink-muted hover:text-white transition cursor-pointer py-1"
+                                className="text-[11px] font-semibold text-ink-muted hover:text-ink transition cursor-pointer py-1"
                             >
                                 Remind Me Next Time I Log In →
                             </button>
@@ -263,7 +264,8 @@ export function FunPotVerificationModal({
                     </p>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }
 

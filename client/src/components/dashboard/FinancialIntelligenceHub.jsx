@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import {
     Sparkles,
     Gift,
@@ -91,7 +90,7 @@ export function FinancialIntelligenceHub({
                             type="button"
                             onClick={tool.onClick}
                             className={cx(
-                                'group relative flex flex-col justify-between p-4 rounded-2xl bg-[#0c1427] hover:bg-[#101a33] transition-all duration-300 text-left shadow-[0_8px_24px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] active:scale-[0.98] overflow-hidden'
+                                'group relative flex flex-col justify-between p-4 rounded-2xl bg-surface hover:bg-raised transition-all duration-300 text-left shadow-[0_8px_24px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] active:scale-[0.98] overflow-hidden'
                             )}
                         >
                             {/* Ambient gradient */}
@@ -102,12 +101,12 @@ export function FinancialIntelligenceHub({
                                     <span className={cx('grid h-9 w-9 place-items-center rounded-xl transition-transform group-hover:scale-110', tool.iconColor)}>
                                         <Icon size={17} />
                                     </span>
-                                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted bg-white/[0.04] group-hover:bg-white/[0.08] px-2.5 py-1 rounded-full transition-colors">
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted bg-raised group-hover:bg-line px-2.5 py-1 rounded-full transition-colors">
                                         {tool.badge}
                                     </span>
                                 </div>
 
-                                <h4 className="text-sm font-extrabold text-white group-hover:text-teal-300 transition-colors">
+                                <h4 className="text-sm font-extrabold text-ink group-hover:text-teal-300 transition-colors">
                                     {tool.title}
                                 </h4>
                                 <p className="mt-1 text-xs text-ink-muted leading-relaxed line-clamp-2">

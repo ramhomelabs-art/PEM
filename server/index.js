@@ -88,17 +88,47 @@ console.error = function (...args) {
 
 
 // Middleware
+const configuredOrigins = (process.env.CLIENT_URL || 'http://localhost:5174')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+// Permit localhost + private LAN / Tailscale origins (self-hosted app) without
+// reflecting arbitrary public origins with credentials.
+const isPrivateLanOrigin = (origin) => {
+    try {
+        const { hostname } = new URL(origin);
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+        if (/^10\./.test(hostname)) return true;
+        if (/^192\.168\./.test(hostname)) return true;
+        if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+        if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname)) return true; // CGNAT / Tailscale
+        if (/\.ts\.net$/.test(hostname)) return true; // Tailscale MagicDNS
+        return false;
+    } catch {
+        return false;
+    }
+};
+
 const corsOptions = {
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
-        // if (!origin) return callback(null, true);
-
-        // Permissive Global CORS (User Request: Localhost-style)
-        callback(null, true);
+        if (!origin) return callback(null, true);
+        if (configuredOrigins.includes(origin) || isPrivateLanOrigin(origin)) {
+            return callback(null, true);
+        }
+        console.warn(`[CORS] Blocked origin: ${origin}`);
+        return callback(null, false);
     },
     credentials: true
 };
 app.use(cors(corsOptions));
+
+// Container & Monitor Health Check (Unthrottled)
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 app.use('/api', apiLimiter); // Apply general rate limit to all API routes
 app.use('/api/sms', smsLimiter); // Apply stricter limit to SMS webhook
 
@@ -218,16 +248,19 @@ const initializeDatabase = async () => {
         try {
             await sequelize.sync(); // Sync without alter to avoid key limit errors
 
-            // Seed Admin (Updated to single user rampaiyyan@gmail.com)
+            // Seed Admin (email/password configurable; no hardcoded default password)
             const adminKey = require('crypto').randomBytes(16).toString('hex');
-            const existingAdmin = await User.findOne({ where: { email: 'rampaiyyan@gmail.com' } });
+            const adminEmail = process.env.ADMIN_EMAIL || 'rampaiyyan@gmail.com';
+            const providedPassword = process.env.ADMIN_PASSWORD;
+            const existingAdmin = await User.findOne({ where: { email: adminEmail } });
 
             if (!existingAdmin) {
                 const bcrypt = require('bcryptjs');
-                const hashedPassword = await bcrypt.hash('password123', 10);
+                const adminPassword = providedPassword || require('crypto').randomBytes(12).toString('base64url');
+                const hashedPassword = await bcrypt.hash(adminPassword, 10);
                 await User.create({
-                    email: 'rampaiyyan@gmail.com',
-                    username: 'admin',
+                    email: adminEmail,
+                    username: process.env.ADMIN_USERNAME || 'admin',
                     fullName: 'Ram Paiyyan',
                     password: hashedPassword,
                     role: 'admin',
@@ -240,13 +273,17 @@ const initializeDatabase = async () => {
                     dob: '1995-12-23',
                     smsApiKey: adminKey
                 });
-                console.log('Admin account auto-seeded: rampaiyyan@gmail.com');
+                if (providedPassword) {
+                    console.log(`Admin account auto-seeded: ${adminEmail}`);
+                } else {
+                    console.log(`Admin account auto-seeded: ${adminEmail} | TEMP PASSWORD: ${adminPassword} (change it now)`);
+                }
             } else {
                 if (!existingAdmin.smsApiKey) {
                     await existingAdmin.update({ smsApiKey: adminKey });
                     console.log('Admin account updated: Added missing smsApiKey');
                 } else {
-                    console.log('Admin account already exists: rampaiyyan@gmail.com');
+                    console.log(`Admin account already exists: ${adminEmail}`);
                 }
             }
 
@@ -315,6 +352,10 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         let loanRoutes, borrowRoutes, bankRoutes, cardRoutes, budgetRoutes;
         let serverRoutes, statementRoutes, smsRoutes, documentsRoutes, creditCardRoutes, metalsRoutes, newsRoutes, marketRoutes;
         let friendsRoutes, messagesRoutes, shareRoutes, groupsRoutes, mfaRoutes, mfaAdminRoutes;
+        let notificationsRoutes;
+        let reconciliationRoutes;
+        let anomaliesRoutes;
+        let subscriptionsRoutes;
         let pricesRoutes;
         let casRoutes;
         let invAssetsRoutes, invTxnsRoutes, invSipsRoutes, invGoalsRoutes, invDashRoutes, invTaxRoutes, investmentsRoutes;
@@ -365,6 +406,10 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         groupsRoutes = safeLoad('Groups', './routes/personal_expense/groups');
         mfaRoutes = safeLoad('MFA', './routes/mfa');
         mfaAdminRoutes = safeLoad('MFA Admin', './routes/admin/mfaAdmin');
+        notificationsRoutes = safeLoad('Notifications', './routes/personal_expense/notifications');
+        reconciliationRoutes = safeLoad('Reconciliation', './routes/personal_expense/reconciliation');
+        anomaliesRoutes = safeLoad('Anomalies', './routes/personal_expense/anomalies');
+        subscriptionsRoutes = safeLoad('Subscriptions', './routes/personal_expense/subscriptions');
         pricesRoutes = safeLoad('Investing Prices', './routes/investing/prices');
         casRoutes = safeLoad('Investing CAS', './routes/investing/cas');
         invAssetsRoutes = safeLoad('Investing Assets', './routes/investing/assets');
@@ -386,27 +431,38 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
             }
         }));
 
+        // Graceful fallback for missing profile photos/uploads to prevent browser 404 errors
+        app.use('/uploads', (req, res) => {
+            res.setHeader('Content-Type', 'image/svg+xml');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            res.send('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="#1e293b"/><circle cx="64" cy="50" r="24" fill="#64748b"/><ellipse cx="64" cy="100" rx="36" ry="24" fill="#64748b"/></svg>');
+        });
+
         // Mount Routes Conditionally
         if (mfaAdminRoutes) app.use('/api/admin/mfa', mfaAdminRoutes);
         if (adminRoutes) app.use('/api/admin', adminRoutes);
         if (mfaRoutes) app.use('/api/mfa', mfaRoutes);
+        if (notificationsRoutes) app.use('/api/notifications', notificationsRoutes);
+        if (reconciliationRoutes) app.use('/api/reconciliation', reconciliationRoutes);
+        if (anomaliesRoutes) app.use('/api/anomalies', anomaliesRoutes);
+        if (subscriptionsRoutes) app.use('/api/subscriptions', subscriptionsRoutes);
         if (authRoutes) app.use('/api/auth', authRoutes);
-        if (apiRoutes) app.use('/api/data', apiRoutes);
+        if (apiRoutes) app.use('/api/data', authenticateToken, apiRoutes);
         if (userRoutes) app.use('/api/user', userRoutes);
-        if (transactionRoutes) app.use('/api/transactions', transactionRoutes);
+        if (transactionRoutes) app.use('/api/transactions', authenticateToken, transactionRoutes);
         if (billRoutes) app.use('/api/bills', billRoutes);
         if (loanRoutes) app.use('/api/loans', loanRoutes);
-        if (borrowRoutes) app.use('/api/borrow', borrowRoutes);
-        if (bankRoutes) app.use('/api/banks', bankRoutes);
+        if (borrowRoutes) app.use('/api/borrow', authenticateToken, borrowRoutes);
+        if (bankRoutes) app.use('/api/banks', authenticateToken, bankRoutes);
         if (cardRoutes) app.use('/api/cards', cardRoutes);
-        if (budgetRoutes) app.use('/api/budgets', budgetRoutes);
+        if (budgetRoutes) app.use('/api/budgets', authenticateToken, budgetRoutes);
         if (serverRoutes) app.use('/api/server', serverRoutes);
-        if (statementRoutes) app.use('/api/statements', statementRoutes);
-        if (documentsRoutes) app.use('/api/documents', documentsRoutes);
+        if (statementRoutes) app.use('/api/statements', authenticateToken, statementRoutes);
+        if (documentsRoutes) app.use('/api/documents', authenticateToken, documentsRoutes);
         if (creditCardRoutes) app.use('/api/credit-cards', creditCardRoutes);
-        if (metalsRoutes) app.use('/api/metals', metalsRoutes);
-        if (newsRoutes) app.use('/api/news', newsRoutes);
-        if (marketRoutes) app.use('/api/market', marketRoutes);
+        if (metalsRoutes) app.use('/api/metals', authenticateToken, metalsRoutes);
+        if (newsRoutes) app.use('/api/news', authenticateToken, newsRoutes);
+        if (marketRoutes) app.use('/api/market', authenticateToken, marketRoutes);
         if (friendsRoutes) app.use('/api/friends', authenticateToken, friendsRoutes);
         if (messagesRoutes) app.use('/api/messages', authenticateToken, messagesRoutes);
         if (shareRoutes) app.use('/api/share', authenticateToken, shareRoutes);
@@ -418,7 +474,7 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         if (invTxnsRoutes) app.use('/api/investing/txns', authenticateToken, invTxnsRoutes);
         if (invSipsRoutes) app.use('/api/investing/sips', authenticateToken, invSipsRoutes);
         if (invGoalsRoutes) app.use('/api/investing/goals', authenticateToken, invGoalsRoutes);
-        if (investmentsRoutes) app.use('/api/investments', investmentsRoutes);
+        if (investmentsRoutes) app.use('/api/investments', authenticateToken, investmentsRoutes);
         if (invDashRoutes) {
             app.use('/api/investing/dashboard', authenticateToken, invDashRoutes);
         }
@@ -438,7 +494,10 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         app.use((err, req, res, next) => {
             console.error(err.stack);
             const status = err.status || 500;
-            res.status(status).json({ error: status === 500 ? "Internal Server Error" : "Request Error", detail: err.message });
+            const body = { error: status === 500 ? "Internal Server Error" : "Request Error" };
+            // Never leak internal error messages/stack details on 5xx responses.
+            if (status !== 500 && err.message) body.detail = err.message;
+            res.status(status).json(body);
         });
 
         // Start Server
@@ -456,6 +515,34 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         } catch (err) {
             console.error('[PriceSync] scheduler start failed:', err.message);
         }
+
+        // Ensure Python AI Extraction Service is running
+        (async () => {
+            const pythonUrl = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:5002';
+            try {
+                const axios = require('axios');
+                await axios.get(`${pythonUrl}/health`, { timeout: 2000 });
+                console.log('[AI Extractor] Python AI Service is active and responding on port 5002.');
+            } catch (e) {
+                console.log('[AI Extractor] Python AI Service offline. Launching background worker...');
+                const { spawn } = require('child_process');
+                const rootDir = path.resolve(__dirname, '..');
+                const venvWin = path.join(rootDir, 'python-extraction-service/venv_win/Scripts/python.exe');
+                const venvLinux = path.join(rootDir, 'python-extraction-service/venv/bin/python');
+                const pyCmd = fs.existsSync(venvWin) ? venvWin : (fs.existsSync(venvLinux) ? venvLinux : 'python');
+                const scriptPath = path.join(rootDir, 'python-extraction-service/app.py');
+
+                if (fs.existsSync(scriptPath)) {
+                    const proc = spawn(pyCmd, [scriptPath], {
+                        cwd: path.dirname(scriptPath),
+                        detached: true,
+                        stdio: 'ignore'
+                    });
+                    proc.unref();
+                    console.log(`[AI Extractor] Auto-started Python AI Extraction Service via ${pyCmd}`);
+                }
+            }
+        })().catch(err => console.error('[AI Extractor] Auto-supervision error:', err.message));
 
     } catch (error) {
         console.error('FATAL SERVER STARTUP ERROR:', error);

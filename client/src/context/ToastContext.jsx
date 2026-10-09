@@ -95,12 +95,19 @@ export const ToastProvider = ({ children }) => {
     // Extended convenience helpers
     const toast = useMemo(() => {
         const fn = (config) => addToast(config);
+        // eslint-disable-next-line react-hooks/immutability -- attaching helpers to a callable is intentional
         fn.success = (msg, opts = {}) => addToast(msg, 'success', opts.duration || 4000, opts);
+        // eslint-disable-next-line react-hooks/immutability
         fn.error = (msg, opts = {}) => addToast(msg, 'error', opts.duration || 5000, opts);
+        // eslint-disable-next-line react-hooks/immutability
         fn.warning = (msg, opts = {}) => addToast(msg, 'warning', opts.duration || 4500, opts);
+        // eslint-disable-next-line react-hooks/immutability
         fn.info = (msg, opts = {}) => addToast(msg, 'info', opts.duration || 4000, opts);
+        // eslint-disable-next-line react-hooks/immutability
         fn.financial = (msg, opts = {}) => addToast(msg, 'financial', opts.duration || 4500, opts);
+        // eslint-disable-next-line react-hooks/immutability
         fn.dismiss = removeToast;
+        // eslint-disable-next-line react-hooks/immutability
         fn.clear = clearAll;
         return fn;
     }, [addToast, removeToast, clearAll]);

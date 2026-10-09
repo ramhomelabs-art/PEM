@@ -27,7 +27,9 @@ function getInitialCache() {
                 };
             }
         }
-    } catch (e) {}
+    } catch {
+        // Ignore malformed cache entries and fall back to null.
+    }
     return null;
 }
 
@@ -131,7 +133,9 @@ export function useWeather(location, { refreshMs = 15 * 60 * 1000 } = {}) {
                         low: freshData.low,
                         timestamp: Date.now()
                     }));
-                } catch (e) {}
+                } catch {
+                    // Cache write is best-effort; ignore storage failures.
+                }
 
                 if (!cancelled) {
                     setState({

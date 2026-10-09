@@ -1,0 +1,15 @@
+# Dependencies & build output
+node_modules
+dist
+build
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# VCS / editor / docker
+.git
+.gitignore
+Dockerfile
+.dockerignore

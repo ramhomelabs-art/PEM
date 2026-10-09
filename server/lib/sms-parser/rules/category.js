@@ -25,8 +25,12 @@ const EXPENSE_CATEGORIES = [
         regex: /\b(bescom|tneb|mahadiscom|mseb|adani\s*electricity|tata\s*power|torrent\s*power|bwssb|jal\s*board|indraprastha\s*gas|mahanagar\s*gas|gail|jio\s*fiber|airtel\s*fiber|act\s*fibernet|electricity|power|water|gas|utility|maintenance|bill)\b/i
     },
     {
+        name: 'Subscription',
+        regex: /\b(autopay|e-mandate|standing\s*instruction|si\s*debited|subscription|recurring|membership|netflix|spotify|youtube\s*premium|apple\s*services|apple\.com\/bill|google\s*play|hotstar|prime\s*video|sonyliv|zee5|chatgpt|openai|notion|github|canva|microsoft\s*365|patreon)\b/i
+    },
+    {
         name: 'Entertainment',
-        regex: /\b(netflix|prime|hotstar|sonyliv|zee5|spotify|wynk|gaana|bookmyshow|pvr|inox|imax|steam|playstation|xbox|movie|cinema|theatre|concert|music|gaming)\b/i
+        regex: /\b(bookmyshow|pvr|inox|imax|steam|playstation|xbox|movie|cinema|theatre|concert|music|gaming)\b/i
     },
     // Fees rule kept as it's critical for banking even not in new list explicitly, 
     // but the user said "don't add new categories". 

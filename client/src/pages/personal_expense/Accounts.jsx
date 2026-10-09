@@ -14,6 +14,8 @@ import PDFViewer from '../../components/personal_expense/PDFViewer';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
 import { formatCurrency } from '../../utils/currency';
 
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+
 const Accounts = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
@@ -134,7 +136,7 @@ const Accounts = () => {
 
     const fetchBanks = async () => {
         try {
-            const res = await fetch(`${API_URL}/banks/user/${user.id}`);
+            const res = await fetch(`${API_URL}/banks/user/${user.id}`, { headers: authHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
@@ -152,7 +154,7 @@ const Accounts = () => {
     const fetchDocuments = async () => {
         try {
             console.log('[Accounts] Fetching documents for user:', user.id);
-            const res = await fetch(`${API_URL}/documents/user/${user.id}`);
+            const res = await fetch(`${API_URL}/documents/user/${user.id}`, { headers: authHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 console.log('[Accounts] Documents fetched:', data);
@@ -176,7 +178,7 @@ const Accounts = () => {
         try {
             const res = await fetch(`${API_URL}/banks`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ ...bankForm, userId: user.id })
             });
             if (res.ok) {
@@ -194,7 +196,7 @@ const Accounts = () => {
         try {
             const res = await fetch(`${API_URL}/cards`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ ...cardForm, userId: user.id, bankId: selectedBank.id })
             });
             if (res.ok) {
@@ -218,6 +220,7 @@ const Accounts = () => {
         try {
             const res = await fetch(`${API_URL}/documents/upload`, {
                 method: 'POST',
+                headers: authHeaders(),
                 body: formData
             });
             if (res.ok) {
@@ -232,7 +235,7 @@ const Accounts = () => {
 
     const handleDeleteBank = async (bankId) => {
         try {
-            const res = await fetch(`${API_URL}/banks/${bankId}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/banks/${bankId}`, { method: 'DELETE', headers: authHeaders() });
             if (res.ok) {
                 if (selectedBank?.id === bankId) setSelectedBank(null);
                 fetchBanks();
@@ -245,7 +248,7 @@ const Accounts = () => {
 
     const handleDeleteCard = async (cardId) => {
         try {
-            const res = await fetch(`${API_URL}/cards/${cardId}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/cards/${cardId}`, { method: 'DELETE', headers: authHeaders() });
             if (res.ok) {
                 fetchBanks();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
@@ -258,7 +261,7 @@ const Accounts = () => {
     const handleDeleteDocument = async (docId, skipConfirm = false) => {
         if (!skipConfirm && !window.confirm('Delete this document?')) return false;
         try {
-            const res = await fetch(`${API_URL}/documents/${docId}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/documents/${docId}`, { method: 'DELETE', headers: authHeaders() });
             if (res.ok) {
                 fetchDocuments();
                 return true;
@@ -283,7 +286,7 @@ const Accounts = () => {
     };
 
     if (!user) {
-        return <div style={{ display: 'flex', width: '100vw', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617', color: 'white' }}><p>Loading...</p></div>;
+        return <div style={{ display: 'flex', width: '100vw', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--pem-bg)', color: 'var(--pem-text)' }}><p>Loading...</p></div>;
     }
 
     if (isLocked) {
@@ -364,12 +367,73 @@ const Accounts = () => {
                 </div>
             </div>
 
+            {/* RUNWAY & LIQUID RESERVE CARD */}
+            {runwayData.totalLiquid > 0 && (
+                <div className="mb-6 p-5 rounded-2xl border border-line bg-surface/70 backdrop-blur-md shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+                                    Emergency Cash Runway
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${runwayData.badgeColor}`}>
+                                        {runwayData.badgeText}
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-ink-muted">
+                                    Total Liquid Cash: <strong className="text-emerald-400">{formatCurrency(runwayData.totalLiquid, currency)}</strong> &bull; Monthly Burn: <strong className="text-ink">{formatCurrency(runwayData.monthlyBurn, currency)}</strong>
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowRunwayTips(!showRunwayTips)}
+                            className="text-xs text-ink-muted hover:text-ink flex items-center gap-1 font-semibold transition cursor-pointer"
+                        >
+                            {showRunwayTips ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            <span>{showRunwayTips ? 'Hide Target Details' : 'View Target Details'}</span>
+                        </button>
+                    </div>
+
+                    {/* Progress bar */}
+                        <div className="w-full bg-raised rounded-full h-2.5 overflow-hidden">
+                        <div
+                            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-500"
+                            style={{ width: `${runwayData.progressPercent}%` }}
+                        />
+                    </div>
+                    <div className="flex justify-between items-center text-[11px] font-semibold text-ink-muted mt-1.5">
+                        <span>Current Runway: <strong className="text-ink">{runwayData.runwayMonthsFormatted} Months</strong> ({runwayData.runwayDays} Days)</span>
+                        <span>6-Month Safety Target: <strong className="text-ink">{formatCurrency(runwayData.targetGoal, currency)}</strong></span>
+                    </div>
+
+                    {showRunwayTips && (
+                        <div className="mt-3 pt-3 border-t border-line/60 text-xs text-ink-muted grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="p-2.5 rounded-xl bg-surface/50">
+                                <p className="font-bold text-ink mb-0.5">Target Fortress Goal</p>
+                                <p className="text-[11px]">Recommended reserve is 6 months of living expenses ({formatCurrency(runwayData.targetGoal, currency)}).</p>
+                            </div>
+                                    <div className="p-2.5 rounded-xl bg-surface/50">
+                                <p className="font-bold text-ink mb-0.5">Estimated Survival Days</p>
+                                <p className="text-[11px]">Based on your 90-day spending rate, your cash pool supports {runwayData.runwayDays} days without income.</p>
+                            </div>
+                                    <div className="p-2.5 rounded-xl bg-surface/50">
+                                <p className="font-bold text-ink mb-0.5">Liquid Allocation</p>
+                                <p className="text-[11px]">Spread across {banks.length} linked bank accounts with full instant liquidity.</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* BANK VIEW */}
             {activeView === 'bank' && (
                 <div>
-                    <div style={{ display: 'flex', gap: '40px' }}>
+                    <div className="flex flex-col lg:flex-row gap-8">
                     {/* LEFT: BANK LIST */}
-                    <div style={{ width: '350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text }}>My Banks</h2>
                             <button onClick={() => setIsBankModalOpen(true)} style={{ padding: '10px', backgroundColor: '#10b981', borderRadius: '12px', border: 'none', cursor: 'pointer', color: 'white', boxShadow: '0 5px 15px rgba(16,185,129,0.2)' }}>
@@ -381,19 +445,19 @@ const Accounts = () => {
                             <div key={bank.id} style={{ padding: '20px', borderRadius: '20px', backgroundColor: selectedBank?.id === bank.id ? theme.inputBg : theme.card, border: selectedBank?.id === bank.id ? '1px solid #10b981' : `1px solid ${theme.border}`, cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }}>
                                 <div onClick={() => setSelectedBank(bank)}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
-                                        <div style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
+                                        <div style={{ padding: '10px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '10px' }}>
                                             <Landmark size={24} color="#10b981" />
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <h3 style={{ margin: 0, fontWeight: 'bold', color: theme.text }}>{bank.name}</h3>
                                             <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{bank.type} Account</p>
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteBank(bank.id); }} style={{ padding: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }} title="Delete Bank">
+                                        <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, action: 'deleteBank', id: bank.id }); }} style={{ padding: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }} title="Delete Bank">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
                                     <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '900', color: theme.text }}>
-                                        {user?.currency === 'INR' ? '₹' : '$'}{Number(bank.balance).toLocaleString()}
+                                        {formatCurrency(bank.balance, currency)}
                                     </h2>
                                 </div>
                             </div>
@@ -452,7 +516,7 @@ const Accounts = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', opacity: 0.8 }}>{card.type.toUpperCase()}</p>
                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                    <button onClick={() => handleDeleteCard(card.id)} style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer' }} title="Delete Card">
+                                                    <button onClick={() => setConfirmDialog({ isOpen: true, action: 'deleteCard', id: card.id })} style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer' }} title="Delete Card">
                                                         <Trash2 size={16} />
                                                     </button>
                                                     <CreditCard size={24} />
@@ -672,7 +736,7 @@ const Accounts = () => {
                             </div>
                         ) : (
                             /* Document Viewer */
-                            <div style={{ flex: 1, borderRadius: '16px', border: `1px solid ${theme.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, position: 'relative', backgroundColor: '#1e293b' }}>
+                            <div style={{ flex: 1, borderRadius: '16px', border: `1px solid ${theme.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, position: 'relative',                                 backgroundColor: 'var(--pem-surface-raised)' }}>
                                 {viewerDoc.mimeType?.startsWith('image/') || viewerDoc.filePath?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                                         <img

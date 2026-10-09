@@ -94,7 +94,7 @@ export default function CreditCardRewards() {
     if (loading) {
         return (
             <div className="flex h-96 items-center justify-center">
-                <div className="flex items-center space-x-3 text-slate-400">
+                <div className="flex items-center space-x-3 text-ink-muted">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
                     <span>Loading Rewards & Benefits...</span>
                 </div>
@@ -111,24 +111,24 @@ export default function CreditCardRewards() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/20">
                             <Award className="h-5 w-5" />
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+                        <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
                             Rewards & Benefits
                         </h1>
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-ink-muted">
                         Maximize your credit card point accruals, milestone waivers, and premium travel perks.
                     </p>
                 </div>
 
                 {/* Filter and Tab buttons */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex rounded-xl bg-slate-800/80 p-1 border border-slate-700/60">
+                    <div className="flex rounded-xl bg-raised/80 p-1 border border-line/60">
                         <button
                             onClick={() => setActiveTab('summary')}
                             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                                 activeTab === 'summary'
                                     ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'text-slate-400 hover:text-white'
+                                    : 'text-ink-muted hover:text-ink'
                             }`}
                         >
                             Overview
@@ -138,7 +138,7 @@ export default function CreditCardRewards() {
                             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                                 activeTab === 'perks'
                                     ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'text-slate-400 hover:text-white'
+                                    : 'text-ink-muted hover:text-ink'
                             }`}
                         >
                             Perks & Lounge
@@ -148,7 +148,7 @@ export default function CreditCardRewards() {
                             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                                 activeTab === 'calculator'
                                     ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'text-slate-400 hover:text-white'
+                                    : 'text-ink-muted hover:text-ink'
                             }`}
                         >
                             Spend Calculator
@@ -158,7 +158,7 @@ export default function CreditCardRewards() {
                     <select
                         value={selectedCardId}
                         onChange={(e) => setSelectedCardId(e.target.value)}
-                        className="rounded-xl border border-slate-700/60 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        className="rounded-xl border border-line/60 bg-raised/80 px-3 py-1.5 text-xs font-medium text-ink outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                     >
                         <option value="all">All Cards ({cards.length})</option>
                         {cards.map((c) => (
@@ -172,15 +172,15 @@ export default function CreditCardRewards() {
 
             {/* Top Stat Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
+                <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-400">Total Points Accrued</span>
+                        <span className="text-xs font-medium text-ink-muted">Total Points Accrued</span>
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
                             <Sparkles className="h-4 w-4" />
                         </div>
                     </div>
-                    <div className="mt-3 text-2xl font-bold text-white tracking-tight">
-                        {stats.estimatedPoints.toLocaleString('en-IN')} <span className="text-xs font-normal text-slate-400">pts</span>
+                    <div className="mt-3 text-2xl font-bold text-ink tracking-tight">
+                        {stats.estimatedPoints.toLocaleString('en-IN')} <span className="text-xs font-normal text-ink-muted">pts</span>
                     </div>
                     <div className="mt-2 flex items-center text-xs text-amber-400">
                         <TrendingUp className="mr-1 h-3.5 w-3.5" />
@@ -188,9 +188,9 @@ export default function CreditCardRewards() {
                     </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
+                <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-400">Estimated Cash Value</span>
+                        <span className="text-xs font-medium text-ink-muted">Estimated Cash Value</span>
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                             <Gift className="h-4 w-4" />
                         </div>
@@ -198,29 +198,29 @@ export default function CreditCardRewards() {
                     <div className="mt-3 text-2xl font-bold text-emerald-400 tracking-tight">
                         {formatCurrency(stats.estimatedValueInRupees, 'INR')}
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
+                    <div className="mt-2 text-xs text-ink-muted">
                         Redeemable at ₹0.25 – ₹0.50 / point
                     </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
+                <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-400">Eligible Lounge Visits</span>
+                        <span className="text-xs font-medium text-ink-muted">Eligible Lounge Visits</span>
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
                             <Plane className="h-4 w-4" />
                         </div>
                     </div>
-                    <div className="mt-3 text-2xl font-bold text-white tracking-tight">
-                        {cards.length * 2} <span className="text-xs font-normal text-slate-400">/ quarter</span>
+                    <div className="mt-3 text-2xl font-bold text-ink tracking-tight">
+                        {cards.length * 2} <span className="text-xs font-normal text-ink-muted">/ quarter</span>
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
+                    <div className="mt-2 text-xs text-ink-muted">
                         Across {cards.length} eligible credit card(s)
                     </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
+                <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-b from-slate-850 to-slate-900/90 p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-400">Annual Fee Savings</span>
+                        <span className="text-xs font-medium text-ink-muted">Annual Fee Savings</span>
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                             <ShieldCheck className="h-4 w-4" />
                         </div>
@@ -228,7 +228,7 @@ export default function CreditCardRewards() {
                     <div className="mt-3 text-2xl font-bold text-indigo-400 tracking-tight">
                         {formatCurrency(cards.length * 999, 'INR')}
                     </div>
-                    <div className="mt-2 text-xs text-slate-400">
+                    <div className="mt-2 text-xs text-ink-muted">
                         Milestone waivers active on cards
                     </div>
                 </div>
@@ -238,20 +238,20 @@ export default function CreditCardRewards() {
             {activeTab === 'summary' && (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Cards Reward Rates */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 lg:col-span-2">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div className="rounded-2xl border border-line bg-surface/80 p-6 lg:col-span-2">
+                        <div className="flex items-center justify-between border-b border-line pb-4">
                             <div>
-                                <h2 className="text-lg font-bold text-white">Card Points & Accruals</h2>
-                                <p className="text-xs text-slate-400">Active earning rates per ₹100 spent</p>
+                                <h2 className="text-lg font-bold text-ink">Card Points & Accruals</h2>
+                                <p className="text-xs text-ink-muted">Active earning rates per ₹100 spent</p>
                             </div>
-                            <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300">
+                            <span className="rounded-lg bg-raised px-2.5 py-1 text-xs font-medium text-ink-muted">
                                 {filteredCards.length} Cards
                             </span>
                         </div>
 
                         {filteredCards.length === 0 ? (
-                            <div className="py-12 text-center text-slate-500">
-                                <CardIcon className="mx-auto mb-3 h-10 w-10 text-slate-600" />
+                            <div className="py-12 text-center text-ink-faint">
+                                <CardIcon className="mx-auto mb-3 h-10 w-10 text-ink-faint" />
                                 No credit cards found matching your selection.
                             </div>
                         ) : (
@@ -268,14 +268,14 @@ export default function CreditCardRewards() {
                                             className="flex flex-col gap-4 py-4 transition first:pt-2 last:pb-2 sm:flex-row sm:items-center sm:justify-between"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-700 text-slate-300">
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-line text-ink-muted">
                                                     <CardIcon className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-sm font-semibold text-white">
+                                                    <h3 className="text-sm font-semibold text-ink">
                                                         {card.name || `${card.bank} Credit Card`}
                                                     </h3>
-                                                    <p className="text-xs text-slate-400">
+                                                    <p className="text-xs text-ink-muted">
                                                         {card.bank || 'Bank'} •••• {card.lastFourDigits || '0000'} | {card.cardType || 'Visa'}
                                                     </p>
                                                 </div>
@@ -286,13 +286,13 @@ export default function CreditCardRewards() {
                                                     <div className="text-xs font-medium text-amber-400">
                                                         {rate} pts / ₹100
                                                     </div>
-                                                    <div className="text-xs text-slate-500">
+                                                    <div className="text-xs text-ink-faint">
                                                         Spend: {formatCurrency(spend, 'INR')}
                                                     </div>
                                                 </div>
 
                                                 <div className="text-right">
-                                                    <div className="text-sm font-bold text-white">
+                                                    <div className="text-sm font-bold text-ink">
                                                         {points.toLocaleString('en-IN')} pts
                                                     </div>
                                                     <div className="text-xs text-emerald-400">
@@ -308,9 +308,9 @@ export default function CreditCardRewards() {
                     </div>
 
                     {/* Redemption Channels */}
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-                        <h2 className="text-lg font-bold text-white">Recommended Redemptions</h2>
-                        <p className="text-xs text-slate-400">Best value per reward point</p>
+                    <div className="rounded-2xl border border-line bg-surface/80 p-6">
+                        <h2 className="text-lg font-bold text-ink">Recommended Redemptions</h2>
+                        <p className="text-xs text-ink-muted">Best value per reward point</p>
 
                         <div className="mt-5 space-y-3">
                             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 transition hover:border-emerald-500/40">
@@ -323,37 +323,37 @@ export default function CreditCardRewards() {
                                         1 pt = ₹0.50
                                     </span>
                                 </div>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-ink-muted">
                                     Transfer 1:1 to Singapore Airlines, Air India Flying Returns, or Vistara.
                                 </p>
                             </div>
 
-                            <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 transition hover:border-slate-600">
+                            <div className="rounded-xl border border-line/60 bg-raised/40 p-4 transition hover:border-slate-600">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <Gift className="h-4 w-4 text-amber-400" />
-                                        <span className="text-sm font-semibold text-slate-200">Brand Shopping Vouchers</span>
+                                        <span className="text-sm font-semibold text-ink">Brand Shopping Vouchers</span>
                                     </div>
-                                    <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
+                                    <span className="rounded bg-line px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">
                                         1 pt = ₹0.35
                                     </span>
                                 </div>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-ink-muted">
                                     Instant e-vouchers for Amazon Pay, Flipkart, Myntra, and Apple Store.
                                 </p>
                             </div>
 
-                            <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 transition hover:border-slate-600">
+                            <div className="rounded-xl border border-line/60 bg-raised/40 p-4 transition hover:border-slate-600">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <Tag className="h-4 w-4 text-sky-400" />
-                                        <span className="text-sm font-semibold text-slate-200">Statement Cash Credit</span>
+                                        <span className="text-sm font-semibold text-ink">Statement Cash Credit</span>
                                     </div>
-                                    <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
+                                    <span className="rounded bg-line px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">
                                         1 pt = ₹0.25
                                     </span>
                                 </div>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-ink-muted">
                                     Direct credit adjusted against your upcoming monthly credit card bill.
                                 </p>
                             </div>
@@ -371,26 +371,26 @@ export default function CreditCardRewards() {
                             return (
                                 <div
                                     key={idx}
-                                    className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 p-6 transition hover:border-slate-700"
+                                    className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface/80 p-6 transition hover:border-line"
                                 >
                                     <div>
                                         <div className="flex items-center justify-between">
                                             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${perk.bgTint}`}>
                                                 <Icon className={`h-6 w-6 ${perk.textColor}`} />
                                             </div>
-                                            <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-medium text-slate-400">
+                                            <span className="rounded-full bg-raised px-3 py-1 text-[11px] font-medium text-ink-muted">
                                                 {perk.category}
                                             </span>
                                         </div>
-                                        <h3 className="mt-4 text-base font-bold text-white">{perk.title}</h3>
-                                        <p className="mt-1 text-xs leading-relaxed text-slate-400">{perk.desc}</p>
+                                        <h3 className="mt-4 text-base font-bold text-ink">{perk.title}</h3>
+                                        <p className="mt-1 text-xs leading-relaxed text-ink-muted">{perk.desc}</p>
                                     </div>
 
-                                    <div className="mt-6 flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400">
+                                    <div className="mt-6 flex items-center justify-between border-t border-line/80 pt-3 text-xs text-ink-muted">
                                         <span className="flex items-center text-emerald-400 font-medium">
                                             <Zap className="mr-1 h-3.5 w-3.5" /> Active for all cards
                                         </span>
-                                        <span className="flex items-center text-slate-500 hover:text-slate-300 cursor-pointer">
+                                        <span className="flex items-center text-ink-faint hover:text-ink-muted cursor-pointer">
                                             View Terms <ArrowUpRight className="ml-1 h-3 w-3" />
                                         </span>
                                     </div>
@@ -403,16 +403,16 @@ export default function CreditCardRewards() {
 
             {/* TAB: SPEND & REWARD CALCULATOR */}
             {activeTab === 'calculator' && (
-                <div className="mx-auto max-w-3xl rounded-2xl border border-slate-800 bg-slate-900/90 p-6 md:p-8">
-                    <h2 className="text-xl font-bold text-white">Spend & Reward Simulator</h2>
-                    <p className="mt-1 text-xs text-slate-400">
+                <div className="mx-auto max-w-3xl rounded-2xl border border-line bg-surface/90 p-6 md:p-8">
+                    <h2 className="text-xl font-bold text-ink">Spend & Reward Simulator</h2>
+                    <p className="mt-1 text-xs text-ink-muted">
                         Adjust your anticipated monthly spend to calculate reward earnings and milestone achievements.
                     </p>
 
                     <div className="mt-6 space-y-6">
                         <div>
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-semibold text-slate-300">
+                                <label className="text-sm font-semibold text-ink-muted">
                                     Anticipated Monthly Spend
                                 </label>
                                 <span className="text-lg font-bold text-emerald-400">
@@ -426,30 +426,30 @@ export default function CreditCardRewards() {
                                 step={5000}
                                 value={calcSpend}
                                 onChange={(e) => setCalcSpend(Number(e.target.value))}
-                                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-emerald-500"
+                                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-lg bg-raised accent-emerald-500"
                             />
-                            <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+                            <div className="mt-1 flex justify-between text-[11px] text-ink-faint">
                                 <span>₹5,000</span>
                                 <span>₹1,00,000</span>
                                 <span>₹2,00,000</span>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 pt-4 border-t border-slate-800">
-                            <div className="rounded-xl border border-slate-800 bg-slate-850 p-4 text-center">
-                                <span className="text-xs text-slate-400">Monthly Points</span>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 pt-4 border-t border-line">
+                            <div className="rounded-xl border border-line bg-raised p-4 text-center">
+                                <span className="text-xs text-ink-muted">Monthly Points</span>
                                 <div className="mt-1 text-xl font-bold text-amber-400">
                                     {Math.floor((calcSpend / 100) * 2.5).toLocaleString('en-IN')}
                                 </div>
-                                <span className="text-[11px] text-slate-500">pts / mo</span>
+                                <span className="text-[11px] text-ink-faint">pts / mo</span>
                             </div>
 
-                            <div className="rounded-xl border border-slate-800 bg-slate-850 p-4 text-center">
-                                <span className="text-xs text-slate-400">Annual Points</span>
-                                <div className="mt-1 text-xl font-bold text-white">
+                            <div className="rounded-xl border border-line bg-raised p-4 text-center">
+                                <span className="text-xs text-ink-muted">Annual Points</span>
+                                <div className="mt-1 text-xl font-bold text-ink">
                                     {Math.floor((calcSpend / 100) * 2.5 * 12).toLocaleString('en-IN')}
                                 </div>
-                                <span className="text-[11px] text-slate-500">pts / year</span>
+                                <span className="text-[11px] text-ink-faint">pts / year</span>
                             </div>
 
                             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">

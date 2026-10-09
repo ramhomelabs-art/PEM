@@ -13,7 +13,7 @@ import {
     Search, CheckCheck, Trash2, Eye, EyeOff, Radio, HelpCircle,
     SlidersHorizontal, CheckSquare
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import AutomationDetailsModal from '../../components/personal_expense/AutomationDetailsModal';
 import { API_URL } from '../../config';
@@ -21,7 +21,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatCurrency } from '../../utils/currency';
 
 const Automation = () => {
-    const { theme, isDarkMode } = useTheme();
+    const { isDarkMode } = useTheme();
     const { user } = useAuth();
     const { cards = [], addTransaction } = useCreditCards();
     const { categories = [] } = useCategories();
@@ -48,7 +48,7 @@ const Automation = () => {
     const [qrLoading, setQrLoading] = useState(false);
     const [verifyCode, setVerifyCode] = useState('');
     const [verifyingCode, setVerifyingCode] = useState(false);
-    const [verifySuccess, setVerifySuccess] = useState(false);
+    const [, setVerifySuccess] = useState(false);
     const [showKeys, setShowKeys] = useState(false);
 
     // Health & Telemetry State
@@ -59,7 +59,13 @@ const Automation = () => {
     const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'manual' | 'connect'
     const [editingItem, setEditingItem] = useState(null);
 
-    const webhookUrl = `${window.location.protocol}//${window.location.host}/api/sms/webhook`;
+    const [serverLanIp, setServerLanIp] = useState(null);
+
+    const effectiveHost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? (serverLanIp || window.location.hostname)
+        : window.location.hostname;
+    const lanPort = window.location.port || '5174';
+    const webhookUrl = `${window.location.protocol}//${effectiveHost}:${lanPort}/api/sms/webhook`;
 
     // --- FETCHERS ---
     const fetchConfig = async () => {
@@ -69,6 +75,7 @@ const Automation = () => {
             const res = await axios.get(`${API_URL}/sms/config`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (res.data.lanIp) setServerLanIp(res.data.lanIp);
             setSmsApiKey(res.data.smsApiKey);
             setEncryptionKey(res.data.encryptionKey);
             setIsDeviceApproved(!!res.data.isDeviceApproved);
@@ -113,16 +120,21 @@ const Automation = () => {
         setVerifySuccess(false);
         try {
             const token = localStorage.getItem('token');
-            const mobileServerUrl = `${window.location.protocol}//${window.location.host}`; // Uses port 5174 (already accessible across subnets)
+            if (!token) {
+                notify('Please log in again to generate pairing code', 'error');
+                return;
+            }
+            const mobileServerUrl = `${window.location.protocol}//${effectiveHost}:${lanPort}`;
             const res = await axios.post(`${API_URL}/mfa/setup/generate-qr`, {
-                serverUrl: mobileServerUrl
+                serverUrl: (effectiveHost === 'localhost' || effectiveHost === '127.0.0.1') ? undefined : mobileServerUrl
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            if (res.data && res.data.qrCodeUrl) {
-                setQrCodeUrl(res.data.qrCodeUrl);
+            if (res.data && (res.data.companionQrCodeUrl || res.data.qrCodeUrl)) {
+                setQrCodeUrl(res.data.companionQrCodeUrl || res.data.qrCodeUrl);
             }
         } catch (e) {
+            console.error('Failed to generate pairing QR code', e);
             notify('Failed to generate pairing QR code', 'error');
         } finally {
             setQrLoading(false);
@@ -242,7 +254,7 @@ const Automation = () => {
                 type: (sms.transaction_type === 'credit' || sms.type === 'income' || sms.category_type === 'income') ? 'income' : 'expense',
                 paymentMode: sms.paymentMethod || sms.mode || 'UPI',
                 status: 'Completed',
-                source: sms.source === 'MANUAL_ENTRY' ? 'manual' : 'sms',
+                source: (sms.source === 'APP' || sms.source === 'MANUAL_ENTRY' || sms.tag === 'direct_manual') ? 'app' : 'sms',
                 mode: sms.mode
             });
 
@@ -336,6 +348,9 @@ const Automation = () => {
         return pendingSMS.filter(s => {
             const isManual = s.source === 'MANUAL_ENTRY' || s.type === 'MANUAL';
             if (isManual) return false;
+            // Credit card transactions belong strictly to Credit Card module
+            const isCC = s.isCreditCard === true || s.mode === 'CREDIT_CARD' || s.paymentMethod === 'CREDIT_CARD';
+            if (isCC) return false;
             if (filterCategory !== 'ALL' && s.category !== filterCategory) return false;
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
@@ -352,6 +367,8 @@ const Automation = () => {
         return pendingSMS.filter(s => {
             const isManual = s.source === 'MANUAL_ENTRY' || s.type === 'MANUAL';
             if (!isManual) return false;
+            const isCC = s.isCreditCard === true || s.mode === 'CREDIT_CARD' || s.paymentMethod === 'CREDIT_CARD';
+            if (isCC) return false;
             if (filterCategory !== 'ALL' && s.category !== filterCategory) return false;
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
@@ -370,7 +387,7 @@ const Automation = () => {
     };
 
     return (
-        <div className={`min-h-screen ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'} p-4 sm:p-8 transition-colors duration-200`}>
+        <div className={`min-h-screen ${isDarkMode ? 'bg-sunken text-ink' : 'bg-slate-50 text-slate-800'} p-4 sm:p-8 transition-colors duration-200`}>
             
             {/* Modal for detail review */}
             <AutomationDetailsModal
@@ -390,10 +407,10 @@ const Automation = () => {
                             <Cpu className="w-6 h-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                            <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-300 dark:to-purple-400 bg-clip-text text-transparent">
                                 Automation Spot & Companion Hub
                             </h1>
-                            <p className="text-xs sm:text-sm text-slate-400 font-medium">
+                            <p className="text-xs sm:text-sm text-ink-muted font-medium">
                                 Autonomous SMS Transaction Ingestion, AI NLP Entity Extraction & Android Sync
                             </p>
                         </div>
@@ -401,24 +418,24 @@ const Automation = () => {
                 </div>
 
                 {/* Telemetry Status Bar */}
-                <div className="flex flex-wrap items-center gap-2.5 p-2 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md shadow-xl">
+                <div className="flex flex-wrap items-center gap-2.5 p-2 rounded-2xl bg-surface/80 backdrop-blur-md shadow-xl">
                     {/* Node SMS Gateway */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sunken/60">
                         <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600 dark:bg-emerald-500"></span>
                         </span>
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Node Gateway</span>
-                            <span className="text-[11px] font-extrabold text-emerald-400">ONLINE</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Node Gateway</span>
+                            <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">ONLINE</span>
                         </div>
                     </div>
 
                     {/* Python AI Extractor Service */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sunken/60">
                         <Terminal className="w-3.5 h-3.5" style={{ color: getHealthColor(health.python) }} />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Python AI Extractor</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Python AI Extractor</span>
                             <span className="text-[11px] font-extrabold uppercase" style={{ color: getHealthColor(health.python) }}>
                                 {health.python}
                             </span>
@@ -426,7 +443,7 @@ const Automation = () => {
                         {health.python !== 'online' && health.python !== 'restarting' && (
                             <button
                                 onClick={handleRestartPython}
-                                className={`ml-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white transition-all ${
+                                className={`ml-1 px-2 py-1 rounded-lg text-[10px] font-bold text-ink transition-all ${
                                     confirmAction?.type === 'restart' ? 'bg-amber-600 animate-pulse' : 'bg-rose-600 hover:bg-rose-500'
                                 }`}
                             >
@@ -436,11 +453,11 @@ const Automation = () => {
                     </div>
 
                     {/* Android Companion Sync */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sunken/60">
                         <Smartphone className="w-3.5 h-3.5 text-blue-400" />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Android Companion</span>
-                            <span className="text-[11px] font-extrabold text-slate-200">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Android Companion</span>
+                            <span className="text-[11px] font-extrabold text-ink">
                                 {isDeviceApproved ? (deviceStatus === 'online' ? 'SYNCED' : 'PAIRED') : 'NOT PAIRED'}
                             </span>
                         </div>
@@ -450,14 +467,14 @@ const Automation = () => {
 
             {/* Segmented Navigation Tab Bar */}
             <div className="max-w-7xl mx-auto mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded-2xl bg-surface/90 shadow-xl backdrop-blur-md">
                     {/* Tab 1: SMS Inbox */}
                     <button
                         onClick={() => setActiveTab('pending')}
                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                             activeTab === 'pending'
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                : 'text-ink-muted hover:text-ink hover:bg-line'
                         }`}
                     >
                         <MessageSquare className="w-4 h-4" />
@@ -475,7 +492,7 @@ const Automation = () => {
                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                             activeTab === 'manual'
                                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                : 'text-ink-muted hover:text-ink hover:bg-line'
                         }`}
                     >
                         <Pencil className="w-4 h-4" />
@@ -493,7 +510,7 @@ const Automation = () => {
                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all ${
                             activeTab === 'connect'
                                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                : 'text-ink-muted hover:text-ink hover:bg-line'
                         }`}
                     >
                         <QrCode className="w-4 h-4" />
@@ -509,15 +526,15 @@ const Automation = () => {
                 {activeTab === 'pending' && (
                     <div className="space-y-4">
                         {/* Search & Filter Header Bar */}
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-surface/80 border border-line">
                             <div className="relative w-full sm:w-80">
-                                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <Search className="w-4 h-4 text-ink-faint absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Search bank, merchant or amount..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-emerald-500"
+                                    className="w-full pl-10 pr-4 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink placeholder:text-ink-faint outline-none focus:border-emerald-500"
                                 />
                             </div>
 
@@ -525,7 +542,7 @@ const Automation = () => {
                                 <select
                                     value={filterCategory}
                                     onChange={(e) => setFilterCategory(e.target.value)}
-                                    className="px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-300 outline-none cursor-pointer"
+                                    className="px-3 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink-muted outline-none cursor-pointer"
                                 >
                                     <option value="ALL">All Categories</option>
                                     {categories.map(c => (
@@ -535,7 +552,7 @@ const Automation = () => {
 
                                 <button
                                     onClick={fetchPending}
-                                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                                    className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted transition-colors"
                                     title="Refresh Inbox"
                                 >
                                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -555,22 +572,22 @@ const Automation = () => {
 
                         {/* List Items */}
                         {loading ? (
-                            <div className="p-16 flex flex-col items-center justify-center rounded-2xl bg-slate-900/50 border border-slate-800">
+                            <div className="p-16 flex flex-col items-center justify-center rounded-2xl bg-surface/50 border border-line">
                                 <Loader className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
-                                <span className="text-xs text-slate-400 font-medium">Scanning pending transactions...</span>
+                                <span className="text-xs text-ink-muted font-medium">Scanning pending transactions...</span>
                             </div>
                         ) : smsList.length === 0 ? (
-                            <div className="text-center p-16 rounded-2xl bg-slate-900/40 border border-slate-800">
+                            <div className="text-center p-16 rounded-2xl bg-surface/40 border border-line">
                                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
                                     <CheckCheck className="w-8 h-8" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-100 mb-1">Inbox Zero & Ledger Synced</h3>
-                                <p className="text-xs text-slate-400 max-w-sm mx-auto mb-6">
+                                <h3 className="text-lg font-bold text-ink mb-1">Inbox Zero & Ledger Synced</h3>
+                                <p className="text-xs text-ink-muted max-w-sm mx-auto mb-6">
                                     No pending SMS transactions waiting for review. New transactions received by your Android companion will appear here in real-time.
                                 </p>
                                 <button
                                     onClick={() => setActiveTab('connect')}
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors"
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-raised hover:bg-line text-xs font-semibold text-ink border border-line transition-colors"
                                 >
                                     <Smartphone className="w-4 h-4 text-blue-400" /> Open Android Pairing
                                 </button>
@@ -601,36 +618,36 @@ const Automation = () => {
                 {/* 2. COMPANION LOGS / MANUAL ENTRIES */}
                 {activeTab === 'manual' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-surface/80 border border-line">
                             <div>
-                                <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                                <h2 className="text-base font-bold text-ink flex items-center gap-2">
                                     <Pencil className="w-4 h-4 text-purple-400" />
                                     Mobile App Companion Entries ({manualList.length})
                                 </h2>
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-ink-muted">
                                     Transactions captured manually on your mobile companion for immediate review
                                 </p>
                             </div>
                             <button
                                 onClick={fetchPending}
-                                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                                className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted transition-colors"
                             >
                                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
 
                         {loading ? (
-                            <div className="p-16 flex flex-col items-center justify-center rounded-2xl bg-slate-900/50 border border-slate-800">
+                            <div className="p-16 flex flex-col items-center justify-center rounded-2xl bg-surface/50 border border-line">
                                 <Loader className="w-8 h-8 text-purple-400 animate-spin mb-3" />
-                                <span className="text-xs text-slate-400 font-medium">Loading companion entries...</span>
+                                <span className="text-xs text-ink-muted font-medium">Loading companion entries...</span>
                             </div>
                         ) : manualList.length === 0 ? (
-                            <div className="text-center p-16 rounded-2xl bg-slate-900/40 border border-slate-800">
+                            <div className="text-center p-16 rounded-2xl bg-surface/40 border border-line">
                                 <div className="w-16 h-16 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
                                     <Smartphone className="w-8 h-8" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-100 mb-1">No Pending Mobile Entries</h3>
-                                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                <h3 className="text-lg font-bold text-ink mb-1">No Pending Mobile Entries</h3>
+                                <p className="text-xs text-ink-muted max-w-sm mx-auto">
                                     You can record rapid expenses directly on your Android phone using the PEM Companion quick-widget.
                                 </p>
                             </div>
@@ -663,14 +680,14 @@ const Automation = () => {
                 {activeTab === 'connect' && (
                     <div className="max-w-4xl mx-auto space-y-6">
                         {/* Device Status Hero Card */}
-                        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 shadow-2xl">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-line shadow-2xl">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
                                 <div>
-                                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+                                    <h2 className="text-xl sm:text-2xl font-black text-ink tracking-tight flex items-center gap-2.5">
                                         <Smartphone className="w-6 h-6 text-blue-400" />
                                         Android Companion Synchronization
                                     </h2>
-                                    <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                                    <p className="text-xs sm:text-sm text-ink-muted mt-1">
                                         Zero-touch encrypted SMS telemetry bridge running continuously in the background
                                     </p>
                                 </div>
@@ -691,33 +708,33 @@ const Automation = () => {
                             {isDeviceApproved ? (
                                 <div className="pt-6 space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Paired Device Model</span>
-                                            <span className="text-sm font-extrabold text-white mt-1 block">
+                                        <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">Paired Device Model</span>
+                                            <span className="text-sm font-extrabold text-ink mt-1 block">
                                                 {deviceInfo?.manufacturer || 'Android'} {deviceInfo?.model || 'Device'}
                                             </span>
-                                            <span className="text-[11px] font-mono text-slate-400 mt-0.5 block truncate">
+                                            <span className="text-[11px] font-mono text-ink-muted mt-0.5 block truncate">
                                                 ID: {deviceInfo?.androidId || 'Encrypted Token'}
                                             </span>
                                         </div>
 
-                                        <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Last Sync Heartbeat</span>
+                                        <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">Last Sync Heartbeat</span>
                                             <span className="text-sm font-extrabold text-emerald-400 mt-1 block">
                                                 {lastSyncDate ? new Date(lastSyncDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Continuous'}
                                             </span>
-                                            <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                            <span className="text-[11px] text-ink-muted mt-0.5 block">
                                                 {lastSyncDate ? new Date(lastSyncDate).toLocaleDateString() : 'Active Webhook'}
                                             </span>
                                         </div>
 
-                                        <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Encryption Standard</span>
+                                        <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">Encryption Standard</span>
                                             <span className="text-sm font-extrabold text-indigo-300 mt-1 block flex items-center gap-1.5">
                                                 <ShieldCheck className="w-4 h-4 text-indigo-400" />
                                                 AES-256-GCM + HMAC
                                             </span>
-                                            <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                            <span className="text-[11px] text-ink-muted mt-0.5 block">
                                                 Zero-Knowledge Payload
                                             </span>
                                         </div>
@@ -726,7 +743,7 @@ const Automation = () => {
                                     <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                                         <button
                                             onClick={() => { fetchConfig(); fetchHealth(); }}
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-raised hover:bg-line text-ink text-xs font-bold transition-colors"
                                         >
                                             <RefreshCw className="w-3.5 h-3.5" /> Re-check Companion Pulse
                                         </button>
@@ -747,21 +764,34 @@ const Automation = () => {
                             ) : (
                                 <div className="pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                                     {/* QR Code Scanner Card */}
-                                    <div className="md:col-span-5 flex flex-col items-center text-center p-6 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner">
-                                        <div className="p-3 bg-white rounded-2xl shadow-xl border-2 border-emerald-500/80 mb-4">
+                                    <div className="md:col-span-5 flex flex-col items-center text-center p-6 rounded-2xl bg-sunken border border-line shadow-inner">
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold tracking-wide mb-3">
+                                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                            <span>AES-256-GCM Zero-Knowledge QR</span>
+                                        </div>
+
+                                        <div className="relative p-3 bg-white rounded-2xl shadow-xl border-2 border-emerald-500/80 mb-4 overflow-hidden group">
+                                            {/* Cyber Corner HUD Brackets */}
+                                            <div className="absolute top-1 left-1 w-3 h-3 border-t-2 border-l-2 border-emerald-600 pointer-events-none" />
+                                            <div className="absolute top-1 right-1 w-3 h-3 border-t-2 border-r-2 border-emerald-600 pointer-events-none" />
+                                            <div className="absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 border-emerald-600 pointer-events-none" />
+                                            <div className="absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 border-emerald-600 pointer-events-none" />
+
                                             {qrLoading ? (
-                                                <div className="w-48 h-48 flex flex-col items-center justify-center text-slate-400">
+                                                <div className="w-48 h-48 flex flex-col items-center justify-center text-ink-muted">
                                                     <Loader className="w-8 h-8 text-emerald-500 animate-spin mb-2" />
                                                     <span className="text-xs">Generating Pairing Token...</span>
                                                 </div>
                                             ) : qrCodeUrl ? (
-                                                <img
-                                                    src={qrCodeUrl}
-                                                    alt="Pairing QR Code"
-                                                    className="w-48 h-48 rounded-lg"
-                                                />
+                                                <div className="relative">
+                                                    <img
+                                                        src={qrCodeUrl}
+                                                        alt="Pairing QR Code"
+                                                        className="w-48 h-48 rounded-lg block"
+                                                    />
+                                                </div>
                                             ) : (
-                                                <div className="w-48 h-48 flex flex-col items-center justify-center text-slate-400">
+                                                <div className="w-48 h-48 flex flex-col items-center justify-center text-ink-muted">
                                                     <QrCode className="w-12 h-12 opacity-40 mb-2" />
                                                     <span className="text-xs">Click refresh to load QR</span>
                                                 </div>
@@ -780,23 +810,23 @@ const Automation = () => {
                                     {/* Step-by-Step Instructions & TOTP Verification */}
                                     <div className="md:col-span-7 space-y-4">
                                         <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-ink-muted">
                                                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
                                                 Open PEM Android Companion App on your mobile device
                                             </div>
-                                            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-ink-muted">
                                                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">2</span>
-                                                Tap "Scan Web Setup QR" and point camera at the QR code
+                                                Tap &quot;Scan Web Setup QR&quot; and point camera at the QR code
                                             </div>
-                                            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-ink-muted">
                                                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">3</span>
                                                 Enter the 6-digit sync code displayed on your phone below:
                                             </div>
                                         </div>
 
                                         {/* 6-Digit TOTP Input Box */}
-                                        <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
-                                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                        <div className="p-4 rounded-2xl bg-sunken/80 border border-line space-y-3">
+                                            <label className="block text-[11px] font-bold text-ink-muted uppercase tracking-wider">
                                                 Companion TOTP Security Code
                                             </label>
                                             <div className="flex gap-2">
@@ -806,7 +836,7 @@ const Automation = () => {
                                                     placeholder="123456"
                                                     value={verifyCode}
                                                     onChange={handleCodeInputChange}
-                                                    className="flex-1 px-4 py-3 bg-slate-900 border-2 border-slate-700 focus:border-emerald-500 rounded-xl text-center text-xl font-mono font-black tracking-widest text-emerald-400 outline-none"
+                                                    className="flex-1 px-4 py-3 bg-surface border-2 border-line focus:border-emerald-500 rounded-xl text-center text-xl font-mono font-black tracking-widest text-emerald-400 outline-none"
                                                 />
                                                 <button
                                                     onClick={() => handleVerifyCodeDirect()}
@@ -824,18 +854,18 @@ const Automation = () => {
                         </div>
 
                         {/* Direct API Webhook & Encryption Keys Card (Collapsible) */}
-                        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+                        <div className="p-6 rounded-3xl bg-surface/90 border border-line shadow-xl space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
                                     <Key className="w-5 h-5 text-indigo-400" />
                                     <div>
-                                        <h3 className="text-sm font-bold text-slate-100">Manual Webhook & Encryption Credentials</h3>
-                                        <p className="text-xs text-slate-400">For custom Automate, Tasker, or iOS Shortcuts integration</p>
+                                        <h3 className="text-sm font-bold text-ink">Manual Webhook & Encryption Credentials</h3>
+                                        <p className="text-xs text-ink-muted">For custom Automate, Tasker, or iOS Shortcuts integration</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setShowKeys(!showKeys)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-raised hover:bg-line text-xs font-semibold text-ink-muted transition-colors"
                                 >
                                     {showKeys ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                     {showKeys ? 'Hide Keys' : 'Reveal Keys'}
@@ -845,9 +875,9 @@ const Automation = () => {
                             {showKeys && (
                                 <div className="space-y-3 pt-2">
                                     {/* Webhook URL */}
-                                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                                    <div className="p-3.5 rounded-xl bg-sunken border border-line">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SMS Webhook URL</span>
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">SMS Webhook URL</span>
                                             <button
                                                 onClick={() => copyToClipboard(`${webhookUrl}?apiKey=${smsApiKey}`, 'Webhook URL')}
                                                 className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-semibold"
@@ -861,9 +891,9 @@ const Automation = () => {
                                     </div>
 
                                     {/* SMS API Key */}
-                                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                                    <div className="p-3.5 rounded-xl bg-sunken border border-line">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SMS API Secret Key</span>
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">SMS API Secret Key</span>
                                             <button
                                                 onClick={() => copyToClipboard(smsApiKey, 'SMS API Key')}
                                                 className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-semibold"
@@ -877,9 +907,9 @@ const Automation = () => {
                                     </div>
 
                                     {/* Encryption Key */}
-                                    <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                                    <div className="p-3.5 rounded-xl bg-sunken border border-line">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AES-256 Payload Key</span>
+                                            <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">AES-256 Payload Key</span>
                                             <button
                                                 onClick={() => copyToClipboard(encryptionKey, 'Encryption Key')}
                                                 className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-semibold"
@@ -923,8 +953,8 @@ const TransactionCard = ({
     return (
         <div className={`group relative p-4 sm:p-5 rounded-2xl transition-all duration-200 border ${
             isManual
-                ? 'bg-slate-900/90 border-purple-500/30 hover:border-purple-500/60 shadow-lg shadow-purple-500/5'
-                : 'bg-slate-900/90 border-slate-800 hover:border-slate-700 shadow-lg'
+                ? 'bg-surface/90 border-purple-500/30 hover:border-purple-500/60 shadow-lg shadow-purple-500/5'
+                : 'bg-surface/90 border-line hover:border-line shadow-lg'
         }`}>
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 {/* Left: Icon & Merchant & Details */}
@@ -947,10 +977,10 @@ const TransactionCard = ({
 
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h4 className="text-sm sm:text-base font-extrabold text-white truncate">
+                            <h4 className="text-sm sm:text-base font-extrabold text-ink truncate">
                                 {sms.merchant || sms.provider || sms.account || 'Unknown Merchant'}
                             </h4>
-                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-raised text-ink-muted">
                                 {sms.date || (sms.received_at ? new Date(sms.received_at).toLocaleDateString() : 'Today')}
                             </span>
                             {isManual && (
@@ -958,13 +988,18 @@ const TransactionCard = ({
                                     Mobile App
                                 </span>
                             )}
+                            {(sms.isSubscription || sms.category === 'Subscription') && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                    🔁 Subscription
+                                </span>
+                            )}
                             {sms.extractor && (
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-950 text-emerald-400 border border-emerald-500/30">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sunken text-emerald-400 border border-emerald-500/30">
                                     {sms.extractor}
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-slate-400 truncate max-w-xl">
+                        <p className="text-xs text-ink-muted truncate max-w-xl">
                             {sms.description || sms.raw_message || 'Transaction received via automated feed'}
                         </p>
                     </div>
@@ -973,24 +1008,30 @@ const TransactionCard = ({
                 {/* Center: Amount & Category Badge */}
                 <div className="text-left md:text-right shrink-0 px-2">
                     <div className={`text-lg sm:text-xl font-black ${
-                        isCredit ? 'text-emerald-400' : 'text-slate-100'
+                        isCredit ? 'text-emerald-400' : 'text-ink'
                     }`}>
                         {isCredit ? '+' : '-'} {formatCurrency(sms.amount, user?.currency || 'INR')}
                     </div>
-                    <div className="flex items-center md:justify-end gap-1.5 text-[11px] font-bold text-slate-400 mt-0.5">
-                        <span className="text-purple-400">{sms.category || 'General'}</span>
-                        <span>•</span>
-                        <span className="text-slate-500 uppercase">{sms.paymentMethod || sms.mode || 'UPI'}</span>
+                    <div className="flex items-center md:justify-end gap-1.5 text-[11px] font-bold text-ink-muted mt-1 flex-wrap">
+                        <span className="text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">{sms.category || 'General'}</span>
+                        {(() => {
+                            const mode = (sms.paymentMethod || sms.mode || 'UPI').toUpperCase();
+                            if (mode === 'UPI') return <span className="text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded border border-indigo-500/25">⚡ UPI</span>;
+                            if (mode === 'NETBANKING') return <span className="text-sky-300 bg-sky-500/15 px-2 py-0.5 rounded border border-sky-500/25">🏦 Netbanking</span>;
+                            if (mode === 'BANK_TRANSFER' || mode === 'BANK') return <span className="text-teal-300 bg-teal-500/15 px-2 py-0.5 rounded border border-teal-500/25">🏛️ Bank Transfer</span>;
+                            if (mode === 'DEBIT_CARD') return <span className="text-orange-300 bg-orange-500/15 px-2 py-0.5 rounded border border-orange-500/25">💳 Debit Card</span>;
+                            return <span className="text-ink-muted bg-raised px-2 py-0.5 rounded">{mode}</span>;
+                        })()}
                     </div>
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-line">
                     {/* Toggle Raw Message */}
                     <button
                         type="button"
                         onClick={() => setShowRaw(!showRaw)}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                        className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted hover:text-ink transition-colors"
                         title="View Raw Message"
                     >
                         <FileText className="w-4 h-4" />
@@ -1000,7 +1041,7 @@ const TransactionCard = ({
                     <button
                         type="button"
                         onClick={onEdit}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                        className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted hover:text-ink transition-colors"
                         title="Edit Details"
                     >
                         <Edit3 className="w-4 h-4" />
@@ -1018,14 +1059,14 @@ const TransactionCard = ({
 
                     {/* Credit Card Selector and Approve to Card */}
                     {cards && cards.length > 0 && (
-                        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-1.5 bg-sunken p-1 rounded-xl border border-line">
                             <select
                                 value={selectedCardMap[sms.id] || cards[0].id}
                                 onChange={(e) => setSelectedCardMap(prev => ({ ...prev, [sms.id]: e.target.value }))}
-                                className="px-2 py-1 bg-transparent text-xs text-slate-200 font-semibold outline-none cursor-pointer max-w-[120px] truncate"
+                                className="px-2 py-1 bg-transparent text-xs text-ink font-semibold outline-none cursor-pointer max-w-[120px] truncate"
                             >
                                 {cards.map(c => (
-                                    <option key={c.id} value={c.id} className="bg-slate-900 text-white">
+                                    <option key={c.id} value={c.id} className="bg-surface text-ink">
                                         {c.cardName || c.bankName}
                                     </option>
                                 ))}
@@ -1059,8 +1100,8 @@ const TransactionCard = ({
 
             {/* Accordion Raw SMS payload */}
             {showRaw && (
-                <div className="mt-3 pt-3 border-t border-slate-800/80">
-                    <p className="text-xs font-mono text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed whitespace-pre-wrap break-all">
+                <div className="mt-3 pt-3 border-t border-line">
+                    <p className="text-xs font-mono text-ink-muted bg-sunken p-2.5 rounded-xl border border-line leading-relaxed whitespace-pre-wrap break-all">
                         {sms.raw_message || sms.description || 'No raw string available'}
                     </p>
                 </div>

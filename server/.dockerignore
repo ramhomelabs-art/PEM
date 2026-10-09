@@ -1,0 +1,24 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Secrets — never bake into the image (mount at runtime instead)
+.env
+.env.*
+!.env.example
+firebase-adminsdk.json
+*serviceAccount*.json
+
+# Local data & runtime artifacts
+*.log
+database.sqlite
+database.sqlite-*
+uploads
+storage
+backups
+
+# VCS / editor / docker
+.git
+.gitignore
+Dockerfile
+.dockerignore

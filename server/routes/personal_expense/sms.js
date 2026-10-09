@@ -29,14 +29,16 @@ function getPendingSMS() {
 }
 
 function savePendingSMS(data) {
-    fs.writeFileSync(PENDING_FILE, JSON.stringify(data, null, 2));
+    fs.writeFile(PENDING_FILE, JSON.stringify(data, null, 2), (err) => {
+        if (err) console.error('[PendingSMS] Save error:', err.message);
+    });
 }
 
 // --- ENCRYPTION UTILS (Ported from FinanceWebhookHandler.ts) ---
-const SMS_ENCRYPTION_KEY = process.env.SMS_ENCRYPTION_KEY || 'verystrongpassword_atleast32chars';
+const SMS_ENCRYPTION_KEY = process.env.SMS_ENCRYPTION_KEY || null;
 
 function validateSignature(rawBody, signature, secret, timestamp, nonce) {
-    if (!secret || !signature) return true;
+    if (!secret || !signature) return false;
     try {
         const payloads = [];
         if (timestamp && nonce) {
@@ -127,16 +129,37 @@ router.get('/config', authenticateToken, async (req, res) => {
             if (users && users[0]) {
                 userData = users[0];
             }
+            // Only mark approved if THIS user account has an active paired device
+            if (!userData.isDeviceApproved) {
+                const { MfaDevice } = require('../../models');
+                const activeDevice = await MfaDevice.findOne({
+                    where: { userId: req.user.id, isActive: true },
+                    order: [['updated_at', 'DESC']]
+                });
+                if (activeDevice) {
+                    userData.isDeviceApproved = true;
+                    userData.deviceInfo = activeDevice.deviceInfo;
+                    userData.lastDeviceSync = activeDevice.lastUsed || activeDevice.updated_at || new Date();
+                }
+            }
         } catch (queryError) {
             console.error('[CONFIG] Query error:', queryError.message);
         }
+
+        const { getPrimaryLanIp } = require('../../utils/networkUtils');
+        const lanIp = getPrimaryLanIp();
+        const clientHost = req.headers['x-forwarded-host'] || req.get('host') || '';
+        const port = clientHost.includes(':') ? clientHost.split(':')[1] : '5174';
+        const detectedServerUrl = `http://${lanIp}:${port}`;
 
         res.json({
             encryptionKey: keys.encryptionKey || null,
             smsApiKey: keys.smsApiKey || null,
             lastDeviceSync: userData.lastDeviceSync || null,
             isDeviceApproved: !!userData.isDeviceApproved,
-            deviceInfo: typeof userData.deviceInfo === 'string' ? JSON.parse(userData.deviceInfo) : (userData.deviceInfo || null)
+            deviceInfo: typeof userData.deviceInfo === 'string' ? JSON.parse(userData.deviceInfo) : (userData.deviceInfo || null),
+            lanIp: lanIp,
+            detectedServerUrl: detectedServerUrl
         });
     } catch (e) {
         console.error('[CONFIG ERROR]', e);
@@ -268,20 +291,38 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
         if (!user) {
             try {
                 const { MfaDevice } = require('../../models');
-                matchedDevice = await MfaDevice.findOne({ where: { secretKey: apiKey, isActive: true } });
+                matchedDevice = await MfaDevice.findOne({ where: { secretKey: apiKey } });
                 if (matchedDevice) {
                     user = await User.findByPk(matchedDevice.userId);
+                    if (!matchedDevice.isActive) {
+                        matchedDevice.isActive = true;
+                        await matchedDevice.save().catch(() => {});
+                    }
                 }
             } catch (err) {
                 console.error('[Webhook] MfaDevice lookup error:', err.message);
             }
         }
 
-        if (!user) {
-            // Check if any admin or first user exists as fallback for dev
-            user = await User.findOne({ order: [['id', 'ASC']] });
-            if (!user) return res.status(403).json({ error: 'Invalid API Key' });
+        // Support JWT Bearer token if mobile app used session token
+        if (!user && bearerToken) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const { JWT_SECRET } = require('../../config/auth');
+                const decoded = jwt.verify(bearerToken, JWT_SECRET || 'your_jwt_secret');
+                if (decoded && (decoded.id || decoded.userId)) {
+                    user = await User.findByPk(decoded.id || decoded.userId);
+                }
+            } catch (jwtErr) {
+                // Ignore JWT verify error
+            }
         }
+
+        if (!user) {
+            return res.status(403).json({ error: 'Invalid API Key' });
+        }
+
+        console.log(`[Webhook INCOMING] Received POST webhook. User: ${user.username} (ID: ${user.id}). Headers: x-api-key=${apiKey ? apiKey.substring(0, 8) + '...' : 'none'}, signature=${!!signature}`);
 
         user.lastDeviceSync = new Date();
         await user.save().catch(() => {});
@@ -334,7 +375,19 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
         }
 
         if (encryptedContent) {
-            const decKeys = [user.encryptionKey, matchedDevice?.encryptionKey, process.env.SMS_ENCRYPTION_KEY, 'verystrongpassword_atleast32chars'].filter(Boolean);
+            // Find all candidate encryption keys (user encryptionKey, all active user devices, and preshared keys)
+            const { MfaDevice } = require('../../models');
+            const userDevices = await MfaDevice.findAll({ where: { userId: user.id } }).catch(() => []);
+            const deviceKeys = userDevices.map(d => d.encryptionKey).filter(Boolean);
+
+            const decKeys = Array.from(new Set([
+                user.encryptionKey,
+                matchedDevice?.encryptionKey,
+                ...deviceKeys,
+                SMS_ENCRYPTION_KEY
+            ])).filter(Boolean);
+
+            console.log(`[Webhook] Attempting decryption for ${user.username} with ${decKeys.length} candidate key(s)`);
             let decryptedJson = null;
             for (const dKey of decKeys) {
                 decryptedJson = decryptPayload(encryptedContent, dKey);
@@ -344,11 +397,13 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
             if (decryptedJson) {
                 try {
                     bodyData = JSON.parse(decryptedJson);
-                    console.log(`[Webhook] Decrypted payload successfully for ${user.username}`);
+                    console.log(`[Webhook] Decrypted payload successfully for ${user.username}:`, bodyData.type || bodyData.merchant || 'OK');
                 } catch (e) {
                     console.log('[Webhook] Decrypted content is plain string');
                     bodyData = { message: decryptedJson };
                 }
+            } else {
+                console.warn(`[Webhook] FAILED to decrypt payload for ${user.username} with all candidate keys!`);
             }
         }
 
@@ -379,9 +434,9 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
             }
         }
 
-        // 1. Direct structured data check
-        // If we already have amount and category, we can skip complex parsing
-        if (bodyData.type === 'MANUAL' && bodyData.amount && bodyData.category) {
+        // 1. Direct structured manual entry check
+        // If we have type === 'MANUAL' and an amount, immediately accept it
+        if (bodyData.type === 'MANUAL' && bodyData.amount) {
             const rawType = (bodyData.category_type || bodyData.type || bodyData.transaction_type || 'expense').toLowerCase();
             const isIncome = rawType.includes('income') || rawType.includes('credit') || rawType.includes('received');
             extracted = [{
@@ -391,7 +446,7 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                 transaction_type: isIncome ? 'credit' : 'debit',
                 date: bodyData.receivedAt || new Date().toISOString(),
                 merchant: bodyData.merchant || 'Manual',
-                category: bodyData.category,
+                category: bodyData.category || (isIncome ? 'Income' : 'General'),
                 description: bodyData.description || bodyData.message || ''
             }];
             extractionSource = 'direct_manual';
@@ -424,7 +479,33 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                 console.warn("[Python Service] Extraction failed, falling back to local regex", pyErr.message);
             }
 
-            // 2. Local Regex Fallback (Level 1/2)
+            // 2. Android Companion App Structured Data Fallback
+            if (extracted.length === 0 && bodyData && (bodyData.amount || bodyData.merchant)) {
+                const parsedAmt = parseFloat(bodyData.amount);
+                if (!isNaN(parsedAmt) && parsedAmt > 0) {
+                    const rawType = (bodyData.type || bodyData.transaction_type || bodyData.category_type || 'expense').toLowerCase();
+                    const isIncome = rawType.includes('income') || rawType.includes('credit') || rawType.includes('refund') || rawType.includes('salary');
+
+                    extracted = [{
+                        account: bodyData.bankName || bodyData.accountMasked || bodyData.merchant || 'Companion App',
+                        amount: parsedAmt,
+                        type: isIncome ? 'income' : 'expense',
+                        transaction_type: isIncome ? 'credit' : 'debit',
+                        date: bodyData.timestamp ? new Date(typeof bodyData.timestamp === 'number' ? bodyData.timestamp : (Number(bodyData.timestamp) || bodyData.timestamp)).toISOString() : (bodyData.receivedAt || new Date().toISOString()),
+                        merchant: bodyData.merchant || bodyData.sender || 'Unknown Merchant',
+                        category: bodyData.category || (isIncome ? 'Income' : 'General'),
+                        description: bodyData.description || smsContent || '',
+                        referenceNo: bodyData.referenceNo || null,
+                        paymentMode: bodyData.paymentMode || null,
+                        accountMasked: bodyData.accountMasked || null,
+                        bankName: bodyData.bankName || null
+                    }];
+                    extractionSource = 'android_app_parsed';
+                    console.log(`[Webhook] Android App Parsed Success: ${parsedAmt} (${bodyData.merchant || 'Unknown'})`);
+                }
+            }
+
+            // 3. Local Regex Fallback (Level 1/2)
             if (extracted.length === 0) {
                 extracted = parseSMS(smsContent);
                 extractionSource = 'local_regex';
@@ -432,27 +513,109 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                     console.log(`[Webhook] Local Regex Fallback Success: ${extracted[0].amount}`);
                 }
             }
+
+            // 4. Financial SMS Fallback (for unparsed bank SMS so it is never dropped)
+            if (extracted.length === 0 && smsContent && smsContent.trim().length > 10) {
+                extracted = [{
+                    account: bodyData.bankName || bodyData.sender || 'SMS Forwarder',
+                    amount: 0,
+                    type: 'expense',
+                    transaction_type: 'debit',
+                    date: bodyData.receivedAt || new Date().toISOString(),
+                    merchant: bodyData.merchant || bodyData.sender || 'Pending Review',
+                    category: 'Uncategorized',
+                    description: smsContent,
+                    referenceNo: bodyData.referenceNo || null
+                }];
+                extractionSource = 'unparsed_fallback';
+                console.log(`[Webhook] Unparsed SMS saved to inbox for user manual review`);
+            }
         }
 
         // ... Parsing processing ...
         if (extracted.length > 0) {
             const currentPending = getPendingSMS();
-            extracted.forEach(tx => {
+            const { CreditCard, CreditCardTransaction } = require('../../models');
+            const detectMode = require('../../lib/sms-parser/rules/mode.js');
+
+            for (const tx of extracted) {
+                const modeInfo = detectMode(tx.raw_message || tx.description || smsContent);
+                tx.mode = tx.mode || modeInfo.mode;
+                tx.paymentMethod = tx.paymentMethod || modeInfo.paymentMethod;
+                tx.isSubscription = modeInfo.isSubscription;
+
+                if (modeInfo.isSubscription && (!tx.category || tx.category === 'General')) {
+                    tx.category = 'Subscription';
+                }
+
+                const isCreditCardTx = (
+                    modeInfo.isCreditCard ||
+                    tx.isCreditCard === true ||
+                    tx.paymentMethod === 'Credit Card' ||
+                    /\b(credit\s*card|creditcard)\b/i.test(tx.raw_message || tx.description || '') ||
+                    /\bcard\s+(?:ending|x{2,}|\*{2,})\b/i.test(tx.raw_message || tx.description || '') ||
+                    /\b(spent\s+on\s+.*card|used\s+at\s+.*limit)\b/i.test(tx.raw_message || tx.description || '')
+                );
+
+                // Auto-route Credit Card transactions directly to Credit Card page
+                if (isCreditCardTx) {
+                    try {
+                        let userCards = await CreditCard.findAll({ where: { userId: user.id } });
+                        if (userCards.length === 0 && user.id !== 1) {
+                            userCards = await CreditCard.findAll({ where: { userId: 1 } });
+                        }
+                        const targetCard = userCards[0];
+                        if (targetCard) {
+                            const rawType = (tx.transaction_type || tx.type || 'debit').toString().toLowerCase();
+                            const normalizedType = (rawType === 'credit' || rawType === 'income' || rawType === 'refund') ? 'credit' : 'debit';
+                            await CreditCardTransaction.create({
+                                creditCardId: targetCard.id,
+                                userId: targetCard.userId,
+                                merchant: tx.merchant || 'Credit Card Spend',
+                                amount: tx.amount,
+                                transactionDate: tx.date ? new Date(tx.date) : new Date(),
+                                category: tx.category || 'Others',
+                                type: normalizedType,
+                                status: 'completed',
+                                description: tx.description || tx.raw_message,
+                                referenceNumber: tx.reference || null
+                            });
+                            if (normalizedType === 'debit') {
+                                await targetCard.update({
+                                    usedAmount: parseFloat(targetCard.usedAmount || 0) + parseFloat(tx.amount)
+                                });
+                            }
+                            console.log(`[Webhook -> CreditCard] Auto-routed ₹${tx.amount} to Credit Card page on card "${targetCard.cardName}".`);
+                        } else {
+                            console.log(`[Webhook -> CreditCard] Credit card SMS received, but no registered credit card found for user.`);
+                        }
+                    } catch (ccErr) {
+                        console.error('[Webhook -> CreditCard Error]', ccErr.message);
+                    }
+                    // Do not push credit card spends to personal expense pending inbox
+                    continue;
+                }
+
+                // Personal Expense Automation feed
                 tx.id = Date.now() + Math.random();
                 tx.original_sender = senderName;
                 tx.received_at = bodyData.receivedAt || new Date().toISOString();
                 tx.userId = user.id;
-                tx.tag = extractionSource; // Tag source
+                tx.tag = extractionSource;
                 tx.raw_message = smsContent;
                 if (bodyData.type === 'MANUAL') {
-                    tx.source = 'MANUAL_ENTRY';
+                    tx.source = 'APP';
+                } else {
+                    tx.source = 'SMS';
                 }
                 currentPending.push(tx);
-            });
+            }
             savePendingSMS(currentPending);
+            console.log(`[Webhook SAVED] Processed ${extracted.length} transaction(s) for user ${user.username} (ID: ${user.id}).`);
             return res.json({ status: 'ok', count: extracted.length, source: extractionSource });
         }
 
+        console.warn(`[Webhook IGNORED] No transaction extracted for ${user.username}. Raw smsContent: "${smsContent?.substring(0, 80)}"`);
         return res.json({ status: 'ignored' });
 
     } catch (e) {
@@ -462,31 +625,50 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
 });
 
 // 1b. WEBHOOK TEST (GET) - For Tapping "Test Connection"
-// 1b. WEBHOOK TEST (GET) - For Tapping "Test Connection"
 router.get(['/webhook', '/webhook/:apiKey'], (req, res) => {
     res.json({ status: 'online', message: 'SMS Webhook is active. Please use POST to send data.' });
 });
 
 
 // 2. GET PENDING (Called by Frontend)
-// Protected by Auth Token: User can only see their own pending messages
+// Protected by Auth Token: Credit card transactions excluded (belong on Credit Card page)
 router.get('/pending', authenticateToken, (req, res) => {
     const userId = req.user.id;
+    const role = req.user.role;
     const pending = getPendingSMS();
-    const userPending = pending.filter(p => p.userId === userId);
+    const userPending = pending.filter(p => {
+        // Exclude credit card transactions so they never clutter Personal Expense Automation
+        const isCreditCard = (
+            p.isCreditCard === true ||
+            p.paymentMethod === 'Credit Card' ||
+            p.mode === 'CREDIT_CARD' ||
+            /\b(credit\s*card|creditcard)\b/i.test(p.raw_message || p.description || '') ||
+            /\bcard\s+(?:ending|x{2,}|\*{2,})\b/i.test(p.raw_message || p.description || '') ||
+            /\b(spent\s+on\s+.*card|used\s+at\s+.*limit)\b/i.test(p.raw_message || p.description || '')
+        );
+        if (isCreditCard) return false;
+
+        if (role === 'admin' || role === 'administrator') return true;
+        return p.userId == userId || (!p.userId && userId == 1);
+    });
     res.json(userPending);
 });
 
 // 3. REJECT (Called by Frontend)
-router.delete('/reject/:id', (req, res) => {
+router.delete('/reject/:id', authenticateToken, (req, res) => {
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'administrator';
     let pending = getPendingSMS();
-    pending = pending.filter(p => p.id != req.params.id);
+    pending = pending.filter(p => {
+        if (p.id != req.params.id) return true;
+        if (isAdmin) return false;
+        return p.userId != req.user.id;
+    });
     savePendingSMS(pending);
     res.json({ status: 'deleted' });
 });
 
 // 4. UPDATE (Called by Frontend Edit Modal)
-router.put('/update/:id', (req, res) => {
+router.put('/update/:id', authenticateToken, (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -496,6 +678,11 @@ router.put('/update/:id', (req, res) => {
 
         if (index === -1) {
             return res.status(404).json({ error: 'Transaction not found' });
+        }
+
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'administrator';
+        if (!isAdmin && pending[index].userId && String(pending[index].userId) !== String(req.user.id)) {
+            return res.status(403).json({ error: 'Not allowed to edit this transaction' });
         }
 
         // Merge updates
@@ -518,8 +705,13 @@ router.put('/update/:id', (req, res) => {
 router.post('/batch-reject-all', authenticateToken, (req, res) => {
     try {
         const userId = req.user.id;
+        const role = req.user.role;
         let pending = getPendingSMS();
-        pending = pending.filter(p => p.userId !== userId);
+        if (role === 'admin' || role === 'administrator') {
+            pending = [];
+        } else {
+            pending = pending.filter(p => p.userId != userId);
+        }
         savePendingSMS(pending);
         res.json({ success: true, message: 'All pending SMS cleared' });
     } catch (e) {

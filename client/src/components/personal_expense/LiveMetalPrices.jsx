@@ -254,7 +254,7 @@ const LiveMetalPrices = () => {
             </div>
 
             {/* Info Message */}
-            {prices?._source === 'calculated' && !prices._fallback && (
+            {prices?._source === 'derived' && (
                 <div style={{
                     marginTop: '20px',
                     padding: '15px',
@@ -264,12 +264,12 @@ const LiveMetalPrices = () => {
                     fontSize: '12px',
                     color: '#10b981'
                 }}>
-                    ✓ Live prices from free market data API
+                    ✓ Live gold price. Silver, platinum and palladium are approximate estimates derived from typical ratios.
                 </div>
             )}
 
-            {/* Fallback Warning */}
-            {prices?._fallback && (
+            {/* Unavailable Warning */}
+            {prices?._source === 'unavailable' && (
                 <div style={{
                     marginTop: '20px',
                     padding: '15px',
@@ -279,7 +279,7 @@ const LiveMetalPrices = () => {
                     fontSize: '12px',
                     color: '#ef4444'
                 }}>
-                    ⚠️ API error: {prices.error}. Showing cached prices.
+                    ⚠️ {prices.error || 'Live metal prices are currently unavailable.'}
                 </div>
             )}
 

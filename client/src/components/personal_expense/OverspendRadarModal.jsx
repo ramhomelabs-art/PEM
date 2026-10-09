@@ -42,7 +42,7 @@ export function OverspendRadarModal({
     // Data states for bills & loans if not supplied via props
     const [bills, setBills] = useState(propsBills || []);
     const [loans, setLoans] = useState(propsLoans || []);
-    const [loadingObligations, setLoadingObligations] = useState(false);
+    const [, setLoadingObligations] = useState(false);
 
     // Manual one-off transaction ID overrides
     const [manualOneOffIds, setManualOneOffIds] = useState(new Set());
@@ -209,13 +209,13 @@ export function OverspendRadarModal({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.97, y: 12 }}
                 transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                className="relative z-10 my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] bg-[#0c1427] shadow-[0_32px_96px_rgba(0,0,0,0.92)] text-ink"
+                className="relative z-10 my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] bg-surface shadow-[0_32px_96px_rgba(0,0,0,0.92)] text-ink"
             >
                 {/* Top Subtle Ambient Indicator */}
                 <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
                 {/* 1. STICKY HEADER */}
-                <header className="sticky top-0 z-30 flex items-start justify-between gap-4 border-b border-white/[0.06] bg-[#0c1427]/95 px-5 py-4 backdrop-blur-xl sm:px-6">
+                <header className="sticky top-0 z-30 flex items-start justify-between gap-4 border-b border-line bg-surface/95 px-5 py-4 backdrop-blur-xl sm:px-6">
                     <div className="flex items-center gap-3.5 min-w-0">
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400">
                             <Radar size={20} aria-hidden="true" />
@@ -235,7 +235,7 @@ export function OverspendRadarModal({
                         type="button"
                         onClick={onClose}
                         aria-label="Close dialog"
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-ink-muted transition hover:bg-white/[0.08] hover:text-ink active:scale-95"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-raised text-ink-muted transition hover:bg-line hover:text-ink active:scale-95"
                     >
                         <X size={16} aria-hidden="true" />
                     </button>
@@ -246,7 +246,7 @@ export function OverspendRadarModal({
                     {/* Empty State */}
                     {budgets.length === 0 ? (
                         <div className="my-12 flex flex-col items-center justify-center text-center">
-                            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/[0.04] text-ink-muted">
+                            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-raised text-ink-muted">
                                 <PieChart size={24} />
                             </div>
                             <h3 className="mt-4 text-sm font-bold text-ink">No budgets set</h3>
@@ -273,7 +273,7 @@ export function OverspendRadarModal({
                             <ForecastHeroChart macroData={macroData} currency={currency} />
 
                             {/* Segmented Filter Control */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.04] pt-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
                                 <div className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                                     Category Velocity Breakdown
                                 </div>
@@ -441,7 +441,7 @@ export function OverspendRadarModal({
                 </div>
 
                 {/* 3. CLEAN FOOTER (Only "How is this calculated?" popover & "Adjust budgets" action) */}
-                <footer className="flex items-center justify-between border-t border-white/[0.06] bg-[#090f1e]/90 px-5 py-3.5 backdrop-blur-md sm:px-6">
+                <footer className="flex items-center justify-between border-t border-line bg-sunken/90 px-5 py-3.5 backdrop-blur-md sm:px-6">
                     {/* Popover explaining forecast engine */}
                     <MethodPopover />
 
@@ -449,7 +449,7 @@ export function OverspendRadarModal({
                     <button
                         type="button"
                         onClick={handleAdjustBudgets}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.06] px-3.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-white/[0.1] active:scale-95"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-raised px-3.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-line active:scale-95"
                     >
                         <span>Adjust budgets</span>
                         <ExternalLink size={12} aria-hidden="true" />

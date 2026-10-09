@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ArrowDownUp,
@@ -102,6 +102,7 @@ function getDateHeaderLabel(dateStr) {
  * 36px rounded square at 12% opacity of the category colour, 18px icon.
  */
 function CategoryIconBadge({ category, color, isAll = false }) {
+     
     const Icon = isAll ? Layers : getCategoryIcon(category);
     return (
         <span
@@ -112,6 +113,7 @@ function CategoryIconBadge({ category, color, isAll = false }) {
             }}
             aria-hidden="true"
         >
+            {/* eslint-disable-next-line react-hooks/static-components -- Icon is a stable module-level component */}
             <Icon size={18} />
         </span>
     );
@@ -525,6 +527,7 @@ export function TransactionRow({ transaction: t, currency }) {
     const itemCat = t.category || 'Expense';
     const itemColor = getCategoryColor(itemCat);
     const rowTitle = getTransactionTitle(t);
+     
     const PaymentIcon = getPaymentMethodIcon(t.paymentMode);
 
     return (
@@ -547,6 +550,7 @@ export function TransactionRow({ transaction: t, currency }) {
                         </span>
                         {t.paymentMode ? (
                             <span className="text-[13px] text-[var(--text-muted)] flex items-center gap-1">
+                                {/* eslint-disable-next-line react-hooks/static-components -- PaymentIcon is a stable module-level component */}
                                 <PaymentIcon size={13} aria-hidden="true" />
                                 <span className="capitalize">{t.paymentMode}</span>
                             </span>
@@ -861,7 +865,7 @@ export function CategoryTransactionsModal({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-slate-950/80 backdrop-blur-md"
+                        className="fixed inset-0 bg-sunken/80 backdrop-blur-md"
                         aria-hidden="true"
                     />
 

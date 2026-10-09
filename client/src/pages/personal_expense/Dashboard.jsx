@@ -12,8 +12,6 @@ import {
     useCategoryBreakdown,
     useCommitments,
     useDailySeries,
-    useDailySpendMonth,
-    useInsights,
     useKpiMetrics,
     useTransactions,
     useUnreadMessages,
@@ -105,7 +103,6 @@ const Dashboard = () => {
     // Defaults to the current calendar month.
     const [range, setRange] = useState('1m');
     const [customRange, setCustomRange] = useState({ from: '', to: '' });
-    const [compare, setCompare] = useState(false);
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [activityTab, setActivityTab] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState(null);
@@ -224,12 +221,9 @@ const Dashboard = () => {
     const kpi = useKpiMetrics(transactions, months);
     const daily = useDailySeries(transactions, 30);
     const expenseBreakdown = useCategoryBreakdown(scopedTransactions, 'expense');
-    const dailyCurrent = useDailySpendMonth(transactions, 0);
-    const dailyPrevious = useDailySpendMonth(transactions, 1);
     const budgetVsActual = useBudgetVsActual(transactions, budgets, 0);
     const budgetAlerts = useBudgetAlerts(transactions, budgets);
     const obligations = useUpcomingObligations(bills, loans, borrow, { days: 30 });
-    const insights = useInsights(transactions, budgets);
 
     const { count: unreadCount, conversations } = useUnreadMessages(Boolean(user), {
         onNewMessage: (msg) => setMessageToast(msg),
@@ -244,11 +238,6 @@ const Dashboard = () => {
             expense: daily.map((d) => d.expense),
         };
     }, [daily]);
-
-    const heatmapSeries = useMemo(
-        () => daily.map((d) => ({ date: d.date, amount: d.expense })),
-        [daily]
-    );
 
     const dismiss = useCallback((id) => {
         setDismissed((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -317,7 +306,17 @@ const Dashboard = () => {
         const bankBalanceSum = Array.isArray(banks)
             ? banks.reduce((sum, b) => sum + (Number(b.balance) || 0), 0)
             : 0;
-        const liquidCash = bankBalanceSum > 0 ? bankBalanceSum : Math.max(0, kpi.current.balance || 0);
+        const netFromTransactions = (transactions || []).reduce((sum, t) => {
+            const amt = Number(t.amount) || 0;
+            if (t.type === 'income') return sum + amt;
+            if (t.type === 'expense') return sum - amt;
+            return sum;
+        }, 0);
+        const liquidCash = bankBalanceSum > 0
+            ? bankBalanceSum
+            : Number(kpi.current?.balance) > 0
+                ? Number(kpi.current.balance)
+                : Math.max(0, netFromTransactions);
 
         const upcomingBills = (bills || []).filter((b) => {
             if (b.status === 'paid') return false;
@@ -434,8 +433,6 @@ const Dashboard = () => {
                 onRangeChange={setRange}
                 customRange={customRange}
                 onCustomRangeChange={setCustomRange}
-                compare={compare}
-                onToggleCompare={() => setCompare((c) => !c)}
                 onSearch={() => setPaletteOpen(true)}
                 onAdd={openAdd}
                 onOpenWeather={() => setShowWeather(true)}
@@ -625,6 +622,8 @@ const Dashboard = () => {
                     <EmergencyFundRunwayCard
                         banks={banks}
                         transactions={transactions}
+                        loans={loans}
+                        bills={bills}
                         kpiBalance={kpi.current.balance}
                         liquidBalance={safeToSpendData.liquidCash}
                         currency={currency}

@@ -60,10 +60,10 @@ const LiveMarketTicker = () => {
             content: marketData?.indian && (
                 <div style={{ display: 'flex', gap: '40px', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '5px' }}>
                             {marketData.indian.nifty.flag} NIFTY 50
                         </div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: 'var(--pem-text)' }}>
                             {marketData.indian.nifty.price.toFixed(2)}
                         </div>
                         <div style={{
@@ -79,12 +79,12 @@ const LiveMarketTicker = () => {
                             {marketData.indian.nifty.change >= 0 ? '+' : ''}{marketData.indian.nifty.change.toFixed(2)} ({marketData.indian.nifty.percentChange}%)
                         </div>
                     </div>
-                    <div style={{ width: '1px', height: '50px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+                    <div style={{ width: '1px', height: '50px', backgroundColor: 'var(--pem-border)' }}></div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '5px' }}>
                             {marketData.indian.sensex.flag} SENSEX
                         </div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: 'white' }}>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: 'var(--pem-text)' }}>
                             {marketData.indian.sensex.price.toFixed(2)}
                         </div>
                         <div style={{
@@ -112,10 +112,10 @@ const LiveMarketTicker = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
                     {Object.values(marketData.us).map((index, idx) => (
                         <div key={idx} style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '5px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '5px' }}>
                                 {index.flag} {index.name}
                             </div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'white' }}>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'var(--pem-text)' }}>
                                 {index.price.toFixed(2)}
                             </div>
                             <div style={{
@@ -139,10 +139,10 @@ const LiveMarketTicker = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' }}>
                     {Object.values(marketData.global).map((index, idx) => (
                         <div key={idx} style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '5px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '5px' }}>
                                 {index.flag} {index.name}
                             </div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'white' }}>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'var(--pem-text)' }}>
                                 {index.price.toFixed(2)}
                             </div>
                             <div style={{
@@ -166,10 +166,10 @@ const LiveMarketTicker = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '25px' }}>
                     {Object.values(currencyData).map((curr, idx) => (
                         <div key={idx} style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '5px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--pem-text-secondary)', fontWeight: 'bold', marginBottom: '5px' }}>
                                 {curr.flag} 1 {curr.code}
                             </div>
-                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'white' }}>
+                            <div style={{ fontSize: '20px', fontWeight: '900', color: 'var(--pem-text)' }}>
                                 ₹{curr.rate}
                             </div>
                             <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#10b981' }}>
@@ -196,12 +196,12 @@ const LiveMarketTicker = () => {
         return (
             <div style={{
                 marginBottom: '40px',
-                backgroundColor: 'rgba(30, 41, 59, 0.3)',
-                border: '1px solid rgba(255,255,255,0.05)',
+                backgroundColor: 'var(--pem-surface-raised)',
+                border: '1px solid var(--pem-border)',
                 borderRadius: '20px',
                 padding: '40px',
                 textAlign: 'center',
-                color: '#94a3b8'
+                color: 'var(--pem-text-secondary)'
             }}>
                 Loading market data...
             </div>
@@ -211,8 +211,8 @@ const LiveMarketTicker = () => {
     return (
         <motion.div style={{
             marginBottom: '40px',
-            backgroundColor: 'rgba(30, 41, 59, 0.3)',
-            border: '1px solid rgba(255,255,255,0.05)',
+            backgroundColor: 'var(--pem-surface-raised)',
+            border: '1px solid var(--pem-border)',
             borderRadius: '20px',
             overflow: 'hidden',
             position: 'relative'
@@ -223,7 +223,7 @@ const LiveMarketTicker = () => {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'linear-gradient(90deg, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0.5) 100%)'
+                background: 'linear-gradient(90deg, var(--pem-surface-raised) 0%, var(--pem-surface) 100%)'
             }}>
                 <div
                     onClick={() => setIsExpanded(!isExpanded)}
@@ -240,7 +240,7 @@ const LiveMarketTicker = () => {
                     <span style={{
                         fontSize: '12px',
                         fontWeight: 'bold',
-                        color: '#94a3b8',
+                        color: 'var(--pem-text-secondary)',
                         textTransform: 'uppercase',
                         letterSpacing: '1px'
                     }}>
@@ -253,7 +253,7 @@ const LiveMarketTicker = () => {
                     style={{
                         background: 'none',
                         border: 'none',
-                        color: '#64748b',
+                        color: 'var(--pem-text-secondary)',
                         cursor: 'pointer',
                         padding: '5px',
                         display: 'flex',
@@ -299,7 +299,7 @@ const LiveMarketTicker = () => {
                                         style={{
                                             height: '4px',
                                             width: idx === (currentIndex % slides.length) ? '20px' : '6px',
-                                            backgroundColor: idx === (currentIndex % slides.length) ? CurrentSlide.color : 'rgba(255,255,255,0.1)',
+                                            backgroundColor: idx === (currentIndex % slides.length) ? CurrentSlide.color : 'var(--pem-border)',
                                             borderRadius: '2px',
                                             transition: 'all 0.3s',
                                             cursor: 'pointer'

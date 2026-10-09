@@ -28,7 +28,7 @@ export function RadarAlert({ message }) {
                 type="button"
                 onClick={() => setDismissed(true)}
                 aria-label="Dismiss alert"
-                className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-ink-muted transition hover:bg-white/[0.08] hover:text-ink active:scale-95"
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-ink-muted transition hover:bg-line hover:text-ink active:scale-95"
             >
                 <X size={13} aria-hidden="true" />
             </button>

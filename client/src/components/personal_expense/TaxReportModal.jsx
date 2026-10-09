@@ -71,20 +71,20 @@ const TaxReportModal = ({ isOpen, onClose }) => {
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', width: '90%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
+                style={{ backgroundColor: 'var(--pem-surface)', border: '1px solid var(--pem-border)', borderRadius: '24px', width: '90%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
             >
                 {/* Header */}
-                <div style={{ padding: '25px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(to right, #1e293b, #0f172a)' }}>
+                <div style={{ padding: '25px', borderBottom: '1px solid var(--pem-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(to right, var(--pem-surface), var(--pem-bg-sunken))' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <div style={{ padding: '10px', backgroundColor: 'rgba(16, 185, 129, 0.2)', borderRadius: '12px', color: '#34d399' }}>
                             <FileText size={24} />
                         </div>
                         <div>
-                            <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', margin: 0 }}>Tax Report</h2>
-                            <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>Capital Gains Statement (FIFO Method)</p>
+                            <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'var(--pem-text)', margin: 0 }}>Tax Report</h2>
+                            <p style={{ margin: 0, color: 'var(--pem-text-secondary)', fontSize: '14px' }}>Capital Gains Statement (FIFO Method)</p>
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '5px' }}>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--pem-text-secondary)', cursor: 'pointer', padding: '5px' }}>
                         <X size={24} />
                     </button>
                 </div>
@@ -92,40 +92,40 @@ const TaxReportModal = ({ isOpen, onClose }) => {
                 {/* Content */}
                 <div style={{ padding: '30px', overflowY: 'auto' }}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Generating Report...</div>
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--pem-text-secondary)' }}>Generating Report...</div>
                     ) : report ? (
                         <>
                             {/* Summary Cards */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
                                 <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                                     <span style={{ fontSize: '12px', color: '#a5b4fc', fontWeight: 'bold', textTransform: 'uppercase' }}>Short Term Gains (STCG)</span>
-                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: '5px 0 0 0' }}>{formatCurrency(report.stcg)}</h3>
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>Asset held &lt; 1 Year</span>
+                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--pem-text)', margin: '5px 0 0 0' }}>{formatCurrency(report.stcg)}</h3>
+                                    <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Asset held &lt; 1 Year</span>
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
                                     <span style={{ fontSize: '12px', color: '#fcd34d', fontWeight: 'bold', textTransform: 'uppercase' }}>Long Term Gains (LTCG)</span>
-                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: '5px 0 0 0' }}>{formatCurrency(report.ltcg)}</h3>
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>Asset held &gt; 1 Year</span>
+                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--pem-text)', margin: '5px 0 0 0' }}>{formatCurrency(report.ltcg)}</h3>
+                                    <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Asset held &gt; 1 Year</span>
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                                     <span style={{ fontSize: '12px', color: '#6ee7b7', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Realized P&L</span>
-                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: '5px 0 0 0' }}>{formatCurrency(report.totalGains)}</h3>
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>Total Taxable Income</span>
+                                    <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--pem-text)', margin: '5px 0 0 0' }}>{formatCurrency(report.totalGains)}</h3>
+                                    <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Total Taxable Income</span>
                                 </div>
                             </div>
 
                             {/* Detailed Table */}
-                            <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                                <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h4 style={{ margin: 0, color: 'white' }}>Transaction Breakdown</h4>
+                            <div style={{ backgroundColor: 'var(--pem-bg-sunken)', borderRadius: '16px', border: '1px solid var(--pem-border)', overflow: 'hidden' }}>
+                                <div style={{ padding: '20px', borderBottom: '1px solid var(--pem-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h4 style={{ margin: 0, color: 'var(--pem-text)' }}>Transaction Breakdown</h4>
                                     <button onClick={downloadCSV} style={{ backgroundColor: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 'bold' }}>
                                         <Download size={14} /> Download CSV
                                     </button>
                                 </div>
                                 <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', color: '#cbd5e1' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', color: 'var(--pem-text-secondary)' }}>
                                         <thead>
-                                            <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                                            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--pem-border)', backgroundColor: 'var(--pem-surface-raised)' }}>
                                                 <th style={{ padding: '15px' }}>Asset</th>
                                                 <th style={{ padding: '15px' }}>Type</th>
                                                 <th style={{ padding: '15px' }}>Buy Date</th>
@@ -135,10 +135,10 @@ const TaxReportModal = ({ isOpen, onClose }) => {
                                         </thead>
                                         <tbody>
                                             {report.details.length === 0 ? (
-                                                <tr><td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>No realized gains yet</td></tr>
+                                                <tr><td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: 'var(--pem-text-secondary)' }}>No realized gains yet</td></tr>
                                             ) : (
                                                 report.details.map((item, i) => (
-                                                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                    <tr key={i} style={{ borderBottom: '1px solid var(--pem-border)' }}>
                                                         <td style={{ padding: '15px', fontWeight: 'bold' }}>{item.investmentName}</td>
                                                         <td style={{ padding: '15px' }}>
                                                             <span style={{

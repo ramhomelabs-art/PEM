@@ -153,11 +153,11 @@ const InvestmentGoalModal = ({ isOpen, onClose, onSuccess, goal }) => {
                 style={{
                     width: '100%',
                     maxWidth: '500px',
-                    backgroundColor: '#1e293b',
+                    backgroundColor: 'var(--pem-surface)',
                     borderRadius: '24px',
                     padding: '30px',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--pem-text)',
+                    border: '1px solid var(--pem-border)',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     maxHeight: '90vh',
                     overflowY: 'auto'
@@ -167,50 +167,50 @@ const InvestmentGoalModal = ({ isOpen, onClose, onSuccess, goal }) => {
                     <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
                         <Target color="#f472b6" /> {goal ? 'Edit Goal' : 'Set New Goal'}
                     </h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--pem-text-secondary)', cursor: 'pointer' }}>
                         <X size={24} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div>
-                        <label style={{ display: 'block', color: '#94a3b8', marginBottom: '8px', fontSize: '14px' }}>Goal Name</label>
+                        <label style={{ display: 'block', color: 'var(--pem-text-secondary)', marginBottom: '8px', fontSize: '14px' }}>Goal Name</label>
                         <input
                             type="text"
                             required
                             placeholder="e.g. Retirement, New Car"
                             value={formData.name}
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
-                            style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: 'white', boxSizing: 'border-box' }}
+                            style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', color: 'var(--pem-text)', boxSizing: 'border-box' }}
                         />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
-                            <label style={{ display: 'block', color: '#94a3b8', marginBottom: '8px', fontSize: '14px' }}>Target Amount (₹)</label>
+                            <label style={{ display: 'block', color: 'var(--pem-text-secondary)', marginBottom: '8px', fontSize: '14px' }}>Target Amount (₹)</label>
                             <input
                                 type="number"
                                 required
                                 placeholder="500000"
                                 value={formData.targetAmount}
                                 onChange={e => setFormData({ ...formData, targetAmount: e.target.value })}
-                                style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: 'white', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', color: 'var(--pem-text)', boxSizing: 'border-box' }}
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', color: '#94a3b8', marginBottom: '8px', fontSize: '14px' }}>Target Date</label>
+                            <label style={{ display: 'block', color: 'var(--pem-text-secondary)', marginBottom: '8px', fontSize: '14px' }}>Target Date</label>
                             <input
                                 type="date"
                                 required
                                 value={formData.targetDate}
                                 onChange={e => setFormData({ ...formData, targetDate: e.target.value })}
-                                style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: 'white', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', color: 'var(--pem-text)', boxSizing: 'border-box' }}
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label style={{ display: 'block', color: '#94a3b8', marginBottom: '8px', fontSize: '14px' }}>Priority</label>
+                        <label style={{ display: 'block', color: 'var(--pem-text-secondary)', marginBottom: '8px', fontSize: '14px' }}>Priority</label>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             {['Low', 'Medium', 'High'].map(p => (
                                 <button
@@ -219,8 +219,8 @@ const InvestmentGoalModal = ({ isOpen, onClose, onSuccess, goal }) => {
                                     onClick={() => setFormData({ ...formData, priority: p })}
                                     style={{
                                         flex: 1, padding: '10px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                                        backgroundColor: formData.priority === p ? (p === 'High' ? '#ef4444' : p === 'Medium' ? '#eab308' : '#3b82f6') : '#334155',
-                                        color: 'white', fontWeight: 'bold'
+                                        backgroundColor: formData.priority === p ? (p === 'High' ? '#ef4444' : p === 'Medium' ? '#eab308' : '#3b82f6') : 'var(--pem-surface-raised)',
+                                        color: 'var(--pem-text)', fontWeight: 'bold'
                                     }}
                                 >
                                     {p}
@@ -231,17 +231,17 @@ const InvestmentGoalModal = ({ isOpen, onClose, onSuccess, goal }) => {
 
                     {/* Investment Tagging Section */}
                     <div>
-                        <label style={{ display: 'block', color: '#94a3b8', marginBottom: '8px', fontSize: '14px' }}>Tag Investments (Source of Funds)</label>
-                        <div style={{ maxHeight: '150px', overflowY: 'auto', backgroundColor: '#0f172a', borderRadius: '12px', padding: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            {availableInvestments.length === 0 ? <p style={{ color: '#64748b', fontSize: '12px', textAlign: 'center' }}>No investments available.</p> :
+                        <label style={{ display: 'block', color: 'var(--pem-text-secondary)', marginBottom: '8px', fontSize: '14px' }}>Tag Investments (Source of Funds)</label>
+                        <div style={{ maxHeight: '150px', overflowY: 'auto', backgroundColor: 'var(--pem-bg-sunken)', borderRadius: '12px', padding: '10px', border: '1px solid var(--pem-border)' }}>
+                            {availableInvestments.length === 0 ? <p style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', textAlign: 'center' }}>No investments available.</p> :
                                 availableInvestments.map(inv => (
                                     <div key={inv.id} onClick={() => toggleInvestment(inv.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', cursor: 'pointer', borderRadius: '8px', backgroundColor: selectedInvestmentIds.includes(inv.id) ? 'rgba(59, 130, 246, 0.2)' : 'transparent' }}>
-                                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: selectedInvestmentIds.includes(inv.id) ? 'none' : '2px solid #64748b', backgroundColor: selectedInvestmentIds.includes(inv.id) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: selectedInvestmentIds.includes(inv.id) ? 'none' : '2px solid var(--pem-text-secondary)', backgroundColor: selectedInvestmentIds.includes(inv.id) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {selectedInvestmentIds.includes(inv.id) && <X size={12} color="white" style={{ transform: 'rotate(45deg)' }} />}
                                         </div>
                                         <div>
-                                            <p style={{ margin: 0, fontSize: '13px', color: 'white', fontWeight: 'bold' }}>{inv.name}</p>
-                                            <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>{inv.category} • ₹{Number(inv.currentValue).toLocaleString()}</p>
+                                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--pem-text)', fontWeight: 'bold' }}>{inv.name}</p>
+                                            <p style={{ margin: 0, fontSize: '10px', color: 'var(--pem-text-secondary)' }}>{inv.category} • ₹{Number(inv.currentValue).toLocaleString()}</p>
                                         </div>
                                         {inv.goalId && inv.goalId !== goal?.id && (
                                             <span style={{ marginLeft: 'auto', fontSize: '9px', color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>

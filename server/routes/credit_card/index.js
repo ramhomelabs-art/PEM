@@ -14,19 +14,54 @@ console.log('🔧 [STARTUP] Credit Card routes loaded at:', new Date().toISOStri
 
 
 // Encryption helpers
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-character-secret-key!!'; // Must be 32 chars
-const IV_LENGTH = 16;
+const INSECURE_KEY = 'your-32-character-secret-key!!';
+const RAW_KEY = process.env.ENCRYPTION_KEY;
 
+if (!RAW_KEY || RAW_KEY === INSECURE_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+        // Previously a public fallback key silently protected PAN/CVV. Fail closed instead.
+        throw new Error('[SECURITY] ENCRYPTION_KEY must be set to a strong value in production (card PAN/CVV encryption).');
+    }
+    console.warn('⚠️ [SECURITY] Using insecure development ENCRYPTION_KEY for card data. Set ENCRYPTION_KEY before storing real card data.');
+}
+
+// Normalize to exactly 32 bytes. A supplied 32-byte key is used as-is so existing
+// ciphertext remains decryptable; other lengths are hashed to 32 bytes.
+const ENCRYPTION_KEY = (() => {
+    const buf = Buffer.from(RAW_KEY || INSECURE_KEY, 'utf8');
+    return buf.length === 32 ? buf : crypto.createHash('sha256').update(buf).digest();
+})();
+const IV_LENGTH = 16;
+const GCM_IV_LENGTH = 12;
+const GCM_TAG_LENGTH = 16;
+
+// Sensitive card data is encrypted with authenticated AES-256-GCM.
+// Format: "v2:" + base64(iv || ciphertext || tag). Legacy values stored with the
+// old AES-256-CBC format ("ivHex:cipherHex") are still decryptable for existing rows.
 function encrypt(text) {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
+    const iv = crypto.randomBytes(GCM_IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+    const encrypted = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return 'v2:' + Buffer.concat([iv, encrypted, tag]).toString('base64');
 }
 
 function decrypt(text) {
-    const parts = text.split(':');
+    if (typeof text === 'string' && text.startsWith('v2:')) {
+        const combined = Buffer.from(text.slice(3), 'base64');
+        if (combined.length < GCM_IV_LENGTH + GCM_TAG_LENGTH) {
+            throw new Error('Invalid encrypted payload');
+        }
+        const iv = combined.subarray(0, GCM_IV_LENGTH);
+        const tag = combined.subarray(combined.length - GCM_TAG_LENGTH);
+        const ciphertext = combined.subarray(GCM_IV_LENGTH, combined.length - GCM_TAG_LENGTH);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    }
+
+    // Legacy AES-256-CBC format: ivHex:cipherHex
+    const parts = String(text).split(':');
     const iv = Buffer.from(parts.shift(), 'hex');
     const encryptedText = Buffer.from(parts.join(':'), 'hex');
     const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);

@@ -20,13 +20,14 @@ const CreditCardLoading = () => {
 
         if (loading) {
             const interval = setInterval(() => {
-                setProgress((prev) => (prev >= 90 ? 90 : prev + 3));
-            }, 120);
+                setProgress((prev) => (prev >= 90 ? 90 : prev + 2));
+            }, 200);
             return () => clearInterval(interval);
         }
 
-        // Data ready (or no cards) — briefly settle, then open the dashboard.
-        const timeout = setTimeout(() => navigate('/credit-cards/dashboard', { replace: true }), 400);
+        // Data ready (or no cards) — fill the bar, then open the dashboard.
+        setProgress(100);
+        const timeout = setTimeout(() => navigate('/credit-cards/dashboard', { replace: true }), 600);
         return () => clearTimeout(timeout);
     }, [unlocked, loading, cards, navigate]);
 

@@ -1,5 +1,5 @@
 import { notifyDataChanged } from '../../utils/realtimeSync';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -94,7 +94,7 @@ const SUPPORTED_BANKS = [
 ];
 
 const CreditCardAutoStatement = () => {
-    const { cards = [], addCard, addTransaction, categories = [] } = useCreditCards();
+    const { cards = [], addTransaction } = useCreditCards();
     
     // Top-Level Active Navigation Tab ('gmail' | 'pdf' | 'sms' | 'config' | 'transactions')
     const [activeTab, setActiveTab] = useState('gmail');
@@ -126,15 +126,15 @@ const CreditCardAutoStatement = () => {
     const [pdfFile, setPdfFile] = useState(null);
     const [pdfPassword, setPdfPassword] = useState('');
     const [showPasswordInput, setShowPasswordInput] = useState(false);
-    const [isUnlocked, setIsUnlocked] = useState(false);
+    const [, setIsUnlocked] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [passwordError, setPasswordError] = useState('');
-    const [cardMatchStatus, setCardMatchStatus] = useState(null);
+    const [, setCardMatchStatus] = useState(null);
     const [statementData, setStatementData] = useState(null);
-    const [parseError, setParseError] = useState(null);
-    const [rawExtractedText, setRawExtractedText] = useState('');
+    const [, setParseError] = useState(null);
+    const [, setRawExtractedText] = useState('');
     const [statementCardEnding, setStatementCardEnding] = useState('');
-    const [fileUrl, setFileUrl] = useState(null);
+    const [, setFileUrl] = useState(null);
 
     // SMS Parser State
     const [smsText, setSmsText] = useState('');
@@ -144,10 +144,6 @@ const CreditCardAutoStatement = () => {
     const [txSearchQuery, setTxSearchQuery] = useState('');
     const [txFilterCategory, setTxFilterCategory] = useState('ALL');
     const [selectedTxIds, setSelectedTxIds] = useState(new Set());
-    const [editingTransaction, setEditingTransaction] = useState(null);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showSummaryModal, setShowSummaryModal] = useState(false);
-    const [showEMIModal, setShowEMIModal] = useState(false);
     const [showManualEntry, setShowManualEntry] = useState(false);
 
     // UI Feedback State
@@ -788,7 +784,7 @@ const CreditCardAutoStatement = () => {
     }, [extractedTransactions, txSearchQuery, txFilterCategory]);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-ink">
             {/* TOAST ALERTS */}
             <AnimatePresence>
                 {toast && (
@@ -827,20 +823,20 @@ const CreditCardAutoStatement = () => {
             />
 
             {/* TOP HERO HEADER WITH TELEMETRY BADGES */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-5 sm:p-6 rounded-3xl bg-surface/60 border border-line shadow-2xl backdrop-blur-xl">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25">
                             <Sparkles className="w-6 h-6" />
                         </div>
                         <div>
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-ink flex items-center gap-2">
                                 Auto Statement Engine
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                     CRED SYNC
                                 </span>
                             </h1>
-                            <p className="text-xs sm:text-sm text-slate-400">
+                            <p className="text-xs sm:text-sm text-ink-muted">
                                 Auto-discover e-statements via Gmail, decrypt protected PDFs, and approve bills in 1 click.
                             </p>
                         </div>
@@ -850,10 +846,10 @@ const CreditCardAutoStatement = () => {
                 {/* Status Telemetry Badges */}
                 <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                     {/* Gmail Connection Status */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <div className={`w-2.5 h-2.5 rounded-full ${gmailStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Gmail Sync</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Gmail Sync</span>
                             <span className={`text-[11px] font-extrabold ${gmailStatus.connected ? 'text-emerald-400' : 'text-amber-400'}`}>
                                 {gmailStatus.connected ? (maskEmail(gmailStatus.email) || 'CONNECTED') : 'READY TO LINK'}
                             </span>
@@ -861,10 +857,10 @@ const CreditCardAutoStatement = () => {
                     </div>
 
                     {/* Discovered Statements Counter */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <Mail className="w-3.5 h-3.5 text-teal-400" />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Statements</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Statements</span>
                             <span className="text-[11px] font-extrabold text-teal-300">
                                 {gmailStatements.length} Found
                             </span>
@@ -872,10 +868,10 @@ const CreditCardAutoStatement = () => {
                     </div>
 
                     {/* Pending Staging Ledger */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/70 border border-slate-800">
+                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <CheckSquare className="w-3.5 h-3.5 text-indigo-400" />
                         <div className="flex flex-col">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Staging TXs</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Staging TXs</span>
                             <span className="text-[11px] font-extrabold text-indigo-300">
                                 {extractedTransactions.length} Pending
                             </span>
@@ -896,7 +892,7 @@ const CreditCardAutoStatement = () => {
 
                     <button
                         onClick={() => setShowManualEntry(true)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-all border border-slate-700"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-raised hover:bg-line text-ink font-bold text-xs transition-all border border-line"
                     >
                         <Plus className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Manual TX</span>
@@ -905,14 +901,14 @@ const CreditCardAutoStatement = () => {
             </div>
 
             {/* SEGMENTED NAVIGATION TAB BAR */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-surface/90 border border-line shadow-xl backdrop-blur-md">
                 {/* Tab 1: Gmail Statements */}
                 <button
                     onClick={() => setActiveTab('gmail')}
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                         activeTab === 'gmail'
                             ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <Mail className="w-4 h-4" />
@@ -930,7 +926,7 @@ const CreditCardAutoStatement = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                         activeTab === 'pdf'
                             ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <FileText className="w-4 h-4" />
@@ -943,7 +939,7 @@ const CreditCardAutoStatement = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                         activeTab === 'sms'
                             ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <MessageSquare className="w-4 h-4" />
@@ -956,7 +952,7 @@ const CreditCardAutoStatement = () => {
                     className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
                         activeTab === 'config'
                             ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            : 'text-ink-muted hover:text-ink hover:bg-line'
                     }`}
                 >
                     <ShieldCheck className="w-4 h-4" />
@@ -971,15 +967,15 @@ const CreditCardAutoStatement = () => {
             {activeTab === 'gmail' && (
                 <div className="space-y-6">
                     {!gmailStatus.connected ? (
-                        <div className="p-8 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-6 backdrop-blur-xl">
+                        <div className="p-8 rounded-3xl bg-surface/60 border border-line text-center space-y-6 backdrop-blur-xl">
                             <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
                                 <Mail className="w-8 h-8" />
                             </div>
                             <div className="max-w-xl mx-auto space-y-2">
-                                <h2 className="text-xl sm:text-2xl font-black text-white">
+                                <h2 className="text-xl sm:text-2xl font-black text-ink">
                                     Connect Gmail for Automated Statement Discovery
                                 </h2>
-                                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                                <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
                                     Our intelligent parser reads official credit card bill alerts from HDFC, SBI, ICICI, Axis, OneCard, Amex, Kotak, and RBL—just like CRED. Secure read-only access.
                                 </p>
                             </div>
@@ -995,7 +991,7 @@ const CreditCardAutoStatement = () => {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('config')}
-                                    className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition-all"
+                                    className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-raised hover:bg-line text-ink-muted font-bold text-sm border border-line transition-all"
                                 >
                                     <Key className="w-4 h-4 text-amber-400" />
                                     <span>Configure OAuth Keys</span>
@@ -1003,13 +999,13 @@ const CreditCardAutoStatement = () => {
                             </div>
 
                             {/* Supported Banks Badges */}
-                            <div className="pt-4 border-t border-slate-800/80">
-                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">
+                            <div className="pt-4 border-t border-line/80">
+                                <p className="text-[11px] font-bold text-ink-faint uppercase tracking-wider mb-3">
                                     Supported Banks & E-Statements
                                 </p>
                                 <div className="flex flex-wrap justify-center gap-2">
                                     {SUPPORTED_BANKS.map((b) => (
-                                        <span key={b.name} className="px-3 py-1 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] font-semibold text-slate-300">
+                                        <span key={b.name} className="px-3 py-1 rounded-xl bg-sunken/70 border border-line text-[11px] font-semibold text-ink-muted">
                                             {b.name}
                                         </span>
                                     ))}
@@ -1019,19 +1015,19 @@ const CreditCardAutoStatement = () => {
                     ) : (
                         <div className="space-y-6">
                             {/* Connected Status Bar & Search Filter */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-surface/60 border border-line backdrop-blur-xl">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                                         <Mail className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-black text-white">{maskEmail(gmailStatus.email)}</span>
+                                            <span className="text-xs font-black text-ink">{maskEmail(gmailStatus.email)}</span>
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                                 ACTIVE
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-slate-400">
+                                        <p className="text-[11px] text-ink-muted">
                                             Last Synced: {gmailStatus.lastSync ? formatFullDate(gmailStatus.lastSync) : 'Just Now'}
                                         </p>
                                     </div>
@@ -1040,13 +1036,13 @@ const CreditCardAutoStatement = () => {
                                 <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                                     {/* Search */}
                                     <div className="relative flex-1 sm:w-64">
-                                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <Search className="w-4 h-4 text-ink-faint absolute left-3 top-1/2 -translate-y-1/2" />
                                         <input
                                             type="text"
                                             value={gmailSearchQuery}
                                             onChange={(e) => setGmailSearchQuery(e.target.value)}
                                             placeholder="Filter bank, card or amount..."
-                                            className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-emerald-500"
+                                            className="w-full pl-9 pr-3 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink placeholder:text-ink-faint outline-none focus:border-emerald-500"
                                         />
                                     </div>
 
@@ -1061,7 +1057,7 @@ const CreditCardAutoStatement = () => {
 
                                     <button
                                         onClick={() => setActiveTab('config')}
-                                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+                                        className="p-2 rounded-xl bg-raised hover:bg-line text-ink-muted border border-line transition-all"
                                         title="Email Settings & Keys"
                                     >
                                         <SlidersHorizontal className="w-4 h-4" />
@@ -1073,7 +1069,7 @@ const CreditCardAutoStatement = () => {
                             {filteredGmailStatements.length > 0 ? (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between px-1">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        <span className="text-xs font-bold text-ink-muted uppercase tracking-wider">
                                             Discovered Statements ({filteredGmailStatements.length})
                                         </span>
                                         <span className="text-xs text-emerald-400 font-semibold">
@@ -1095,39 +1091,39 @@ const CreditCardAutoStatement = () => {
                                                     key={stmt.messageId}
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
-                                                    className="p-5 rounded-3xl bg-slate-900/70 border border-slate-800 shadow-xl backdrop-blur-xl hover:border-slate-700 transition-all space-y-4 flex flex-col justify-between"
+                                                    className="p-5 rounded-3xl bg-surface/70 border border-line shadow-xl backdrop-blur-xl hover:border-line transition-all space-y-4 flex flex-col justify-between"
                                                 >
                                                     <div className="space-y-3">
                                                         {/* Header: Bank & Card Pill */}
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
-                                                                <span className="text-sm font-extrabold text-white">
+                                                                <span className="text-sm font-extrabold text-ink">
                                                                     {stmt.bankName || 'Bank Statement'}
                                                                 </span>
                                                                 {stmt.last4 && (
-                                                                    <span className="px-2 py-0.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[10px] font-mono font-bold text-purple-300">
+                                                                    <span className="px-2 py-0.5 rounded-lg bg-sunken/80 border border-line text-[10px] font-mono font-bold text-purple-300">
                                                                         •••• {stmt.last4}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-950/60 px-2 py-1 rounded-lg border border-slate-800">
+                                                            <span className="text-[10px] font-bold text-ink-muted bg-sunken/60 px-2 py-1 rounded-lg border border-line">
                                                                 {stmt.receivedDate ? formatDate(stmt.receivedDate) : 'Recent'}
                                                             </span>
                                                         </div>
 
                                                         {/* Financial Metrics Grid */}
-                                                        <div className="grid grid-cols-2 gap-2.5 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                                                        <div className="grid grid-cols-2 gap-2.5 p-3.5 rounded-2xl bg-sunken/70 border border-line/80">
                                                             <div>
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                                <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">
                                                                     Total Due
                                                                 </span>
-                                                                <span className="text-lg font-black text-white tracking-tight">
+                                                                <span className="text-lg font-black text-ink tracking-tight">
                                                                     {stmt.totalDue ? formatCurrency(stmt.totalDue) : 'N/A'}
                                                                 </span>
                                                             </div>
                                                             <div>
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                                                <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">
                                                                     Due Date
                                                                 </span>
                                                                 <span className="text-sm font-extrabold text-amber-400 flex items-center gap-1 mt-0.5">
@@ -1137,22 +1133,22 @@ const CreditCardAutoStatement = () => {
                                                             </div>
 
                                                             {stmt.minDue && (
-                                                                <div className="pt-2 border-t border-slate-800/60">
-                                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                                                                <div className="pt-2 border-t border-line/60">
+                                                                    <span className="text-[9px] font-bold text-ink-faint uppercase tracking-wider block">
                                                                         Minimum Due
                                                                     </span>
-                                                                    <span className="text-xs font-bold text-slate-300">
+                                                                    <span className="text-xs font-bold text-ink-muted">
                                                                         {formatCurrency(stmt.minDue)}
                                                                     </span>
                                                                 </div>
                                                             )}
 
                                                             {stmt.statementPeriod && (
-                                                                <div className="pt-2 border-t border-slate-800/60">
-                                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                                                                <div className="pt-2 border-t border-line/60">
+                                                                    <span className="text-[9px] font-bold text-ink-faint uppercase tracking-wider block">
                                                                         Statement Cycle
                                                                     </span>
-                                                                    <span className="text-[11px] font-semibold text-slate-400 truncate block">
+                                                                    <span className="text-[11px] font-semibold text-ink-muted truncate block">
                                                                         {stmt.statementPeriod}
                                                                     </span>
                                                                 </div>
@@ -1161,14 +1157,14 @@ const CreditCardAutoStatement = () => {
 
                                                         {/* Card Link Selector */}
                                                         <div className="space-y-1">
-                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                                            <label className="text-[10px] font-bold text-ink-muted uppercase tracking-wider flex items-center gap-1">
                                                                 <CreditCard className="w-3 h-3 text-purple-400" />
                                                                 Target Credit Card
                                                             </label>
                                                             <select
                                                                 value={currentSelectedId}
                                                                 onChange={(e) => setSelectedCardForStmt(prev => ({ ...prev, [stmt.messageId]: e.target.value }))}
-                                                                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 outline-none focus:border-purple-500"
+                                                                className="w-full px-3 py-2 bg-sunken/80 border border-line rounded-xl text-xs text-ink outline-none focus:border-purple-500"
                                                             >
                                                                 <option value="">-- Select Linked Card --</option>
                                                                 {cards.map(c => (
@@ -1184,14 +1180,14 @@ const CreditCardAutoStatement = () => {
                                                             <div className="pt-1">
                                                                 <button
                                                                     onClick={() => toggleSnippet(stmt.messageId)}
-                                                                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                                                    className="text-[11px] font-semibold text-ink-muted hover:text-ink flex items-center gap-1"
                                                                 >
                                                                     <span>{isExpanded ? 'Hide Email Details' : 'View Raw Email Snippet'}</span>
                                                                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                                                                 </button>
                                                                 {isExpanded && (
-                                                                    <div className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 leading-relaxed font-mono whitespace-pre-wrap">
-                                                                        <div className="text-[10px] text-slate-500 font-bold mb-1">
+                                                                    <div className="mt-2 p-3 rounded-xl bg-sunken border border-line text-[11px] text-ink-muted leading-relaxed font-mono whitespace-pre-wrap">
+                                                                        <div className="text-[10px] text-ink-faint font-bold mb-1">
                                                                             SUBJECT: {stmt.subject}
                                                                         </div>
                                                                         {stmt.snippet}
@@ -1202,7 +1198,7 @@ const CreditCardAutoStatement = () => {
                                                     </div>
 
                                                     {/* Actions */}
-                                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-line">
                                                         <button
                                                             onClick={() => handleApplyGmailStatement(stmt)}
                                                             disabled={applyingStmtId === stmt.messageId}
@@ -1213,7 +1209,7 @@ const CreditCardAutoStatement = () => {
                                                         </button>
                                                         <button
                                                             onClick={() => handleDismissGmailStatement(stmt.messageId)}
-                                                            className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
+                                                            className="p-2.5 rounded-xl bg-raised hover:bg-rose-950 hover:text-rose-400 text-ink-muted border border-line transition-all"
                                                             title="Dismiss Statement"
                                                         >
                                                             <X className="w-4 h-4" />
@@ -1225,13 +1221,13 @@ const CreditCardAutoStatement = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-12 rounded-3xl bg-slate-900/40 border border-slate-800 text-center space-y-4 backdrop-blur-xl">
-                                    <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-800/60 border border-slate-700 flex items-center justify-center text-slate-400">
+                                <div className="p-12 rounded-3xl bg-surface/40 border border-line text-center space-y-4 backdrop-blur-xl">
+                                    <div className="w-14 h-14 mx-auto rounded-2xl bg-raised/60 border border-line flex items-center justify-center text-ink-muted">
                                         <Mail className="w-7 h-7" />
                                     </div>
                                     <div className="space-y-1">
-                                        <h3 className="text-base font-bold text-white">No Pending Statements</h3>
-                                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                                        <h3 className="text-base font-bold text-ink">No Pending Statements</h3>
+                                        <p className="text-xs text-ink-muted max-w-sm mx-auto">
                                             Your Gmail inbox is all caught up! Click below to scan for the latest bank statements.
                                         </p>
                                     </div>
@@ -1255,20 +1251,20 @@ const CreditCardAutoStatement = () => {
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-5 space-y-5">
-                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                            <div className="p-6 rounded-3xl bg-surface/60 border border-line space-y-5 backdrop-blur-xl">
                                 <div className="flex items-center gap-2">
                                     <FileText className="w-5 h-5 text-purple-400" />
-                                    <h2 className="text-base font-bold text-white">Upload E-Statement PDF</h2>
+                                    <h2 className="text-base font-bold text-ink">Upload E-Statement PDF</h2>
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
                                         Assign to Credit Card (Optional)
                                     </label>
                                     <select
                                         value={selectedCard}
                                         onChange={(e) => setSelectedCard(e.target.value)}
-                                        className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 outline-none focus:border-purple-500"
+                                        className="w-full px-3.5 py-2.5 bg-sunken/80 border border-line rounded-xl text-xs text-ink outline-none focus:border-purple-500"
                                     >
                                         <option value="">Auto-Detect from Statement</option>
                                         {cards.map(c => (
@@ -1279,7 +1275,7 @@ const CreditCardAutoStatement = () => {
                                     </select>
                                 </div>
 
-                                <div className="relative border-2 border-dashed border-slate-700 hover:border-purple-500/80 rounded-2xl p-6 text-center transition-all bg-slate-950/40 hover:bg-slate-950/70 group">
+                                <div className="relative border-2 border-dashed border-line hover:border-purple-500/80 rounded-2xl p-6 text-center transition-all bg-sunken/40 hover:bg-sunken/70 group">
                                     <input
                                         type="file"
                                         accept="application/pdf"
@@ -1291,10 +1287,10 @@ const CreditCardAutoStatement = () => {
                                             <Upload className="w-6 h-6" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold text-slate-200">
+                                            <p className="text-xs font-bold text-ink">
                                                 {pdfFile ? pdfFile.name : 'Drag & drop bank PDF or browse'}
                                             </p>
-                                            <p className="text-[10px] text-slate-500 mt-1">
+                                            <p className="text-[10px] text-ink-faint mt-1">
                                                 Supports HDFC, ICICI, SBI, Axis, OneCard, Amex
                                             </p>
                                         </div>
@@ -1320,7 +1316,7 @@ const CreditCardAutoStatement = () => {
                                                 value={pdfPassword}
                                                 onChange={(e) => setPdfPassword(e.target.value)}
                                                 placeholder="Enter PDF password..."
-                                                className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-amber-500"
+                                                className="flex-1 px-3 py-2 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-amber-500"
                                             />
                                             <button
                                                 onClick={handleUnlockPDF}
@@ -1349,42 +1345,42 @@ const CreditCardAutoStatement = () => {
 
                         <div className="lg:col-span-7 space-y-5">
                             {statementData ? (
-                                <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                                <div className="p-6 rounded-3xl bg-surface/60 border border-line space-y-5 backdrop-blur-xl">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                        <h3 className="text-base font-bold text-ink flex items-center gap-2">
                                             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                                             Parsed Statement Summary
                                         </h3>
                                         {statementCardEnding && (
-                                            <span className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono font-bold text-purple-300">
+                                            <span className="px-2.5 py-1 rounded-lg bg-sunken border border-line text-xs font-mono font-bold text-purple-300">
                                                 Card Ending: •••• {statementCardEnding}
                                             </span>
                                         )}
                                     </div>
 
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Due</span>
-                                            <span className="text-base font-black text-white">{statementData.totalDue ? formatCurrency(statementData.totalDue) : 'N/A'}</span>
+                                        <div className="p-3.5 rounded-2xl bg-sunken/80 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-muted uppercase block">Total Due</span>
+                                            <span className="text-base font-black text-ink">{statementData.totalDue ? formatCurrency(statementData.totalDue) : 'N/A'}</span>
                                         </div>
-                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Due Date</span>
+                                        <div className="p-3.5 rounded-2xl bg-sunken/80 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-muted uppercase block">Due Date</span>
                                             <span className="text-sm font-extrabold text-amber-400">{statementData.dueDate ? formatDate(statementData.dueDate) : 'N/A'}</span>
                                         </div>
-                                        <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Min Due</span>
-                                            <span className="text-sm font-bold text-slate-300">{statementData.minDue ? formatCurrency(statementData.minDue) : 'N/A'}</span>
+                                        <div className="p-3.5 rounded-2xl bg-sunken/80 border border-line">
+                                            <span className="text-[10px] font-bold text-ink-muted uppercase block">Min Due</span>
+                                            <span className="text-sm font-bold text-ink-muted">{statementData.minDue ? formatCurrency(statementData.minDue) : 'N/A'}</span>
                                         </div>
                                     </div>
 
-                                    <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 text-xs text-slate-400">
+                                    <div className="p-4 rounded-2xl bg-sunken/50 border border-line text-xs text-ink-muted">
                                         Transactions have been placed into the <span className="text-indigo-300 font-bold">Staging Ledger</span>. Switch to the tab or review below.
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-12 rounded-3xl bg-slate-900/30 border border-slate-800 text-center space-y-3 backdrop-blur-xl">
-                                    <FileText className="w-10 h-10 text-slate-600 mx-auto" />
-                                    <p className="text-xs text-slate-400">
+                                <div className="p-12 rounded-3xl bg-surface/30 border border-line text-center space-y-3 backdrop-blur-xl">
+                                    <FileText className="w-10 h-10 text-ink-faint mx-auto" />
+                                    <p className="text-xs text-ink-muted">
                                         Upload a statement PDF to view parsed summary, card billing cycle, and extracted transactions.
                                     </p>
                                 </div>
@@ -1397,12 +1393,12 @@ const CreditCardAutoStatement = () => {
             {/* TAB 3: SMS & RAW TEXT PARSER */}
             {activeTab === 'sms' && (
                 <div className="max-w-3xl mx-auto space-y-5">
-                    <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                    <div className="p-6 sm:p-8 rounded-3xl bg-surface/60 border border-line space-y-5 backdrop-blur-xl">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-blue-400" />
-                            <h2 className="text-base font-bold text-white">Paste Bank Statement or SMS Alerts</h2>
+                            <h2 className="text-base font-bold text-ink">Paste Bank Statement or SMS Alerts</h2>
                         </div>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-ink-muted">
                             Paste raw transaction SMS or text copied from your bank portal to extract amount, merchant, and dates using regex NLP.
                         </p>
 
@@ -1411,7 +1407,7 @@ const CreditCardAutoStatement = () => {
                             value={smsText}
                             onChange={(e) => setSmsText(e.target.value)}
                             placeholder="e.g., Alert: Rs 3,420.00 spent on HDFC Card ending 4821 at AMAZON INDIA on 08-Oct-2026. Avl Lmt: Rs 1,45,000..."
-                            className="w-full p-4 bg-slate-950/90 border border-slate-800 rounded-2xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-blue-500"
+                            className="w-full p-4 bg-sunken/90 border border-line rounded-2xl text-xs text-ink font-mono placeholder:text-ink-faint outline-none focus:border-blue-500"
                         />
 
                         <button
@@ -1430,20 +1426,20 @@ const CreditCardAutoStatement = () => {
             {activeTab === 'config' && (
                 <div className="space-y-6">
                     {/* Security & Masking Banner */}
-                    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-surface/80 border border-line backdrop-blur-xl">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
                                 <Shield className="w-4 h-4" />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-white">OAuth Privacy & Credential Masking</p>
-                                <p className="text-[11px] text-slate-400">Sensitive client keys, tokens, and email addresses are masked by default.</p>
+                                <p className="text-xs font-bold text-ink">OAuth Privacy & Credential Masking</p>
+                                <p className="text-[11px] text-ink-muted">Sensitive client keys, tokens, and email addresses are masked by default.</p>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setShowSensitiveKeys(!showSensitiveKeys)}
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all"
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-raised hover:bg-line text-ink font-bold text-xs border border-line transition-all"
                         >
                             {showSensitiveKeys ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-amber-400" />}
                             <span>{showSensitiveKeys ? 'Hide Critical Info' : 'Reveal Info'}</span>
@@ -1454,15 +1450,15 @@ const CreditCardAutoStatement = () => {
                         {/* Connection & OAuth Setup Form (7 cols) */}
                         <div className="lg:col-span-7 space-y-5">
                             {/* Google Account Status Card */}
-                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-5 backdrop-blur-xl">
+                            <div className="p-6 rounded-3xl bg-surface/60 border border-line space-y-5 backdrop-blur-xl">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
                                             <ShieldCheck className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-bold text-white">Google Cloud OAuth Integration</h3>
-                                            <p className="text-[11px] text-slate-400">Gmail Read-Only API Configuration</p>
+                                            <h3 className="text-sm font-bold text-ink">Google Cloud OAuth Integration</h3>
+                                            <p className="text-[11px] text-ink-muted">Gmail Read-Only API Configuration</p>
                                         </div>
                                     </div>
                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
@@ -1478,7 +1474,7 @@ const CreditCardAutoStatement = () => {
                                     <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between gap-3">
                                         <div className="space-y-0.5">
                                             <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Active Google Mailbox</span>
-                                            <p className="text-xs font-extrabold text-white">
+                                            <p className="text-xs font-extrabold text-ink">
                                                 {showSensitiveKeys ? gmailStatus.email : maskEmail(gmailStatus.email)}
                                             </p>
                                         </div>
@@ -1496,14 +1492,14 @@ const CreditCardAutoStatement = () => {
                                     {/* Google Client ID with Masking */}
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                            <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
                                                 <Key className="w-3.5 h-3.5 text-amber-400" />
                                                 Google Client ID
                                             </label>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowClientId(!showClientId)}
-                                                className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                                className="text-[10px] text-ink-muted hover:text-ink flex items-center gap-1"
                                             >
                                                 {showClientId || showSensitiveKeys ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                                                 <span>{showClientId || showSensitiveKeys ? 'Mask' : 'View'}</span>
@@ -1514,21 +1510,21 @@ const CreditCardAutoStatement = () => {
                                             value={gmailConfig.clientId}
                                             onChange={(e) => setGmailConfig(prev => ({ ...prev, clientId: e.target.value.trim() }))}
                                             placeholder="434689533284-••••••••.apps.googleusercontent.com"
-                                            className="w-full px-3.5 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-amber-500"
+                                            className="w-full px-3.5 py-2.5 bg-sunken/90 border border-line rounded-xl text-xs text-ink font-mono placeholder:text-ink-faint outline-none focus:border-amber-500"
                                         />
                                     </div>
 
                                     {/* Google Client Secret with Masking */}
                                     <div className="space-y-1.5">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                            <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider flex items-center gap-1.5">
                                                 <Shield className="w-3.5 h-3.5 text-amber-400" />
                                                 Google Client Secret
                                             </label>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowSecret(!showSecret)}
-                                                className="text-[10px] text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                                                className="text-[10px] text-ink-muted hover:text-ink flex items-center gap-1"
                                             >
                                                 {showSecret || showSensitiveKeys ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                                                 <span>{showSecret || showSensitiveKeys ? 'Mask' : 'View'}</span>
@@ -1539,13 +1535,13 @@ const CreditCardAutoStatement = () => {
                                             value={gmailConfig.clientSecret}
                                             onChange={(e) => setGmailConfig(prev => ({ ...prev, clientSecret: e.target.value.trim() }))}
                                             placeholder="GOCSPX-••••••••••••••••"
-                                            className="w-full px-3.5 py-2.5 bg-slate-950/90 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-amber-500"
+                                            className="w-full px-3.5 py-2.5 bg-sunken/90 border border-line rounded-xl text-xs text-ink font-mono placeholder:text-ink-faint outline-none focus:border-amber-500"
                                         />
                                     </div>
 
                                     {/* Authorized Redirect URI with Copy Button */}
                                     <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                                        <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider flex items-center justify-between">
                                             <span>Authorized Redirect URI (Google Console)</span>
                                             <span className="text-[10px] text-emerald-400 font-semibold">Exact Match Required</span>
                                         </label>
@@ -1554,11 +1550,11 @@ const CreditCardAutoStatement = () => {
                                                 type="text"
                                                 readOnly
                                                 value={gmailConfig.redirectUri}
-                                                className="flex-1 px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-400 font-mono outline-none select-all"
+                                                className="flex-1 px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink-muted font-mono outline-none select-all"
                                             />
                                             <button
                                                 onClick={copyRedirectUri}
-                                                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all shrink-0"
+                                                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-raised hover:bg-line text-ink font-bold text-xs border border-line transition-all shrink-0"
                                             >
                                                 {copiedUri ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                                 <span>{copiedUri ? 'Copied' : 'Copy'}</span>
@@ -1571,7 +1567,7 @@ const CreditCardAutoStatement = () => {
                                         <button
                                             onClick={handleSaveGmailConfig}
                                             disabled={savingConfig}
-                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs border border-slate-700 transition-all disabled:opacity-50"
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-raised hover:bg-line text-ink font-bold text-xs border border-line transition-all disabled:opacity-50"
                                         >
                                             <Save className="w-4 h-4 text-amber-400" />
                                             <span>{savingConfig ? 'Saving...' : 'Save Configuration'}</span>
@@ -1592,34 +1588,34 @@ const CreditCardAutoStatement = () => {
 
                         {/* Setup Guide & Troubleshooting (5 cols) */}
                         <div className="lg:col-span-5 space-y-5">
-                            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4 backdrop-blur-xl">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <div className="p-6 rounded-3xl bg-surface/60 border border-line space-y-4 backdrop-blur-xl">
+                                <h3 className="text-sm font-bold text-ink flex items-center gap-2">
                                     <HelpCircle className="w-4 h-4 text-teal-400" />
                                     Google Cloud Setup Checklist
                                 </h3>
 
-                                <div className="space-y-3 text-xs text-slate-300">
-                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                <div className="space-y-3 text-xs text-ink-muted">
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-sunken/60 border border-line/80">
                                         <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
                                         <div>
-                                            <p className="font-bold text-white">Enable Gmail API</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">In Google Cloud Console ➔ APIs & Services ➔ Enable <b>Gmail API</b>.</p>
+                                            <p className="font-bold text-ink">Enable Gmail API</p>
+                                            <p className="text-[11px] text-ink-muted mt-0.5">In Google Cloud Console ➔ APIs & Services ➔ Enable <b>Gmail API</b>.</p>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-sunken/60 border border-line/80">
                                         <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">2</span>
                                         <div>
-                                            <p className="font-bold text-white">Create OAuth Web Client ID</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">Application type: <b>Web Application</b>. Add the Authorized redirect URI shown on the left.</p>
+                                            <p className="font-bold text-ink">Create OAuth Web Client ID</p>
+                                            <p className="text-[11px] text-ink-muted mt-0.5">Application type: <b>Web Application</b>. Add the Authorized redirect URI shown on the left.</p>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-sunken/60 border border-line/80">
                                         <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] shrink-0">3</span>
                                         <div>
-                                            <p className="font-bold text-white">OAuth Consent Screen: Add Test User</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">Under Test Users, add your Google account email address to allow login without full app verification.</p>
+                                            <p className="font-bold text-ink">OAuth Consent Screen: Add Test User</p>
+                                            <p className="text-[11px] text-ink-muted mt-0.5">Under Test Users, add your Google account email address to allow login without full app verification.</p>
                                         </div>
                                     </div>
 
@@ -1638,20 +1634,20 @@ const CreditCardAutoStatement = () => {
 
             {/* STAGING LEDGER / EXTRACTED TRANSACTIONS SECTION */}
             {extractedTransactions.length > 0 && (
-                <div className="space-y-4 pt-4 border-t border-slate-800/80">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+                <div className="space-y-4 pt-4 border-t border-line/80">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-surface/80 border border-line backdrop-blur-xl">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
                                 <CheckSquare className="w-4 h-4" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-ink flex items-center gap-2">
                                     Staging Transactions Ledger
                                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                                         {extractedTransactions.length} Pending
                                     </span>
                                 </h3>
-                                <p className="text-[11px] text-slate-400">Review, edit, and approve extracted charges to your credit card inventory.</p>
+                                <p className="text-[11px] text-ink-muted">Review, edit, and approve extracted charges to your credit card inventory.</p>
                             </div>
                         </div>
 
@@ -1659,7 +1655,7 @@ const CreditCardAutoStatement = () => {
                         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             <button
                                 onClick={toggleSelectAll}
-                                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700"
+                                className="px-3 py-1.5 rounded-xl bg-raised hover:bg-line text-ink-muted text-xs font-bold border border-line"
                             >
                                 {selectedTxIds.size === filteredTransactions.length ? 'Deselect All' : 'Select All'}
                             </button>
@@ -1684,7 +1680,7 @@ const CreditCardAutoStatement = () => {
 
                             <button
                                 onClick={handleClearAllExtracted}
-                                className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700"
+                                className="p-2 rounded-xl bg-raised hover:bg-rose-950 hover:text-rose-400 text-ink-muted border border-line"
                                 title="Clear All Staging Transactions"
                             >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1693,22 +1689,22 @@ const CreditCardAutoStatement = () => {
                     </div>
 
                     {/* Filter & Search Bar */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-sunken/60 border border-line">
                         <div className="relative w-full sm:w-72">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-ink-faint absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 value={txSearchQuery}
                                 onChange={(e) => setTxSearchQuery(e.target.value)}
                                 placeholder="Search merchant or amount..."
-                                className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-500"
+                                className="w-full pl-9 pr-3 py-1.5 bg-surface border border-line rounded-xl text-xs text-ink placeholder:text-ink-faint outline-none focus:border-indigo-500"
                             />
                         </div>
 
                         <select
                             value={txFilterCategory}
                             onChange={(e) => setTxFilterCategory(e.target.value)}
-                            className="w-full sm:w-auto px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 outline-none"
+                            className="w-full sm:w-auto px-3 py-1.5 bg-surface border border-line rounded-xl text-xs text-ink-muted outline-none"
                         >
                             <option value="ALL">All Categories</option>
                             {Object.keys(CATEGORY_TONES).map(cat => (
@@ -1727,7 +1723,7 @@ const CreditCardAutoStatement = () => {
                                     className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
                                         isSelected 
                                             ? 'bg-indigo-950/30 border-indigo-500/50 shadow-md shadow-indigo-950/30' 
-                                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                                            : 'bg-surface/60 border-line hover:border-line'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -1735,21 +1731,21 @@ const CreditCardAutoStatement = () => {
                                             type="checkbox"
                                             checked={isSelected}
                                             onChange={() => toggleSelectTx(tx.id)}
-                                            className="w-4 h-4 rounded-md border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer"
+                                            className="w-4 h-4 rounded-md border-line text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 cursor-pointer"
                                         />
                                         <div className="space-y-0.5">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-extrabold text-white">{tx.merchant || tx.description}</span>
+                                                <span className="text-xs font-extrabold text-ink">{tx.merchant || tx.description}</span>
                                                 <Badge tone={categoryTone(tx.category)} className="text-[10px] px-2 py-0.5">
                                                     {tx.category || 'General'}
                                                 </Badge>
                                             </div>
-                                            <p className="text-[10px] text-slate-400">{formatDate(tx.date)}</p>
+                                            <p className="text-[10px] text-ink-muted">{formatDate(tx.date)}</p>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-black text-white">{formatCurrency(tx.amount)}</span>
+                                        <span className="text-sm font-black text-ink">{formatCurrency(tx.amount)}</span>
                                         <div className="flex items-center gap-1">
                                             <button
                                                 onClick={() => handleApprove(tx.id)}
@@ -1760,7 +1756,7 @@ const CreditCardAutoStatement = () => {
                                             </button>
                                             <button
                                                 onClick={() => handleReject(tx.id)}
-                                                className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 transition-colors"
+                                                className="p-1.5 rounded-xl bg-raised hover:bg-rose-950 hover:text-rose-400 text-ink-muted transition-colors"
                                                 title="Discard"
                                             >
                                                 <X className="w-3.5 h-3.5" />
@@ -1782,34 +1778,34 @@ const CreditCardAutoStatement = () => {
             >
                 <div className="space-y-4 p-2">
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300">Merchant / Title</label>
+                        <label className="text-xs font-bold text-ink-muted">Merchant / Title</label>
                         <input
                             type="text"
                             value={manualTransaction.merchant}
                             onChange={(e) => setManualTransaction(prev => ({ ...prev, merchant: e.target.value }))}
                             placeholder="e.g. Apple Subscription, Shell Petrol"
-                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                            className="w-full px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-emerald-500"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-300">Amount (₹)</label>
+                            <label className="text-xs font-bold text-ink-muted">Amount (₹)</label>
                             <input
                                 type="number"
                                 step="0.01"
                                 value={manualTransaction.amount}
                                 onChange={(e) => setManualTransaction(prev => ({ ...prev, amount: e.target.value }))}
                                 placeholder="0.00"
-                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                                className="w-full px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-emerald-500"
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-300">Category</label>
+                            <label className="text-xs font-bold text-ink-muted">Category</label>
                             <select
                                 value={manualTransaction.category}
                                 onChange={(e) => setManualTransaction(prev => ({ ...prev, category: e.target.value }))}
-                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                                className="w-full px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-emerald-500"
                             >
                                 <option value="">Select Category</option>
                                 {Object.keys(CATEGORY_TONES).map(cat => (
@@ -1820,19 +1816,19 @@ const CreditCardAutoStatement = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-300">Date & Time</label>
+                        <label className="text-xs font-bold text-ink-muted">Date & Time</label>
                         <input
                             type="datetime-local"
                             value={manualTransaction.date}
                             onChange={(e) => setManualTransaction(prev => ({ ...prev, date: e.target.value }))}
-                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                            className="w-full px-3.5 py-2.5 bg-sunken border border-line rounded-xl text-xs text-ink outline-none focus:border-emerald-500"
                         />
                     </div>
 
                     <div className="flex gap-2 pt-3">
                         <button
                             onClick={() => setShowManualEntry(false)}
-                            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                            className="flex-1 py-2.5 rounded-xl bg-raised hover:bg-line text-ink-muted font-bold text-xs"
                         >
                             Cancel
                         </button>

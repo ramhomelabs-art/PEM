@@ -329,16 +329,13 @@ export function computeCategoryForecast({
 
     // Limit Crossing Calculation
     let limitBreachDate = null;
-    let daysToBreach = null;
     if (spentSoFarPaise > limitPaise) {
-        daysToBreach = 0;
         limitBreachDate = new Date(year, month, day);
     } else if (runRatePaise > 0) {
         const paiseNeededToBreach = limitPaise - (spentSoFarPaise + committedPaise);
         if (paiseNeededToBreach >= 0) {
             const daysFloat = paiseNeededToBreach / runRatePaise;
             if (daysFloat <= remainingDays) {
-                daysToBreach = daysFloat;
                 limitBreachDate = calculateLimitBreachDate(new Date(year, month, day), elapsedDays, daysFloat, daysInMonth);
             }
         }
@@ -436,7 +433,7 @@ export function generateMacroForecast({
     now = new Date(),
 }) {
     const timeInfo = getKolkataTime(now);
-    const { year, month, day, daysInMonth, elapsedDays, remainingDays } = timeInfo;
+    const { year, month, daysInMonth, elapsedDays, remainingDays } = timeInfo;
 
     // 1. Separate current month vs historical 3 months transactions
     const startOfCurrentMonth = new Date(year, month, 1);

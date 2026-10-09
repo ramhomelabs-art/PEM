@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Sparkles,
@@ -235,16 +236,16 @@ export function FinancialTimeMachineModal({
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
                 {/* Backdrop */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    className="fixed inset-0 bg-black/85 backdrop-blur-md"
+                    className="fixed inset-0 bg-black/80 backdrop-blur-md"
                 />
 
                 {/* Modal Window */}
@@ -252,21 +253,21 @@ export function FinancialTimeMachineModal({
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                    className="relative w-full max-w-5xl overflow-hidden rounded-3xl bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
+                    className="relative w-full max-w-5xl overflow-hidden rounded-3xl bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
                 >
                     {/* Top ambient highlight */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-teal-400 via-emerald-400 to-violet-500 opacity-90" />
 
                     {/* Modal Header */}
-                    <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#080e1d] px-5 py-4 sm:px-6">
+                    <div className="flex items-center justify-between border-b border-line bg-sunken px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-teal-400/20 to-violet-500/20 text-teal-300 shadow-[0_0_20px_rgba(20,184,166,0.3)]">
+                            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-teal-400/20 to-violet-500/20 text-teal-600 dark:text-teal-300 shadow-[0_0_20px_rgba(20,184,166,0.2)]">
                                 <Sparkles size={20} />
                             </span>
                             <div>
-                                <h3 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+                                <h3 className="text-base font-extrabold tracking-tight text-ink flex items-center gap-2">
                                     "What-If" Financial Time Machine
-                                    <span className="text-[10px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 px-2.5 py-0.5 rounded-full">
+                                    <span className="text-[10px] font-black uppercase tracking-wider bg-teal-500/15 dark:bg-teal-500/20 text-teal-800 dark:text-teal-300 px-2.5 py-0.5 rounded-full">
                                         Future Simulator
                                     </span>
                                 </h3>
@@ -279,37 +280,37 @@ export function FinancialTimeMachineModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
+                            className="grid h-8 w-8 place-items-center rounded-xl bg-raised text-ink-muted hover:bg-line hover:text-ink transition cursor-pointer"
                         >
                             <X size={17} />
                         </button>
                     </div>
 
                     {/* Body */}
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-[#0c1427]">
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-surface">
                         {/* Live Financial Foundation Banner */}
-                        <div className="rounded-2xl bg-[#080e1d] border border-white/[0.06] p-4 flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex items-center gap-2.5 text-xs font-bold text-teal-300">
-                                <span className="h-2.5 w-2.5 rounded-full bg-teal-400 animate-ping" />
+                        <div className="rounded-2xl bg-sunken border border-line p-4 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-2.5 text-xs font-bold text-teal-800 dark:text-teal-300">
+                                <span className="h-2.5 w-2.5 rounded-full bg-teal-500 animate-ping" />
                                 <span>Real-Time Baseline Connected:</span>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs">
                                 <div>
-                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Current Balance</span>
-                                    <span className="font-extrabold text-white tnum">{formatCurrency(liveBal, currency)}</span>
+                                    <span className="text-[10px] text-ink-muted uppercase font-bold block">Current Balance</span>
+                                    <span className="font-extrabold text-ink tnum">{formatCurrency(liveBal, currency)}</span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Income</span>
-                                    <span className="font-extrabold text-emerald-400 tnum">+{formatCurrency(liveInc, currency)}</span>
+                                    <span className="text-[10px] text-ink-muted uppercase font-bold block">Monthly Income</span>
+                                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 tnum">+{formatCurrency(liveInc, currency)}</span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Outflow</span>
-                                    <span className="font-extrabold text-rose-400 tnum">-{formatCurrency(liveExp, currency)}</span>
+                                    <span className="text-[10px] text-ink-muted uppercase font-bold block">Monthly Outflow</span>
+                                    <span className="font-extrabold text-rose-600 dark:text-rose-400 tnum">-{formatCurrency(liveExp, currency)}</span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-ink-faint uppercase font-bold block">Monthly Net Baseline</span>
-                                    <span className={cx('font-extrabold tnum', liveInc - liveExp >= 0 ? 'text-teal-300' : 'text-amber-400')}>
+                                    <span className="text-[10px] text-ink-muted uppercase font-bold block">Monthly Net Baseline</span>
+                                    <span className={cx('font-extrabold tnum', liveInc - liveExp >= 0 ? 'text-teal-800 dark:text-teal-300' : 'text-amber-600 dark:text-amber-400')}>
                                         {liveInc - liveExp >= 0 ? '+' : ''}{formatCurrency(liveInc - liveExp, currency)}/mo
                                     </span>
                                 </div>
@@ -318,7 +319,7 @@ export function FinancialTimeMachineModal({
 
                         {/* 1. Quick Presets */}
                         <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-ink-faint block mb-2.5">
+                            <span className="text-xs font-bold uppercase tracking-wider text-ink-muted block mb-2.5">
                                 Select or Customize Scenario
                             </span>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -333,19 +334,19 @@ export function FinancialTimeMachineModal({
                                             className={cx(
                                                 'flex flex-col items-start p-3 rounded-2xl transition text-left relative overflow-hidden cursor-pointer',
                                                 isSelected
-                                                    ? 'bg-gradient-to-br from-teal-500/20 to-[#101a33] border border-teal-500/40 shadow-[0_0_20px_rgba(20,184,166,0.15)]'
-                                                    : 'bg-[#101a33] hover:bg-[#152243]'
+                                                    ? 'bg-gradient-to-br from-teal-500/20 to-[color:var(--pem-surface-raised)] border border-teal-500/40 shadow-[0_0_20px_rgba(20,184,166,0.15)]'
+                                                    : 'bg-raised hover:bg-line'
                                             )}
                                         >
                                             <div className="flex items-center justify-between w-full mb-1.5">
-                                                <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSelected ? 'bg-teal-400/20 text-teal-300' : 'bg-white/[0.05] text-ink-muted')}>
+                                                <span className={cx('grid h-7 w-7 place-items-center rounded-xl', isSelected ? 'bg-teal-500/20 text-teal-800 dark:text-teal-300' : 'bg-raised text-ink-muted')}>
                                                     <Icon size={14} />
                                                 </span>
-                                                <span className="text-[10px] font-bold text-ink-faint uppercase">
+                                                <span className="text-[10px] font-bold text-ink-muted uppercase">
                                                     {preset.category}
                                                 </span>
                                             </div>
-                                            <p className="text-xs font-bold text-white leading-tight">
+                                            <p className="text-xs font-bold text-ink leading-tight">
                                                 {preset.title}
                                             </p>
                                             <p className="mt-1 text-[11px] text-ink-muted line-clamp-1">
@@ -358,13 +359,13 @@ export function FinancialTimeMachineModal({
                         </div>
 
                         {/* 2. Interactive Simulator Controls */}
-                        <div className="rounded-2xl bg-[#101a33] p-4 sm:p-5 shadow-inner">
+                        <div className="rounded-2xl bg-raised p-4 sm:p-5 shadow-inner">
                             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                                    <Sliders size={14} className="text-teal-400" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                                    <Sliders size={14} className="text-teal-600 dark:text-teal-400" />
                                     Configure Simulation Parameters
                                 </h4>
-                                <div className="inline-flex rounded-xl bg-[#080e1d] p-1 gap-1">
+                                <div className="inline-flex rounded-xl bg-sunken p-1 gap-1">
                                     {[
                                         { id: 'emi', label: 'EMI Purchase' },
                                         { id: 'upfront', label: 'Upfront Cash' },
@@ -378,8 +379,8 @@ export function FinancialTimeMachineModal({
                                             className={cx(
                                                 'px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer',
                                                 scenarioType === mode.id
-                                                    ? 'bg-teal-500/20 text-teal-300 shadow-sm'
-                                                    : 'text-ink-muted hover:text-white'
+                                                    ? 'bg-teal-500/20 dark:bg-teal-500/30 text-teal-900 dark:text-teal-200 shadow-sm'
+                                                    : 'text-ink-muted hover:text-ink'
                                             )}
                                         >
                                             {mode.label}
@@ -398,7 +399,7 @@ export function FinancialTimeMachineModal({
                                                 type="number"
                                                 value={purchaseAmount}
                                                 onChange={(e) => setPurchaseAmount(Number(e.target.value) || 0)}
-                                                className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                className="w-full rounded-xl bg-sunken px-3.5 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                             />
                                         </div>
 
@@ -410,7 +411,7 @@ export function FinancialTimeMachineModal({
                                                         type="number"
                                                         value={downPayment}
                                                         onChange={(e) => setDownPayment(Number(e.target.value) || 0)}
-                                                        className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                        className="w-full rounded-xl bg-sunken px-3.5 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                                     />
                                                 </div>
 
@@ -419,7 +420,7 @@ export function FinancialTimeMachineModal({
                                                     <select
                                                         value={emiTenure}
                                                         onChange={(e) => setEmiTenure(Number(e.target.value))}
-                                                        className="w-full rounded-xl bg-[#080e1d] px-3 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer"
+                                                        className="w-full rounded-xl bg-sunken px-3 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer"
                                                     >
                                                         <option value={3}>3 Months</option>
                                                         <option value={6}>6 Months</option>
@@ -436,7 +437,7 @@ export function FinancialTimeMachineModal({
                                                         type="number"
                                                         value={interestRate}
                                                         onChange={(e) => setInterestRate(Number(e.target.value) || 0)}
-                                                        className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                                        className="w-full rounded-xl bg-sunken px-3.5 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                                     />
                                                 </div>
                                             </>
@@ -452,7 +453,7 @@ export function FinancialTimeMachineModal({
                                             value={incomeDelta}
                                             onChange={(e) => setIncomeDelta(Number(e.target.value) || 0)}
                                             placeholder="+25000"
-                                            className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400"
+                                            className="w-full rounded-xl bg-sunken px-3.5 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400"
                                         />
                                     </div>
                                 )}
@@ -477,7 +478,7 @@ export function FinancialTimeMachineModal({
                                     <select
                                         value={forecastMonths}
                                         onChange={(e) => setForecastMonths(Number(e.target.value))}
-                                        className="w-full rounded-xl bg-[#080e1d] px-3 py-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer"
+                                        className="w-full rounded-xl bg-sunken px-3 py-2 text-xs font-bold text-ink outline-none focus:ring-1 focus:ring-teal-400 cursor-pointer"
                                     >
                                         <option value={6}>6 Months</option>
                                         <option value={12}>12 Months (1 Year)</option>
@@ -488,10 +489,10 @@ export function FinancialTimeMachineModal({
                         </div>
 
                         {/* 3. Real-Time Projections Chart */}
-                        <div className="rounded-2xl bg-[#101a33] p-4 sm:p-5 shadow-inner space-y-3">
+                        <div className="rounded-2xl bg-raised p-4 sm:p-5 shadow-inner space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
                                         Projected Bank Balance Trajectory
                                     </h4>
                                     <p className="text-[11px] text-ink-muted">
@@ -503,8 +504,8 @@ export function FinancialTimeMachineModal({
                                         <span className="h-2 w-2 rounded-full bg-slate-500" />
                                         Status Quo
                                     </span>
-                                    <span className="flex items-center gap-1.5 text-teal-300">
-                                        <span className="h-2 w-2 rounded-full bg-teal-400" />
+                                    <span className="flex items-center gap-1.5 text-teal-800 dark:text-teal-300">
+                                        <span className="h-2 w-2 rounded-full bg-teal-500" />
                                         Projected Horizon
                                     </span>
                                 </div>
@@ -523,7 +524,7 @@ export function FinancialTimeMachineModal({
                                                 <stop offset="95%" stopColor="#64748b" stopOpacity={0.0} />
                                             </linearGradient>
                                         </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.25)" />
                                         <XAxis dataKey="label" stroke="#64748b" fontSize={11} tickLine={false} />
                                         <YAxis
                                             stroke="#64748b"
@@ -536,15 +537,15 @@ export function FinancialTimeMachineModal({
                                                 if (active && payload && payload.length) {
                                                     const d = payload[0].payload;
                                                     return (
-                                                        <div className="rounded-xl bg-[#080e1d] p-3 shadow-2xl border border-white/[0.08] text-xs space-y-1">
-                                                            <p className="font-extrabold text-white">{d.label} (Month {d.month})</p>
-                                                            <p className="text-teal-300 font-bold">
+                                                        <div className="rounded-xl bg-sunken p-3 shadow-2xl border border-line text-xs space-y-1">
+                                                            <p className="font-extrabold text-ink">{d.label} (Month {d.month})</p>
+                                                            <p className="text-teal-800 dark:text-teal-300 font-bold">
                                                                 Projected: {formatCurrency(d.simulated, currency)}
                                                             </p>
-                                                            <p className="text-slate-400">
+                                                            <p className="text-ink-muted">
                                                                 Status Quo: {formatCurrency(d.baseline, currency)}
                                                             </p>
-                                                            <p className={cx('font-bold', d.difference >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                                                            <p className={cx('font-bold', d.difference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
                                                                 Impact: {d.difference >= 0 ? '+' : ''}{formatCurrency(d.difference, currency)}
                                                             </p>
                                                         </div>
@@ -562,11 +563,11 @@ export function FinancialTimeMachineModal({
 
                         {/* 4. Verdict & Impact Summary Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                                     Lowest Projected Balance
                                 </span>
-                                <p className={cx('text-lg font-black tnum mt-1', simulation.lowestSimulatedBalance < 10000 ? 'text-amber-400' : 'text-emerald-400')}>
+                                <p className={cx('text-lg font-black tnum mt-1', simulation.lowestSimulatedBalance < 10000 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400')}>
                                     {formatCurrency(simulation.lowestSimulatedBalance, currency)}
                                 </p>
                                 <span className="text-[11px] font-medium text-ink-muted mt-1">
@@ -576,30 +577,30 @@ export function FinancialTimeMachineModal({
                                 </span>
                             </div>
 
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                                     Final Balance at Month {forecastMonths}
                                 </span>
-                                <p className="text-lg font-black tnum text-white mt-1">
+                                <p className="text-lg font-black tnum text-ink mt-1">
                                     {formatCurrency(simulation.finalSimulated, currency)}
                                 </p>
-                                <span className={cx('text-[11px] font-bold mt-1', simulation.netDifference >= 0 ? 'text-emerald-400' : 'text-ink-muted')}>
+                                <span className={cx('text-[11px] font-bold mt-1', simulation.netDifference >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-ink-muted')}>
                                     {simulation.netDifference >= 0 ? '+' : ''}{formatCurrency(simulation.netDifference, currency)} vs status quo
                                 </span>
                             </div>
 
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
                                     Decision Verdict
                                 </span>
                                 <div className="mt-1 flex items-center gap-1.5">
                                     {simulation.isFeasible ? (
-                                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full">
+                                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 dark:text-emerald-400 bg-emerald-500/15 dark:bg-emerald-500/20 px-2.5 py-1 rounded-full">
                                             <CheckCircle2 size={13} />
                                             Safe &amp; Feasible
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs font-black text-rose-400 bg-rose-500/20 px-2.5 py-1 rounded-full">
+                                        <span className="inline-flex items-center gap-1 text-xs font-black text-rose-800 dark:text-rose-400 bg-rose-500/15 dark:bg-rose-500/20 px-2.5 py-1 rounded-full">
                                             <AlertTriangle size={13} />
                                             High Cash Risk
                                         </span>
@@ -616,7 +617,8 @@ export function FinancialTimeMachineModal({
                     </div>
                 </motion.div>
             </div>
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }
 

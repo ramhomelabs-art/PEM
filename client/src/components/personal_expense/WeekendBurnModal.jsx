@@ -28,7 +28,6 @@ import {
     Cell,
 } from 'recharts';
 import { formatCurrency } from '../../utils/currency';
-import { cx } from '../ui/cx';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -140,19 +139,19 @@ export function WeekendBurnModal({
                     initial={{ opacity: 0, scale: 0.95, y: 15 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                    className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-[#0c1427] shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
+                    className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.95)] z-10 my-6 flex flex-col max-h-[92vh]"
                 >
                     {/* Top ambient highlight line */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-orange-400 via-rose-500 to-amber-400 opacity-90" />
 
                     {/* Modal Header */}
-                    <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#080e1d] px-5 py-4 sm:px-6">
+                    <div className="flex items-center justify-between border-b border-line bg-sunken px-5 py-4 sm:px-6">
                         <div className="flex items-center gap-3">
                             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-orange-400/20 to-rose-500/20 text-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
                                 <Flame size={20} />
                             </span>
                             <div>
-                                <h3 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+                                <h3 className="text-base font-extrabold tracking-tight text-ink flex items-center gap-2">
                                     Weekend Burn &amp; Impulse Detector
                                     <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 px-2.5 py-0.5 rounded-full">
                                         Behavioral AI
@@ -167,17 +166,17 @@ export function WeekendBurnModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.04] text-ink-muted hover:bg-white/[0.08] hover:text-white transition cursor-pointer"
+                            className="grid h-8 w-8 place-items-center rounded-xl bg-raised text-ink-muted hover:bg-line hover:text-ink transition cursor-pointer"
                         >
                             <X size={17} />
                         </button>
                     </div>
 
                     {/* Body Content */}
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-[#0c1427]">
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-surface">
                         {/* Highlights Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                                     Weekend Burn Velocity
                                 </span>
@@ -189,11 +188,11 @@ export function WeekendBurnModal({
                                 </span>
                             </div>
 
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                                     Total Weekend Outflows
                                 </span>
-                                <p className="text-2xl font-black text-white tracking-tight tnum mt-1">
+                                <p className="text-2xl font-black text-ink tracking-tight tnum mt-1">
                                     {formatCurrency(analytics.totalWeekendExpense, currency)}
                                 </p>
                                 <span className="text-[11px] font-medium text-ink-muted mt-1">
@@ -201,7 +200,7 @@ export function WeekendBurnModal({
                                 </span>
                             </div>
 
-                            <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between">
+                            <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                                     Weekend Shield Status
                                 </span>
@@ -225,10 +224,10 @@ export function WeekendBurnModal({
                         </div>
 
                         {/* Day of Week Spend Velocity Chart */}
-                        <div className="rounded-2xl bg-[#101a33] p-4 sm:p-5 shadow-inner space-y-3">
+                        <div className="rounded-2xl bg-raised p-4 sm:p-5 shadow-inner space-y-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
                                         Day-of-Week Spend Velocity
                                     </h4>
                                     <p className="text-[11px] text-ink-muted">
@@ -236,7 +235,7 @@ export function WeekendBurnModal({
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-4 text-xs font-bold">
-                                    <span className="flex items-center gap-1.5 text-slate-400">
+                                    <span className="flex items-center gap-1.5 text-ink-muted">
                                         <span className="h-2 w-2 rounded-full bg-slate-500" />
                                         Weekday
                                     </span>
@@ -250,7 +249,7 @@ export function WeekendBurnModal({
                             <div className="h-56 w-full pt-2 min-w-0 min-h-[220px]">
                                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220} initialDimension={{ width: 600, height: 220 }}>
                                     <BarChart data={analytics.chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.25)" />
                                         <XAxis dataKey="day" stroke="#64748b" fontSize={11} tickLine={false} />
                                         <YAxis
                                             stroke="#64748b"
@@ -263,8 +262,8 @@ export function WeekendBurnModal({
                                                 if (active && payload && payload.length) {
                                                     const d = payload[0].payload;
                                                     return (
-                                                        <div className="rounded-xl bg-[#080e1d] p-3 shadow-2xl border border-white/[0.08] text-xs space-y-1">
-                                                            <p className="font-extrabold text-white">{d.day} ({d.isWeekend ? 'Weekend' : 'Weekday'})</p>
+                                                        <div className="rounded-xl bg-sunken p-3 shadow-2xl border border-line text-xs space-y-1">
+                                                            <p className="font-extrabold text-ink">{d.day} ({d.isWeekend ? 'Weekend' : 'Weekday'})</p>
                                                             <p className="text-orange-400 font-bold">
                                                                 Total Spend: {formatCurrency(d.amount, currency)}
                                                             </p>
@@ -290,8 +289,8 @@ export function WeekendBurnModal({
                         {/* Weekend Leak Categories & Shield Settings */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Top Weekend Leak Categories */}
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-3 flex items-center gap-2">
+                            <div className="rounded-2xl bg-raised p-4 shadow-inner">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-ink mb-3 flex items-center gap-2">
                                     <Zap size={14} className="text-orange-400" />
                                     Top Weekend Leak Categories
                                 </h4>
@@ -305,7 +304,7 @@ export function WeekendBurnModal({
                                                     <span className="h-6 w-6 grid place-items-center rounded-lg bg-orange-500/10 text-orange-400 text-[11px] font-bold">
                                                         #{i + 1}
                                                     </span>
-                                                    <span className="text-white">{item.category}</span>
+                                                    <span className="text-ink">{item.category}</span>
                                                 </div>
                                                 <span className="font-bold text-orange-400 tnum">
                                                     {formatCurrency(item.amount, currency)}
@@ -317,9 +316,9 @@ export function WeekendBurnModal({
                             </div>
 
                             {/* Weekend Shield Guard Config */}
-                            <div className="rounded-2xl bg-[#101a33] p-4 shadow-inner space-y-3">
+                            <div className="rounded-2xl bg-raised p-4 shadow-inner space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
                                         <Shield size={14} className="text-teal-400" />
                                         Weekend Shield Budget Guard
                                     </h4>

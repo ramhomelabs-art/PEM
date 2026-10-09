@@ -36,7 +36,7 @@ export function ForecastSummary({ macroData, currency = 'INR' }) {
             <div className="flex flex-col justify-between rounded-xl bg-surface-raised/80 p-3.5 shadow-sm transition-all duration-200 hover:bg-surface-raised">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-ink-muted">Month Progress</span>
-                    <span className="grid h-6 w-6 place-items-center rounded-md bg-white/[0.04] text-ink-muted">
+                    <span className="grid h-6 w-6 place-items-center rounded-md bg-raised text-ink-muted">
                         <Calendar size={13} aria-hidden="true" />
                     </span>
                 </div>
@@ -50,7 +50,7 @@ export function ForecastSummary({ macroData, currency = 'INR' }) {
                         </span>
                     </div>
                     {/* Thin progress bar */}
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-raised">
                         <div
                             className="h-full rounded-full bg-brand transition-all duration-500 ease-out"
                             style={{ width: `${monthProgressPercent}%` }}

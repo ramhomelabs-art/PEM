@@ -29,18 +29,18 @@ const formatCurrency = (amount) => {
 const DetailRow = ({ label, value }) => (
     <div style={{
         padding: '15px',
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: 'var(--pem-surface-raised)',
         borderRadius: '12px',
-        border: '1px solid rgba(255,255,255,0.05)'
+        border: '1px solid var(--pem-border)'
     }}>
-        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>{label}</p>
-        <p style={{ margin: '5px 0 0 0', fontSize: '16px', fontWeight: 'bold', color: 'white' }}>{value}</p>
+        <p style={{ margin: 0, fontSize: '12px', color: 'var(--pem-text-secondary)', fontWeight: 'bold' }}>{label}</p>
+        <p style={{ margin: '5px 0 0 0', fontSize: '16px', fontWeight: 'bold', color: 'var(--pem-text)' }}>{value}</p>
     </div>
 );
 
 const StatCard = ({ label, value, color }) => (
-    <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.03)' }}>
-        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', fontWeight: 'bold' }}>{label}</p>
+    <div style={{ padding: '20px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '20px', border: '1px solid var(--pem-border)' }}>
+        <p style={{ margin: 0, fontSize: '14px', color: 'var(--pem-text-secondary)', fontWeight: 'bold' }}>{label}</p>
         <p style={{ margin: '10px 0 0 0', fontSize: '24px', fontWeight: 'bold', color: color }}>{formatCurrency(value)}</p>
     </div>
 );
@@ -50,8 +50,8 @@ const SharedInvestmentCard = ({ data }) => {
     const { invested, current, percentage } = data;
     return (
         <div style={{
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'linear-gradient(135deg, var(--pem-surface-raised) 0%, var(--pem-surface) 100%)',
+            border: '1px solid var(--pem-border)',
             borderRadius: '20px',
             padding: '20px',
             position: 'relative',
@@ -63,7 +63,7 @@ const SharedInvestmentCard = ({ data }) => {
                     <div style={{ padding: '8px', backgroundColor: 'rgba(99, 102, 241, 0.2)', borderRadius: '10px', color: '#818cf8' }}>
                         <IndianRupee size={18} />
                     </div>
-                    <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '13px' }}>Investment Portfolio</span>
+                    <span style={{ color: 'var(--pem-text-secondary)', fontWeight: 'bold', fontSize: '13px' }}>Investment Portfolio</span>
                 </div>
                 <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <TrendingUp size={12} /> +{percentage}%
@@ -71,9 +71,9 @@ const SharedInvestmentCard = ({ data }) => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <span style={{ fontSize: '24px', fontWeight: '900', color: 'white' }}>{formatCurrency(current)}</span>
-                <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>
-                    Invested: <span style={{ color: '#cbd5e1' }}>{formatCurrency(invested)}</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: 'var(--pem-text)' }}>{formatCurrency(current)}</span>
+                <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)', fontWeight: 'bold' }}>
+                    Invested: <span style={{ color: 'var(--pem-text-secondary)' }}>{formatCurrency(invested)}</span>
                 </span>
             </div>
         </div>
@@ -88,12 +88,12 @@ const SimpleLoanCard = ({ loan }) => {
         <div style={{ display: 'grid', gap: '20px' }}>
             {/* Loan Overview Card */}
             <div style={{
-                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                background: 'linear-gradient(135deg, var(--pem-surface-raised) 0%, var(--pem-surface) 100%)',
                 borderRadius: '20px',
                 padding: '30px',
-                border: '1px solid rgba(255,255,255,0.1)'
+                border: '1px solid var(--pem-border)'
             }}>
-                <h2 style={{ margin: '0 0 20px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>
+                <h2 style={{ margin: '0 0 20px 0', fontSize: '24px', fontWeight: 'bold', color: 'var(--pem-text)' }}>
                     {loan.loanName || 'Loan Details'}
                 </h2>
 
@@ -101,8 +101,8 @@ const SimpleLoanCard = ({ loan }) => {
                     <StatCard label="Total Amount" value={loan.totalAmount} color="#3b82f6" />
                     <StatCard label="Amount Paid" value={loan.amountPaid} color="#10b981" />
                     <StatCard label="Remaining" value={remaining} color="#ef4444" />
-                    <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b', fontWeight: 'bold' }}>Interest Rate</p>
+                    <div style={{ padding: '20px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '20px', border: '1px solid var(--pem-border)' }}>
+                        <p style={{ margin: 0, fontSize: '14px', color: 'var(--pem-text-secondary)', fontWeight: 'bold' }}>Interest Rate</p>
                         <p style={{ margin: '10px 0 0 0', fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
                             {loan.interestRate}%
                         </p>
@@ -112,10 +112,10 @@ const SimpleLoanCard = ({ loan }) => {
                 {/* Progress Bar */}
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#94a3b8' }}>Repayment Progress</span>
+                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--pem-text-secondary)' }}>Repayment Progress</span>
                         <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#10b981' }}>{progress.toFixed(1)}%</span>
                     </div>
-                    <div style={{ height: '12px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <div style={{ height: '12px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '6px', overflow: 'hidden' }}>
                         <div style={{
                             height: '100%',
                             width: `${Math.min(100, progress)}%`,
@@ -142,14 +142,14 @@ const SimpleLoanCard = ({ loan }) => {
 const SimpleLoanView = ({ content }) => {
     if (!content || (content.message && !Array.isArray(content))) {
         return (
-            <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--pem-text-secondary)' }}>
                 <p>{content?.message || 'No loan data available'}</p>
             </div>
         );
     }
 
     if (Array.isArray(content)) {
-        if (content.length === 0) return <div style={{ textAlign: 'center', color: '#64748b' }}>No loans found</div>;
+        if (content.length === 0) return <div style={{ textAlign: 'center', color: 'var(--pem-text-secondary)' }}>No loans found</div>;
         return (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                 {content.map(loan => <SimpleLoanCard key={loan.id} loan={loan} />)}
@@ -171,7 +171,7 @@ const SimpleCreditCardItem = ({ card }) => {
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 borderRadius: '20px',
                 padding: '30px',
-                color: 'white',
+                color: 'var(--pem-text)',
                 position: 'relative',
                 overflow: 'hidden',
                 boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)'
@@ -205,7 +205,7 @@ const SimpleCreditCardItem = ({ card }) => {
                     width: '200px',
                     height: '200px',
                     borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.1)'
+                    background: 'var(--pem-surface-raised)'
                 }} />
             </div>
 
@@ -214,8 +214,8 @@ const SimpleCreditCardItem = ({ card }) => {
                 <StatCard label="Credit Limit" value={card.creditLimit} color="#3b82f6" />
                 <StatCard label="Current Balance" value={card.currentBalance} color="#ef4444" />
                 <StatCard label="Minimum Payment" value={card.minimumPayment || 0} color="#f59e0b" />
-                <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#64748b', fontWeight: 'bold' }}>Utilization</p>
+                <div style={{ padding: '20px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '20px', border: '1px solid var(--pem-border)' }}>
+                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--pem-text-secondary)', fontWeight: 'bold' }}>Utilization</p>
                     <p style={{
                         margin: '10px 0 0 0', fontSize: '24px', fontWeight: 'bold',
                         color: utilization > 70 ? '#ef4444' : utilization > 30 ? '#f59e0b' : '#10b981'
@@ -231,14 +231,14 @@ const SimpleCreditCardItem = ({ card }) => {
 const SimpleCreditCardView = ({ content }) => {
     if (!content || (content.message && !Array.isArray(content))) {
         return (
-            <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--pem-text-secondary)' }}>
                 <p>{content?.message || 'No credit card data available'}</p>
             </div>
         );
     }
 
     if (Array.isArray(content)) {
-        if (content.length === 0) return <div style={{ textAlign: 'center', color: '#64748b' }}>No credit cards found</div>;
+        if (content.length === 0) return <div style={{ textAlign: 'center', color: 'var(--pem-text-secondary)' }}>No credit cards found</div>;
         return (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                 {content.map(card => <SimpleCreditCardItem key={card.id} card={card} />)}
@@ -262,7 +262,7 @@ const SimpleInvestmentItem = ({ investment }) => {
                     : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
                 borderRadius: '20px',
                 padding: '30px',
-                color: 'white'
+                color: 'var(--pem-text)'
             }}>
                 <h2 style={{ margin: '0 0 20px 0', fontSize: '24px', fontWeight: 'bold' }}>
                     {investment.name || 'Investment'}
@@ -308,14 +308,14 @@ const SimpleInvestmentItem = ({ investment }) => {
 const SimpleInvestmentView = ({ content }) => {
     if (!content || (content.message && !Array.isArray(content))) {
         return (
-            <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--pem-text-secondary)' }}>
                 <p>{content?.message || 'No investment data available'}</p>
             </div>
         );
     }
 
     if (Array.isArray(content)) {
-        if (content.length === 0) return <div style={{ textAlign: 'center', color: '#64748b' }}>No investments found</div>;
+        if (content.length === 0) return <div style={{ textAlign: 'center', color: 'var(--pem-text-secondary)' }}>No investments found</div>;
         return (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                 {content.map(inv => <SimpleInvestmentItem key={inv.id} investment={inv} />)}
@@ -342,10 +342,10 @@ const SimpleDashboardView = ({ content }) => {
             <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px' }}>Recent Transactions</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {recentTransactions.map(t => (
-                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '12px' }}>
                         <div>
                             <p style={{ margin: 0, fontWeight: 'bold' }}>{t.description || t.category}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{new Date(t.date).toLocaleDateString()} • {t.category}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--pem-text-secondary)' }}>{new Date(t.date).toLocaleDateString()} • {t.category}</p>
                         </div>
                         <p style={{ margin: 0, fontWeight: 'bold', color: t.type === 'income' ? '#10b981' : '#ef4444' }}>
                             {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
@@ -362,10 +362,10 @@ const SimpleTransactionsView = ({ content }) => {
         <div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {content.map(t => (
-                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '12px' }}>
                         <div>
                             <p style={{ margin: 0, fontWeight: 'bold' }}>{t.description || t.category}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{new Date(t.date).toLocaleDateString()} • {t.category}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--pem-text-secondary)' }}>{new Date(t.date).toLocaleDateString()} • {t.category}</p>
                         </div>
                         <p style={{ margin: 0, fontWeight: 'bold', color: t.type === 'income' ? '#10b981' : '#ef4444' }}>
                             {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
@@ -381,16 +381,16 @@ const SimpleBudgetsView = ({ content }) => {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
             {content.map(b => (
-                <div key={b.id} style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={b.id} style={{ padding: '20px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '16px', border: '1px solid var(--pem-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h4 style={{ margin: 0, fontWeight: 'bold' }}>{b.category}</h4>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>Monthly Limit</span>
+                        <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Monthly Limit</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{formatCurrency(b.spent || 0)} / {formatCurrency(b.amountLimit)}</span>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>{Math.round(((b.spent || 0) / b.amountLimit) * 100)}%</span>
+                        <span style={{ fontSize: '12px', color: 'var(--pem-text-secondary)' }}>{Math.round(((b.spent || 0) / b.amountLimit) * 100)}%</span>
                     </div>
-                    <div style={{ height: '8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '8px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '4px', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${Math.min(100, ((b.spent || 0) / b.amountLimit) * 100)}%`, backgroundColor: (b.spent || 0) > b.amountLimit ? '#ef4444' : '#3b82f6' }} />
                     </div>
                 </div>
@@ -489,7 +489,7 @@ const SharedView = () => {
 
     if (loading) {
         return (
-            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617' }}>
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--pem-bg)' }}>
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} style={{ width: '40px', height: '40px', border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%' }} />
             </div>
         );
@@ -497,11 +497,11 @@ const SharedView = () => {
 
     if (error) {
         return (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617', color: 'white', padding: '20px' }}>
+            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--pem-bg)', color: 'var(--pem-text)', padding: '20px' }}>
                 <AlertCircle size={64} color="#ef4444" style={{ marginBottom: '20px' }} />
                 <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>Access Denied or Error</h1>
-                <p style={{ color: '#64748b', textAlign: 'center', maxWidth: '400px', marginTop: '10px' }}>{error}</p>
-                <button onClick={() => navigate('/')} style={{ marginTop: '30px', padding: '12px 24px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}>Back to Home</button>
+                <p style={{ color: 'var(--pem-text-secondary)', textAlign: 'center', maxWidth: '400px', marginTop: '10px' }}>{error}</p>
+                <button onClick={() => navigate('/')} style={{ marginTop: '30px', padding: '12px 24px', backgroundColor: '#3b82f6', color: 'var(--pem-text)', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}>Back to Home</button>
             </div>
         );
     }
@@ -510,7 +510,7 @@ const SharedView = () => {
     const canEdit = shareData.permission === 'edit' || shareData.permission === 'full';
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#020617', color: 'white', padding: '40px 20px' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--pem-bg)', color: 'var(--pem-text)', padding: '40px 20px' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
@@ -522,7 +522,7 @@ const SharedView = () => {
                         <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0 }}>
                             {Owner.fullName || Owner.username}&apos;s {resource_type.charAt(0).toUpperCase() + resource_type.slice(1)}
                         </h1>
-                        <p style={{ color: '#64748b', marginTop: '5px' }}>
+                        <p style={{ color: 'var(--pem-text-secondary)', marginTop: '5px' }}>
                             {shareData.permission === 'view' ? 'You have read-only access to this resource.' :
                                 shareData.permission === 'edit' ? 'You have collaboration access to this resource.' :
                                     'You have full administrative access to this resource.'}
@@ -542,7 +542,7 @@ const SharedView = () => {
                                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     border: 'none',
                                     borderRadius: '12px',
-                                    color: 'white',
+                                    color: 'var(--pem-text)',
                                     fontWeight: 'bold',
                                     cursor: 'pointer',
                                     boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
@@ -555,7 +555,7 @@ const SharedView = () => {
 
                         <div style={{ textAlign: 'right' }}>
                             <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>{Owner.fullName || Owner.username}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Resource Owner</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--pem-text-secondary)' }}>Resource Owner</p>
                         </div>
                         <img
                             src={Owner.profilePhoto && typeof Owner.profilePhoto === 'string' ? (Owner.profilePhoto.startsWith('http') ? Owner.profilePhoto : `${BASE_URL}/${Owner.profilePhoto.replace(/\\/g, '/')}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${Owner.username}`}
@@ -566,7 +566,7 @@ const SharedView = () => {
                 </div>
 
                 {/* Content Rendering based on type */}
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '30px' }}>
+                <div style={{ backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '24px', padding: '30px' }}>
                     {resource_type === 'dashboard' && <SimpleDashboardView content={resourceContent} owner={Owner} />}
                     {resource_type === 'transaction' && <SimpleTransactionsView content={resourceContent} />}
                     {resource_type === 'budget' && <SimpleBudgetsView content={resourceContent} />}
@@ -578,10 +578,10 @@ const SharedView = () => {
                     {!['dashboard', 'transaction', 'budget', 'loan', 'credit_card', 'investment'].includes(resource_type) && (
                         <div style={{ textAlign: 'center', padding: '60px' }}>
                             <AlertCircle size={64} style={{ opacity: 0.2, marginBottom: '20px' }} />
-                            <p style={{ color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
+                            <p style={{ color: 'var(--pem-text-secondary)', fontSize: '18px', fontWeight: 'bold' }}>
                                 {resource_type} sharing is not yet supported
                             </p>
-                            <p style={{ color: '#64748b', fontSize: '14px', marginTop: '10px' }}>
+                            <p style={{ color: 'var(--pem-text-secondary)', fontSize: '14px', marginTop: '10px' }}>
                                 This feature is coming soon!
                             </p>
                         </div>
@@ -595,8 +595,8 @@ const SharedView = () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
                     }}>
                         <div style={{
-                            width: '400px', backgroundColor: '#0f172a', padding: '30px', borderRadius: '24px',
-                            border: '1px solid rgba(255,255,255,0.1)', inject: 'relative'
+                            width: '400px', backgroundColor: 'var(--pem-surface)', padding: '30px', borderRadius: '24px',
+                            border: '1px solid var(--pem-border)', inject: 'relative'
                         }}>
                             <h2 style={{ margin: '0 0 20px 0', fontSize: '20px' }}>Add Shared Transaction</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -605,19 +605,19 @@ const SharedView = () => {
                                     placeholder="Amount"
                                     value={newTransaction.amount}
                                     onChange={e => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--pem-border)', background: 'var(--pem-surface-raised)', color: 'var(--pem-text)' }}
                                 />
                                 <input
                                     type="text"
                                     placeholder="Description"
                                     value={newTransaction.description}
                                     onChange={e => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--pem-border)', background: 'var(--pem-surface-raised)', color: 'var(--pem-text)' }}
                                 />
                                 <select
                                     value={newTransaction.type}
                                     onChange={e => setNewTransaction({ ...newTransaction, type: e.target.value })}
-                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--pem-border)', background: 'var(--pem-surface-raised)', color: 'var(--pem-text)' }}
                                 >
                                     <option value="expense">Expense</option>
                                     <option value="income">Income</option>
@@ -627,11 +627,11 @@ const SharedView = () => {
                                     placeholder="Category"
                                     value={newTransaction.category}
                                     onChange={e => setNewTransaction({ ...newTransaction, category: e.target.value })}
-                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                                    style={{ padding: '12px', borderRadius: '10px', border: '1px solid var(--pem-border)', background: 'var(--pem-surface-raised)', color: 'var(--pem-text)' }}
                                 />
                                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                    <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'white', cursor: 'pointer' }}>Cancel</button>
-                                    <button onClick={handleAddTransaction} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
+                                    <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid var(--pem-border)', background: 'transparent', color: 'var(--pem-text)', cursor: 'pointer' }}>Cancel</button>
+                                    <button onClick={handleAddTransaction} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'var(--pem-text)', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
                                 </div>
                             </div>
                         </div>

@@ -1,0 +1,25 @@
+# Secrets — never bake into images
+.env
+.env.*
+!.env.example
+server/.env
+server/firebase-adminsdk.json
+**/*serviceAccount*.json
+
+# Dependencies & build output
+**/node_modules
+**/dist
+
+# Data & artifacts
+**/*.log
+**/database.sqlite
+**/database.sqlite-*
+**/uploads
+**/storage
+**/temp_uploads
+**/__pycache__
+
+# VCS / editor
+.git
+.gitignore
+**/.dockerignore

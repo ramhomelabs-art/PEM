@@ -186,9 +186,19 @@ const Borrow = () => {
         document.title = 'PEM Pro | Borrow & Lending';
     }, [user]);
 
+    const getAuthHeaders = (extra = {}) => {
+        const token = localStorage.getItem('token');
+        return {
+            ...extra,
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+        };
+    };
+
     const fetchRecords = useCallback(async () => {
         try {
-            const res = await fetch(`${API_URL}/borrow/user/${user.id}`);
+            const res = await fetch(`${API_URL}/borrow/user/${user.id}`, {
+                headers: getAuthHeaders()
+            });
             if (res.ok) {
                 const data = await res.json();
                 setRecords(Array.isArray(data) ? data : []);
@@ -213,7 +223,7 @@ const Borrow = () => {
         try {
             const res = await fetch(`${API_URL}/borrow`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     ...formData,
                     date: withTimezoneFix(formData.date),
@@ -244,7 +254,10 @@ const Borrow = () => {
 
     const handleSettle = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/borrow/settle/${id}`, { method: 'POST' });
+            const res = await fetch(`${API_URL}/borrow/settle/${id}`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
             if (res.ok) {
                 fetchRecords();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
@@ -257,7 +270,10 @@ const Borrow = () => {
 
     const handleDelete = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/borrow/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/borrow/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             if (res.ok) {
                 fetchRecords();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
@@ -281,7 +297,7 @@ const Borrow = () => {
         try {
             const res = await fetch(`${API_URL}/borrow/${selectedRecord.id}/payment`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     ...paymentForm,
                     paymentDate: withTimezoneFix(paymentForm.paymentDate),
@@ -306,7 +322,9 @@ const Borrow = () => {
         setSelectedRecord(record);
         setIsHistoryModalOpen(true);
         try {
-            const res = await fetch(`${API_URL}/borrow/${record.id}/payments`);
+            const res = await fetch(`${API_URL}/borrow/${record.id}/payments`, {
+                headers: getAuthHeaders()
+            });
             if (res.ok) setPaymentHistory(await res.json());
         } catch (err) {
             console.error('Failed to fetch history:', err);

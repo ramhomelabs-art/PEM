@@ -131,7 +131,7 @@ function LiquidWaveGauge({
 
                 {/* Central Overlay Percentage */}
                 <div className="relative z-10 flex flex-col items-center justify-center text-center p-1 drop-shadow-md select-none">
-                    <span className="text-xl sm:text-2xl font-black tracking-tight text-white tnum leading-none">
+                    <span className="text-xl sm:text-2xl font-black tracking-tight text-ink tnum leading-none">
                         {clampedPct}%
                     </span>
                     <span className={cx('text-[9px] font-extrabold uppercase tracking-wider mt-0.5', waveTheme.textColor)}>
@@ -387,7 +387,7 @@ export function SafeToSpendWidget({
 
     if (loading) {
         return (
-            <div className="mb-4 h-16 w-full animate-pulse rounded-2xl bg-[#0c1427]/60" />
+            <div className="mb-4 h-16 w-full animate-pulse rounded-2xl bg-surface/60" />
         );
     }
 
@@ -396,7 +396,7 @@ export function SafeToSpendWidget({
             {/* Primary Safe-to-Spend Banner (Solid Dark Surface, No White Borders) */}
             <div
                 className={cx(
-                    'group relative w-full overflow-hidden rounded-2xl bg-[#0c1427] transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)]',
+                    'group relative w-full overflow-hidden rounded-2xl bg-surface transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)]',
                     calculations.status === 'healthy'
                         ? 'shadow-[0_0_24px_rgba(16,185,129,0.06)]'
                         : calculations.status === 'tight'
@@ -416,7 +416,7 @@ export function SafeToSpendWidget({
                     )}
                 />
 
-                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4 bg-[#0c1427]">
+                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4 bg-surface">
                     {/* Left: Indicator & Headline */}
                     <div className="flex items-center gap-3">
                         <div
@@ -465,7 +465,7 @@ export function SafeToSpendWidget({
                             </div>
 
                             <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                                <span className="tnum text-xl sm:text-2xl font-black tracking-tight text-white">
+                                <span className="tnum text-xl sm:text-2xl font-black tracking-tight text-ink">
                                     {formatCurrency(calculations.safeTodayRemaining, currency)}
                                     <span className="text-xs font-semibold text-ink-muted"> left today</span>
                                 </span>
@@ -494,16 +494,16 @@ export function SafeToSpendWidget({
                     {/* Right: Quick metric chips & Expand button */}
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         {calculations.todaySpent > 0 && (
-                            <div className="hidden items-center gap-1.5 rounded-xl bg-[#101a33] px-3 py-1.5 text-xs md:flex">
+                            <div className="hidden items-center gap-1.5 rounded-xl bg-raised px-3 py-1.5 text-xs md:flex">
                                 <Clock size={12} className="text-ink-faint" />
                                 <span className="text-ink-muted font-medium">Spent Today:</span>
-                                <span className={cx('font-bold tnum', calculations.isOverDailyTarget ? 'text-amber-400' : 'text-white')}>
+                                <span className={cx('font-bold tnum', calculations.isOverDailyTarget ? 'text-amber-400' : 'text-ink')}>
                                     {formatCurrency(calculations.todaySpent, currency)}
                                 </span>
                             </div>
                         )}
 
-                        <div className="hidden items-center gap-2 rounded-xl bg-[#101a33] px-3 py-1.5 text-xs md:flex">
+                        <div className="hidden items-center gap-2 rounded-xl bg-raised px-3 py-1.5 text-xs md:flex">
                             <span className="text-ink-muted font-medium">Reserved Dues:</span>
                             <span className="font-bold text-rose-400 tnum">
                                 -{formatCurrency(calculations.totalObligations, currency)}
@@ -513,7 +513,7 @@ export function SafeToSpendWidget({
                         <button
                             type="button"
                             onClick={() => setIsDetailsOpen((prev) => !prev)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#101a33] hover:bg-[#152243] px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95 shadow-sm"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-raised hover:bg-line px-3.5 py-1.5 text-xs font-bold text-ink transition active:scale-95 shadow-sm"
                             aria-expanded={isDetailsOpen}
                         >
                             <Calculator size={13} className="text-teal-400" />
@@ -531,7 +531,7 @@ export function SafeToSpendWidget({
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.25, ease: 'easeInOut' }}
-                            className="w-full overflow-hidden bg-[#080e1d]"
+                            className="w-full overflow-hidden bg-sunken"
                         >
                             <div className="p-4 sm:p-5">
                                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -549,7 +549,7 @@ export function SafeToSpendWidget({
                                             </span>
                                         </div>
 
-                                        <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col gap-3 shadow-inner">
+                                        <div className="rounded-2xl bg-raised p-4 flex flex-col gap-3 shadow-inner">
                                             {/* Top row: Wave Tank + Core Pool Summary */}
                                             <div className="flex items-center gap-4">
                                                 <LiquidWaveGauge
@@ -578,7 +578,7 @@ export function SafeToSpendWidget({
                                                             <Landmark size={13} className="text-teal-400" />
                                                             Liquid Balance
                                                         </span>
-                                                        <span className="font-extrabold text-white tnum">
+                                                        <span className="font-extrabold text-ink tnum">
                                                             {formatCurrency(calculations.liquidCash, currency)}
                                                         </span>
                                                     </div>
@@ -618,7 +618,7 @@ export function SafeToSpendWidget({
                                             </div>
 
                                             {/* Divider */}
-                                            <div className="h-[1px] w-full bg-white/[0.04]" />
+                                            <div className="h-[1px] w-full bg-raised" />
 
                                             {/* Discretionary Pool for Month */}
                                             <div className="flex items-center justify-between text-xs sm:text-sm">
@@ -631,10 +631,10 @@ export function SafeToSpendWidget({
                                             </div>
 
                                             {/* Today's Allocation and Spend */}
-                                            <div className="rounded-xl bg-[#080e1d]/80 p-3 space-y-2">
+                                            <div className="rounded-xl bg-sunken/80 p-3 space-y-2">
                                                 <div className="flex items-center justify-between text-xs">
                                                     <span className="text-ink-muted font-medium">Today's Target Allowance</span>
-                                                    <span className="font-bold text-white tnum">
+                                                    <span className="font-bold text-ink tnum">
                                                         {formatCurrency(calculations.dailyTarget, currency)}
                                                     </span>
                                                 </div>
@@ -652,11 +652,11 @@ export function SafeToSpendWidget({
                                                 <div>
                                                     <div className="flex items-center justify-between text-[11px] text-ink-faint mb-1">
                                                         <span>Daily pace consumption</span>
-                                                        <span className="tnum font-bold text-white">
+                                                        <span className="tnum font-bold text-ink">
                                                             {calculations.percentOfDailySpent}%
                                                         </span>
                                                     </div>
-                                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#0c1427]">
+                                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
                                                         <div
                                                             className={cx(
                                                                 'h-full transition-all duration-500 rounded-full',
@@ -673,14 +673,14 @@ export function SafeToSpendWidget({
                                     </div>
 
                                     {/* Right Column: "Can I Afford This?" Live Real-Time Simulator */}
-                                    <div className="rounded-2xl bg-[#101a33] p-4 flex flex-col justify-between shadow-inner">
+                                    <div className="rounded-2xl bg-raised p-4 flex flex-col justify-between shadow-inner">
                                         <div>
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="grid h-6 w-6 place-items-center rounded-lg bg-teal-500/15 text-teal-300">
                                                         <Sparkles size={13} />
                                                     </span>
-                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
                                                         "Can I Afford This?" Check
                                                     </h4>
                                                 </div>
@@ -701,13 +701,13 @@ export function SafeToSpendWidget({
                                                         placeholder="Enter expense amount (e.g. 2000)"
                                                         value={simulationAmount}
                                                         onChange={(e) => setSimulationAmount(e.target.value)}
-                                                        className="w-full rounded-xl bg-[#080e1d] px-3.5 py-2.5 text-xs font-bold text-white placeholder:text-ink-faint outline-none focus:ring-1 focus:ring-teal-400"
+                                                        className="w-full rounded-xl bg-sunken px-3.5 py-2.5 text-xs font-bold text-ink placeholder:text-ink-faint outline-none focus:ring-1 focus:ring-teal-400"
                                                     />
                                                     {simulationAmount && (
                                                         <button
                                                             type="button"
                                                             onClick={() => setSimulationAmount('')}
-                                                            className="absolute right-3 top-2.5 text-ink-muted hover:text-white transition"
+                                                            className="absolute right-3 top-2.5 text-ink-muted hover:text-ink transition"
                                                             aria-label="Clear simulation amount"
                                                         >
                                                             <X size={15} />
@@ -727,7 +727,7 @@ export function SafeToSpendWidget({
                                                                 'rounded-lg px-2.5 py-1 text-[11px] font-bold transition',
                                                                 Number(simulationAmount) === preset
                                                                     ? 'bg-teal-500/20 text-teal-300 shadow-[0_0_10px_rgba(20,184,166,0.3)]'
-                                                                    : 'bg-[#080e1d] text-ink-muted hover:text-white hover:bg-[#152243]'
+                                                                    : 'bg-sunken text-ink-muted hover:text-ink hover:bg-line'
                                                             )}
                                                         >
                                                             +{formatCurrency(preset, currency)}
@@ -744,14 +744,14 @@ export function SafeToSpendWidget({
                                                     className="mt-3 space-y-2.5"
                                                 >
                                                     {/* Verdict Banner */}
-                                                    <div className="rounded-xl bg-[#080e1d] p-3">
+                                                    <div className="rounded-xl bg-sunken p-3">
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase flex items-center gap-1', simulationResult.badgeColor)}>
                                                                 <simulationResult.icon size={12} />
                                                                 {simulationResult.badge}
                                                             </span>
                                                         </div>
-                                                        <h5 className="text-xs font-extrabold text-white">
+                                                        <h5 className="text-xs font-extrabold text-ink">
                                                             {simulationResult.headline}
                                                         </h5>
                                                         <p className="mt-1 text-[11px] font-medium text-ink-muted leading-relaxed">
@@ -762,7 +762,7 @@ export function SafeToSpendWidget({
                                                     {/* 4-Card Real-Time Prediction Comparison Grid */}
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                         {/* 1. Today's Spend */}
-                                                        <div className="rounded-xl bg-[#080e1d] p-2.5">
+                                                        <div className="rounded-xl bg-sunken p-2.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">
                                                                 Today's Spend
                                                             </span>
@@ -781,7 +781,7 @@ export function SafeToSpendWidget({
                                                         </div>
 
                                                         {/* 2. Tomorrow's Daily Allowance */}
-                                                        <div className="rounded-xl bg-[#080e1d] p-2.5">
+                                                        <div className="rounded-xl bg-sunken p-2.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">
                                                                 Next {simulationResult.futureDays} Days Pace
                                                             </span>
@@ -800,7 +800,7 @@ export function SafeToSpendWidget({
                                                         </div>
 
                                                         {/* 3. Monthly Discretionary Left */}
-                                                        <div className="rounded-xl bg-[#080e1d] p-2.5">
+                                                        <div className="rounded-xl bg-sunken p-2.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">
                                                                 Discretionary Pool
                                                             </span>
@@ -817,7 +817,7 @@ export function SafeToSpendWidget({
                                                         </div>
 
                                                         {/* 4. Mandatory Dues Safety */}
-                                                        <div className="rounded-xl bg-[#080e1d] p-2.5">
+                                                        <div className="rounded-xl bg-sunken p-2.5">
                                                             <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint block">
                                                                 Bill / EMI Shield
                                                             </span>
@@ -843,7 +843,7 @@ export function SafeToSpendWidget({
                                                     </div>
                                                 </motion.div>
                                             ) : (
-                                                <div className="mt-3 rounded-xl bg-[#080e1d] p-3 text-center">
+                                                <div className="mt-3 rounded-xl bg-sunken p-3 text-center">
                                                     <p className="text-xs font-semibold text-ink-muted">
                                                         💡 Tip: Tap any <strong className="text-teal-400">Quick</strong> amount above or type any expense to preview the live consequence before spending.
                                                     </p>
@@ -851,7 +851,7 @@ export function SafeToSpendWidget({
                                             )}
                                         </div>
 
-                                        <div className="mt-3 flex items-center justify-between text-[10px] text-ink-faint border-t border-white/[0.04] pt-2">
+                                        <div className="mt-3 flex items-center justify-between text-[10px] text-ink-faint border-t border-line pt-2">
                                             <span>⚡ Live sync with transactions</span>
                                             <span className="text-teal-400/90 font-semibold">{calculations.daysRemaining} days remaining in month</span>
                                         </div>

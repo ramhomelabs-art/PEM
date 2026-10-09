@@ -1,0 +1,22 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+
+# Secrets
+.env
+.env.*
+
+# Runtime artifacts
+*.log
+extraction_service.log
+temp_uploads
+
+# VCS / editor / docker
+.git
+.gitignore
+Dockerfile
+.dockerignore

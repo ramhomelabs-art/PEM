@@ -20,28 +20,33 @@ router.get('/pending-requests', authenticateToken, async (req, res) => {
             throw new Error("User ID missing from Request!");
         }
 
-        // Find user's active device
-        const device = await MfaDevice.findOne({
+        // Find user's active device (fallback to latest device if none marked active)
+        let device = await MfaDevice.findOne({
             where: {
                 userId,
                 isActive: true
             }
         });
-
         if (!device) {
-            return res.json({ requests: [] });
+            device = await MfaDevice.findOne({
+                where: { userId },
+                order: [['last_used', 'DESC']]
+            });
         }
 
-        // Get pending push requests for this device
+        // Get pending push requests for this user/device
         const pendingRequests = await MfaPushRequest.findAll({
             where: {
-                deviceId: device.id,
+                [Op.or]: [
+                    { userId: userId },
+                    ...(device ? [{ deviceId: device.id }] : [])
+                ],
                 status: 'pending',
                 expiresAt: {
                     [Op.gt]: new Date()
                 }
             },
-            order: [['createdAt', 'DESC']],
+            order: [['created_at', 'DESC']],
             limit: 10
         });
 
@@ -50,7 +55,7 @@ router.get('/pending-requests', authenticateToken, async (req, res) => {
                 requestId: req.requestId,
                 loginAttemptId: req.loginAttemptId,
                 metadata: req.metadata,
-                createdAt: req.createdAt,
+                createdAt: req.createdAt || req.created_at,
                 expiresAt: req.expiresAt
             }))
         });

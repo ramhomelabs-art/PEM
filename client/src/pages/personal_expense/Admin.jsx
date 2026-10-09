@@ -303,7 +303,7 @@ const Admin = () => {
     }, [users, searchTerm, roleFilter]);
 
     return (
-        <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-100">
+        <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-ink">
             {/* Toast Notification */}
             <AnimatePresence>
                 {toast.show && (
@@ -345,10 +345,10 @@ const Admin = () => {
                             <ShieldCheck className="w-3.5 h-3.5" /> Core Administration
                         </span>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    <h1 className="text-2xl sm:text-3xl font-black text-ink tracking-tight">
                         User Management & Roles
                     </h1>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-ink-muted">
                         Manage system accounts, edit user roles, grant administrator privileges, and configure signup security.
                     </p>
                 </div>
@@ -356,10 +356,10 @@ const Admin = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                     <button
                         onClick={toggleSignupLock}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                             lockSignup
-                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
-                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                                ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30'
+                                : 'bg-surface text-ink-muted hover:bg-line'
                         }`}
                     >
                         {lockSignup ? <Lock className="w-3.5 h-3.5 text-rose-400" /> : <Unlock className="w-3.5 h-3.5 text-emerald-400" />}
@@ -369,7 +369,7 @@ const Admin = () => {
                     <button
                         onClick={fetchUsers}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface hover:bg-line text-ink text-xs font-bold transition-all disabled:opacity-50"
                     >
                         <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
                         <span>Refresh</span>
@@ -389,60 +389,60 @@ const Admin = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Link
                     to="/mfa-manager"
-                    className="group p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 hover:border-emerald-500/40 transition-all flex items-center justify-between"
+                    className="group p-4 rounded-2xl bg-surface/70 hover:bg-surface/90 transition-all flex items-center justify-between shadow-sm"
                 >
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
                             <Key className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                            <h3 className="text-sm font-bold text-ink group-hover:text-emerald-400 transition-colors">
                                 Multi-Factor Authentication (2FA)
                             </h3>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-ink-muted">
                                 Configure TOTP authenticators, mobile push notifications, and device pairing
                             </p>
                         </div>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                    <ArrowUpRight className="w-4 h-4 text-ink-faint group-hover:text-emerald-400 transition-colors" />
                 </Link>
 
                 <Link
                     to="/server-manager"
-                    className="group p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 hover:border-sky-500/40 transition-all flex items-center justify-between"
+                    className="group p-4 rounded-2xl bg-surface/70 hover:bg-surface/90 transition-all flex items-center justify-between shadow-sm"
                 >
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 flex items-center justify-center">
                             <Server className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-white group-hover:text-sky-400 transition-colors">
+                            <h3 className="text-sm font-bold text-ink group-hover:text-sky-400 transition-colors">
                                 Server & Database Console
                             </h3>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-ink-muted">
                                 Real-time system telemetry, database status, connection pools, and logs
                             </p>
                         </div>
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
+                    <ArrowUpRight className="w-4 h-4 text-ink-faint group-hover:text-sky-400 transition-colors" />
                 </Link>
             </div>
 
             {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-surface/60 shadow-sm">
                 <div className="relative w-full sm:w-80">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />
                     <input
                         type="text"
                         placeholder="Search by username, name, or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-sunken text-xs font-medium text-ink placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                     />
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <span className="text-[11px] font-bold text-slate-400">Role:</span>
+                    <span className="text-[11px] font-bold text-ink-muted">Role:</span>
                     {['ALL', 'ADMIN', 'USER'].map((r) => (
                         <button
                             key={r}
@@ -450,7 +450,7 @@ const Admin = () => {
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                                 roleFilter === r
                                     ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                                    : 'bg-sunken text-ink-muted hover:text-ink'
                             }`}
                         >
                             {r}
@@ -460,9 +460,9 @@ const Admin = () => {
             </div>
 
             {/* Users Table / Directory */}
-            <div className="rounded-2xl bg-slate-900/40 border border-slate-800/80 overflow-hidden backdrop-blur-sm">
-                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                    <h3 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+            <div className="rounded-2xl bg-surface/60 overflow-hidden backdrop-blur-sm shadow-md">
+                <div className="p-4 flex items-center justify-between bg-sunken/20">
+                    <h3 className="text-xs font-extrabold text-ink uppercase tracking-wider flex items-center gap-2">
                         <Users className="w-4 h-4 text-emerald-400" />
                         Registered Accounts ({filteredUsers.length})
                     </h3>
@@ -471,7 +471,7 @@ const Admin = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                         <thead>
-                            <tr className="border-b border-slate-800/80 bg-slate-950/40 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            <tr className="bg-sunken/40 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                                 <th className="p-4">User</th>
                                 <th className="p-4">Email</th>
                                 <th className="p-4">Role</th>
@@ -485,26 +485,26 @@ const Admin = () => {
                                 filteredUsers.map((u) => {
                                     const isMfaActive = Boolean(u.mfaEnabled || u.mfa_enabled);
                                     return (
-                                        <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
+                                        <tr key={u.id} className="hover:bg-line/30 transition-colors">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center font-bold text-xs uppercase">
+                                                    <div className="w-8 h-8 rounded-xl bg-raised text-ink flex items-center justify-center font-bold text-xs uppercase">
                                                         {u.username ? u.username.slice(0, 2) : '??'}
                                                     </div>
                                                     <div>
-                                                        <span className="font-bold text-white block">{u.username}</span>
-                                                        {u.fullName && <span className="text-[11px] text-slate-400 block">{u.fullName}</span>}
+                                                        <span className="font-bold text-ink block">{u.username}</span>
+                                                        {u.fullName && <span className="text-[11px] text-ink-muted block">{u.fullName}</span>}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-slate-300 font-medium">{u.email}</td>
+                                            <td className="p-4 text-ink-muted font-medium">{u.email}</td>
                                             <td className="p-4">
                                                 <button
                                                     onClick={() => handleQuickRoleToggle(u.id, u.role, u.username)}
                                                     className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border transition-all ${
                                                         u.role === 'admin'
                                                             ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30'
-                                                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                                                            : 'bg-raised text-ink-muted hover:bg-line'
                                                     }`}
                                                     title="Click to toggle role"
                                                 >
@@ -524,7 +524,7 @@ const Admin = () => {
                                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
                                                     isMfaActive
                                                         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                                        : 'bg-slate-800/80 text-slate-400 border-slate-700'
+                                                        : 'bg-raised/80 text-ink-muted'
                                                 }`}>
                                                     {isMfaActive ? '2FA Enabled' : 'Disabled'}
                                                 </span>
@@ -534,7 +534,7 @@ const Admin = () => {
                                                     {/* Edit User Details */}
                                                     <button
                                                         onClick={() => handleOpenEdit(u)}
-                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 text-slate-300 border border-slate-700 transition-all"
+                                                        className="p-1.5 rounded-lg bg-raised hover:bg-emerald-950 hover:text-emerald-300 text-ink-muted transition-all"
                                                         title="Edit User Details & Role"
                                                     >
                                                         <Edit3 className="w-3.5 h-3.5" />
@@ -544,7 +544,7 @@ const Admin = () => {
                                                     {u.status === 'pending' && (
                                                         <button
                                                             onClick={() => handleApprove(u.id, u.username)}
-                                                            className="p-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-900 border border-emerald-800 transition-all"
+                                                            className="p-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-900 transition-all"
                                                             title="Approve User Registration"
                                                         >
                                                             <CheckCircle className="w-3.5 h-3.5" />
@@ -554,7 +554,7 @@ const Admin = () => {
                                                     {/* Reset Password */}
                                                     <button
                                                         onClick={() => handleResetPassword(u.id, u.username)}
-                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 border border-slate-700 transition-all"
+                                                        className="p-1.5 rounded-lg bg-raised hover:bg-line text-ink-muted hover:text-amber-400 transition-all"
                                                         title="Reset Password"
                                                     >
                                                         <Key className="w-3.5 h-3.5" />
@@ -563,7 +563,7 @@ const Admin = () => {
                                                     {/* Delete User */}
                                                     <button
                                                         onClick={() => setConfirmDialog({ isOpen: true, userId: u.id, username: u.username })}
-                                                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-400 border border-slate-700 transition-all"
+                                                        className="p-1.5 rounded-lg bg-raised hover:bg-rose-950 hover:text-rose-400 text-ink-muted transition-all"
                                                         title="Delete User"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
@@ -575,7 +575,7 @@ const Admin = () => {
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-slate-500">
+                                    <td colSpan={6} className="p-8 text-center text-ink-faint">
                                         No user accounts found.
                                     </td>
                                 </tr>
@@ -593,21 +593,21 @@ const Admin = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-5"
+                            className="w-full max-w-lg rounded-3xl bg-surface border border-line shadow-2xl p-6 space-y-5"
                         >
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                            <div className="flex items-center justify-between border-b border-line pb-4">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
                                         <UserCog className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-black text-white">Edit User Account</h3>
-                                        <p className="text-xs text-slate-400">Modify credentials, roles, and privileges</p>
+                                        <h3 className="text-base font-black text-ink">Edit User Account</h3>
+                                        <p className="text-xs text-ink-muted">Modify credentials, roles, and privileges</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setEditModal({ isOpen: false, user: null, loading: false })}
-                                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                                    className="p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-line"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -616,45 +616,45 @@ const Admin = () => {
                             <form onSubmit={handleSaveUser} className="space-y-4 text-xs">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Username</label>
+                                        <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Username</label>
                                         <input
                                             type="text"
                                             required
                                             value={editForm.username}
                                             onChange={(e) => setEditForm(p => ({ ...p, username: e.target.value }))}
-                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                            className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                         />
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Full Name</label>
+                                        <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Full Name</label>
                                         <input
                                             type="text"
                                             value={editForm.fullName}
                                             onChange={(e) => setEditForm(p => ({ ...p, fullName: e.target.value }))}
-                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                            className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Email Address</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Email Address</label>
                                     <input
                                         type="email"
                                         required
                                         value={editForm.email}
                                         onChange={(e) => setEditForm(p => ({ ...p, email: e.target.value }))}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">System Role</label>
+                                        <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">System Role</label>
                                         <select
                                             value={editForm.role}
                                             onChange={(e) => setEditForm(p => ({ ...p, role: e.target.value }))}
-                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none cursor-pointer"
+                                            className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none cursor-pointer"
                                         >
                                             <option value="user">Standard User</option>
                                             <option value="admin">System Administrator</option>
@@ -662,11 +662,11 @@ const Admin = () => {
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Account Status</label>
+                                        <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Account Status</label>
                                         <select
                                             value={editForm.status}
                                             onChange={(e) => setEditForm(p => ({ ...p, status: e.target.value }))}
-                                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none cursor-pointer"
+                                            className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none cursor-pointer"
                                         >
                                             <option value="active">Active</option>
                                             <option value="pending">Pending Approval</option>
@@ -674,11 +674,11 @@ const Admin = () => {
                                     </div>
                                 </div>
 
-                                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5">
+                                <div className="p-3.5 rounded-2xl bg-sunken/60 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <span className="font-bold text-white block">Multi-Factor Authentication (2FA)</span>
-                                            <span className="text-[10px] text-slate-400">Require OTP code upon sign-in</span>
+                                            <span className="font-bold text-ink block">Multi-Factor Authentication (2FA)</span>
+                                            <span className="text-[10px] text-ink-muted">Require OTP code upon sign-in</span>
                                         </div>
                                         <input
                                             type="checkbox"
@@ -688,10 +688,10 @@ const Admin = () => {
                                         />
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+                                    <div className="flex items-center justify-between pt-2.5">
                                         <div>
-                                            <span className="font-bold text-white block">MFA Exemption</span>
-                                            <span className="text-[10px] text-slate-400">Bypass 2FA checks (Break-glass)</span>
+                                            <span className="font-bold text-ink block">MFA Exemption</span>
+                                            <span className="text-[10px] text-ink-muted">Bypass 2FA checks (Break-glass)</span>
                                         </div>
                                         <input
                                             type="checkbox"
@@ -703,21 +703,21 @@ const Admin = () => {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Set New Password (Optional)</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Set New Password (Optional)</label>
                                     <input
                                         type="password"
                                         placeholder="Leave blank to keep existing password"
                                         value={editForm.newPassword}
                                         onChange={(e) => setEditForm(p => ({ ...p, newPassword: e.target.value }))}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                     />
                                 </div>
 
-                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                                     <button
                                         type="button"
                                         onClick={() => setEditModal({ isOpen: false, user: null, loading: false })}
-                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                                        className="px-4 py-2 rounded-xl bg-raised hover:bg-line text-ink-muted font-bold text-xs"
                                     >
                                         Cancel
                                     </button>
@@ -744,21 +744,21 @@ const Admin = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-5"
+                            className="w-full max-w-md rounded-3xl bg-surface border border-line shadow-2xl p-6 space-y-5"
                         >
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                            <div className="flex items-center justify-between border-b border-line pb-4">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
                                         <UserPlus className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-black text-white">Create New Account</h3>
-                                        <p className="text-xs text-slate-400">Add a member to the system</p>
+                                        <h3 className="text-base font-black text-ink">Create New Account</h3>
+                                        <p className="text-xs text-ink-muted">Add a member to the system</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                                    className="p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-line"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -766,58 +766,58 @@ const Admin = () => {
 
                             <form onSubmit={handleCreateUser} className="space-y-4 text-xs">
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Username</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Username</label>
                                     <input
                                         type="text"
                                         required
                                         value={newUser.username}
                                         onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                         placeholder="john_doe"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Email Address</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Email Address</label>
                                     <input
                                         type="email"
                                         required
                                         value={newUser.email}
                                         onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                         placeholder="john@example.com"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Password</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Password</label>
                                     <input
                                         type="password"
                                         required
                                         value={newUser.password}
                                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none focus:border-emerald-500"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none focus:border-emerald-500"
                                         placeholder="••••••••"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Initial Role</label>
+                                    <label className="text-ink-muted font-bold uppercase tracking-wider text-[10px]">Initial Role</label>
                                     <select
                                         value={newUser.role}
                                         onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-semibold outline-none"
+                                        className="w-full px-3 py-2 rounded-xl bg-sunken border border-line text-ink font-semibold outline-none"
                                     >
                                         <option value="user">Standard User</option>
                                         <option value="admin">System Administrator</option>
                                     </select>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                                        className="px-4 py-2 rounded-xl bg-raised hover:bg-line text-ink-muted font-bold text-xs"
                                     >
                                         Cancel
                                     </button>

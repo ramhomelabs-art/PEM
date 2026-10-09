@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
     Flame,
     Snowflake,
@@ -162,7 +161,7 @@ export function DebtPayoffSimulatorModal({
             ) : (
                 <div className="space-y-4">
                     {/* Strategy Switcher */}
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#080e1d] p-1.5">
+                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-sunken p-1.5">
                         <button
                             type="button"
                             onClick={() => setStrategy('avalanche')}
@@ -193,7 +192,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Strategy Description Banner */}
-                    <div className="rounded-xl bg-[#101a33] p-3.5 text-xs leading-relaxed text-ink-muted shadow-sm">
+                    <div className="rounded-xl bg-raised p-3.5 text-xs leading-relaxed text-ink-muted shadow-sm">
                         {strategy === 'avalanche' ? (
                             <p>
                                 <strong>Avalanche Focus:</strong> Targets debts with the{' '}
@@ -210,7 +209,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Extra Monthly Payment Slider / Input */}
-                    <div className="rounded-xl bg-[#101a33] p-4 space-y-3 shadow-sm">
+                    <div className="rounded-xl bg-raised p-4 space-y-3 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
                                 <label className="text-xs font-bold uppercase tracking-wider text-ink-faint">
@@ -249,7 +248,7 @@ export function DebtPayoffSimulatorModal({
                                         'rounded-lg px-2.5 py-1 text-xs font-bold transition',
                                         extraPayment === preset
                                             ? 'bg-brand/20 text-brand'
-                                            : 'bg-[#080e1d] text-ink-muted hover:text-ink'
+                                            : 'bg-sunken text-ink-muted hover:text-ink'
                                     )}
                                 >
                                     +{formatCurrency(preset, currency)}
@@ -260,7 +259,7 @@ export function DebtPayoffSimulatorModal({
 
                     {/* Payoff Comparison Summary Cards */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                        <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Months to Debt-Free
                             </span>
@@ -277,7 +276,7 @@ export function DebtPayoffSimulatorModal({
                             )}
                         </div>
 
-                        <div className="rounded-xl bg-[#101a33] p-3.5 shadow-sm">
+                        <div className="rounded-xl bg-raised p-3.5 shadow-sm">
                             <span className="text-[11px] font-bold uppercase text-ink-faint">
                                 Total Interest Paid
                             </span>
@@ -307,7 +306,7 @@ export function DebtPayoffSimulatorModal({
                     </div>
 
                     {/* Roadmap: Sequence of Payoff */}
-                    <div className="rounded-xl bg-[#101a33] p-4 shadow-sm">
+                    <div className="rounded-xl bg-raised p-4 shadow-sm">
                         <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-ink">
                             Target Payoff Sequence
                         </h4>
@@ -316,7 +315,7 @@ export function DebtPayoffSimulatorModal({
                                 activePlan.sequence.map((item, idx) => (
                                     <div
                                         key={item.id}
-                                        className="flex items-center justify-between rounded-lg bg-[#080e1d] px-3 py-2.5 text-xs"
+                                        className="flex items-center justify-between rounded-lg bg-sunken px-3 py-2.5 text-xs"
                                     >
                                         <div className="flex items-center gap-2.5">
                                             <span className="grid h-5 w-5 place-items-center rounded-full bg-brand/20 text-[10px] font-extrabold text-brand">

@@ -68,11 +68,15 @@ const BudgetModal = ({ isOpen, onClose, user, onReload, mode, editData }) => {
         e.preventDefault();
         const url = mode === 'edit' ? `${API_URL}/budgets/${editData.id}` : `${API_URL}/budgets`;
         const method = mode === 'edit' ? 'PUT' : 'POST';
+        const token = localStorage.getItem('token');
 
         try {
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({ ...formData, userId: user.id }),
             });
             if (res.ok) {
@@ -149,10 +153,13 @@ const Budgets = () => {
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, budgetId: null });
 
     const fetchData = useCallback(async () => {
+        const token = localStorage.getItem('token');
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
         try {
             const [budgetRes, transRes] = await Promise.all([
-                fetch(`${API_URL}/budgets/user/${user.id}`),
-                fetch(`${API_URL}/transactions/user/${user.id}`),
+                fetch(`${API_URL}/budgets/user/${user.id}`, { headers: authHeaders }),
+                fetch(`${API_URL}/transactions/user/${user.id}`, { headers: authHeaders }),
             ]);
             const [bData, tData] = await Promise.all([budgetRes.json(), transRes.json()]);
             setBudgets(Array.isArray(bData) ? bData : []);
@@ -169,8 +176,12 @@ const Budgets = () => {
     }, [user, fetchData]);
 
     const handleDelete = async (id) => {
+        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${API_URL}/budgets/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/budgets/${id}`, {
+                method: 'DELETE',
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
             if (res.ok) {
                 fetchData();
                 setConfirmDialog({ isOpen: false, budgetId: null });
@@ -209,7 +220,6 @@ const Budgets = () => {
     const currentDay = Math.min(now.getDate(), daysInMonth);
     const daysRemaining = Math.max(1, daysInMonth - currentDay + 1);
     const monthName = now.toLocaleString(undefined, { month: 'long' });
-    const monthTimelinePercent = Math.round((currentDay / daysInMonth) * 100);
 
     // Projected velocity calculation across all active budgets
     const totalProjected = currentDay > 0 ? Math.round((totalSpent / currentDay) * daysInMonth) : 0;

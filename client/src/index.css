@@ -74,6 +74,10 @@
     --skeleton-sheen: #e2e8f0;
   }
 
+  *, ::before, ::after {
+    border-color: var(--pem-border);
+  }
+
   html {
     height: 100%;
     width: 100%;
@@ -197,10 +201,10 @@
     border-radius: 999px;
   }
 
-  /* Thin dark scrollbar specifically for modal panels */
+  /* Thin themed scrollbar for modal panels */
   .modal-thin-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+    scrollbar-color: var(--pem-border-strong) transparent;
   }
 
   .modal-thin-scroll::-webkit-scrollbar {
@@ -213,7 +217,7 @@
   }
 
   .modal-thin-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: var(--pem-border-strong);
     border-radius: 999px;
   }
 
@@ -236,6 +240,10 @@
   background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b);
   background-size: 400% 400%;
   animation: gradientBG 15s ease infinite;
+}
+
+[data-theme='light'] .animated-bg {
+  background: linear-gradient(-45deg, #eef2ff, #f5f3ff, #ecfeff, #eef2ff);
 }
 
 @keyframes gradientBG {
@@ -307,6 +315,12 @@
   -webkit-backdrop-filter: blur(10px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme='light'] .glass-dark {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18) !important;
 }
 
 /* Fix for Select Dropdowns - Dark Theme */
@@ -740,14 +754,14 @@ div[draggable] .drag-handle:hover {
 .cc-modal-box {
   width: 100%;
   max-width: 780px;
-  background-color: rgba(15, 23, 42, 0.95);
+  background-color: var(--pem-surface);
   border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--pem-border);
   padding: 35px;
   position: relative;
   z-index: 20;
-  color: white;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  color: var(--pem-text);
+  box-shadow: var(--pem-shadow-raised);
   max-height: 90vh;
   overflow-y: auto;
   box-sizing: border-box;

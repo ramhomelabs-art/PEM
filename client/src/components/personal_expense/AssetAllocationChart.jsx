@@ -10,7 +10,7 @@ const AssetAllocationChart = ({ data, currencyCode, target }) => {
     // on its own is not drawn once there are no actual holdings to compare).
     if (!hasData) {
         return (
-            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pem-text-secondary)' }}>
                 No data for allocation
             </div>
         );
@@ -69,8 +69,8 @@ const AssetAllocationChart = ({ data, currencyCode, target }) => {
                         ))}
                     </Pie>
                     <Tooltip
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
-                        itemStyle={{ color: 'white', fontWeight: 'bold' }}
+                        contentStyle={{ backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                        itemStyle={{ color: 'var(--pem-text)', fontWeight: 'bold' }}
                         formatter={(value) => formatCurrency(value, currencyCode || 'USD')}
                     />
                     <Legend

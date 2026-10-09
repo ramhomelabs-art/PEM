@@ -23,7 +23,6 @@ const Login = () => {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        e.preventDefault();
         setStatus('loading');
 
         try {
@@ -163,7 +162,13 @@ const Login = () => {
                             className="w-full max-w-md mx-auto"
                         >
                             {/* Modal-style Card */}
-                            <div className="bg-slate-800/40 backdrop-blur-xl rounded-3xl success-inner-card border border-slate-700/50 shadow-2xl">
+                            <div
+                                className="backdrop-blur-xl rounded-3xl success-inner-card shadow-2xl"
+                                style={{
+                                    backgroundColor: mode === 'dark' ? 'rgba(30, 41, 59, 0.4)' : 'rgba(248, 250, 252, 0.75)',
+                                    border: `1px solid ${theme.border}`
+                                }}
+                            >
                                 <div className="flex flex-col items-center space-y-6">
 
                                     {/* Circular Avatar with Ring - Corrected Layout */}
@@ -250,7 +255,7 @@ const Login = () => {
                                         transition={{ delay: 0.15, type: 'spring', stiffness: 200, damping: 10 }}
                                         className="flex justify-center"
                                     >
-                                        <Star size={42} fill="white" className="text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
+                                        <Star size={42} fill={theme.text} style={{ color: theme.text }} className="drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
                                     </motion.div>
 
                                     {/* Text Hierarchy */}
@@ -260,13 +265,13 @@ const Login = () => {
                                         transition={{ delay: 0.15 }}
                                         className="space-y-3 text-center"
                                     >
-                                        <h1 className="text-3xl font-black sm:text-4xl text-white tracking-wide">SUCCESS!</h1>
+                                        <h1 className="text-3xl font-black sm:text-4xl tracking-wide" style={{ color: theme.text }}>SUCCESS!</h1>
 
                                         <div className="space-y-1">
-                                            <p className="text-lg text-slate-200 font-medium">
+                                            <p className="text-lg font-medium" style={{ color: theme.text }}>
                                                 Welcome, {loggedInUser?.fullName || loggedInUser?.username || 'User'}
                                             </p>
-                                            <p className="text-sm text-slate-400 italic">
+                                            <p className="text-sm italic" style={{ color: theme.textSecondary }}>
                                                 &quot;Your financial journey continues today&quot;
                                             </p>
                                         </div>
@@ -283,14 +288,14 @@ const Login = () => {
                                             animate={{ y: [0, -8, 0] }}
                                             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
                                         >
-                                            <Flame size={32} fill="white" className="text-white/60" />
+                                            <Flame size={32} fill={theme.text} style={{ color: theme.textSecondary }} />
                                         </motion.div>
                                         <motion.div
                                             animate={{ y: [0, -8, 0] }}
                                             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
                                             className="-mt-2"
                                         >
-                                            <Flame size={24} fill="white" className="text-white/40" />
+                                            <Flame size={24} fill={theme.textSecondary} style={{ color: theme.textSecondary }} />
                                         </motion.div>
                                     </motion.div>
 
@@ -322,7 +327,7 @@ const Login = () => {
                                 <h2 className="text-3xl font-black sm:text-4xl text-red-500 uppercase tracking-widest bg-red-500/10 px-6 py-2 rounded-2xl">
                                     ACCESS DENIED!
                                 </h2>
-                                <div className="text-white text-3xl font-black leading-tight">
+                                <div className="text-3xl font-black leading-tight" style={{ color: theme.text }}>
                                     &quot;Wrong username and <br /> Password Sir!!&quot;
                                 </div>
                             </div>
@@ -385,7 +390,7 @@ const Login = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-5 top-[14px] text-gray-400 hover:text-white transition-colors"
+                                        className="absolute right-5 top-[14px] text-gray-400 hover:text-emerald-500 transition-colors"
                                     >
                                         {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
                                     </button>
@@ -399,7 +404,7 @@ const Login = () => {
                                         checked={rememberMe}
                                         onChange={(e) => setRememberMe(e.target.checked)}
                                     />
-                                    <label htmlFor="rememberMe" className="text-gray-400 font-bold cursor-pointer select-none">
+                                    <label htmlFor="rememberMe" className="font-bold cursor-pointer select-none" style={{ color: theme.textSecondary }}>
                                         Remember login credentials
                                     </label>
                                 </div>
@@ -427,9 +432,9 @@ const Login = () => {
                             </form>
 
                             <div className="mt-14 text-center">
-                                <p className="text-gray-400 text-xl font-bold">
+                                <p className="text-xl font-bold" style={{ color: theme.textSecondary }}>
                                     Don&apos;t have an account?{' '}
-                                    <Link to="/signup" className="text-emerald-400 font-extrabold underline underline-offset-8">
+                                    <Link to="/signup" className="text-emerald-500 font-extrabold underline underline-offset-8">
                                         Join PEM Pro
                                     </Link>
                                 </p>

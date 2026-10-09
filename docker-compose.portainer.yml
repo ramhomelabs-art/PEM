@@ -56,9 +56,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-pem_jwt_super_secret_production_key_2026}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:5174}
       PYTHON_SERVICE_URL: http://python-service:5002
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5174/credit-cards/auto-statement}
     volumes:
       - pem_uploads:/app/uploads
       - pem_storage:/app/storage

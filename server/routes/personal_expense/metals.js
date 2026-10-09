@@ -5,154 +5,110 @@ const NodeCache = require('node-cache');
 // Cache for 5 minutes (300 seconds)
 const cache = new NodeCache({ stdTTL: 300 });
 
-// Using FREE API: GoldAPI.io (no key required for basic endpoint)
-// Alternative free source: MetalPriceAPI.com
-const GOLD_API_URL = 'https://www.goldapi.io/api/XAU/INR';
+const GOLD_API_URL = 'https://api.gold-api.com/price/XAU';
+
+// Approximate FX rates from USD. Used only to present the live USD gold price
+// in the requested currency; not a trading rate.
+const FX_FROM_USD = {
+    INR: 83,
+    USD: 1,
+    EUR: 0.92,
+    GBP: 0.79,
+    AED: 3.67,
+    AUD: 1.52
+};
+
+const TROY_OUNCE_IN_GRAMS = 31.1035;
 
 // GET /api/metals/prices?currency=INR
 router.get('/prices', async (req, res) => {
     try {
-        const currency = req.query.currency || 'INR';
+        const currency = (req.query.currency || 'INR').toUpperCase();
         const cacheKey = `metals_${currency}`;
 
-        // Check cache first
         const cachedData = cache.get(cacheKey);
         if (cachedData) {
             console.log('[Metals] Returning cached data');
             return res.json(cachedData);
         }
 
-        // Fetch from FREE API - using current market data from public sources
-        console.log('[Metals] Fetching fresh data from free API');
+        console.log('[Metals] Fetching fresh data from live API');
 
-        // Use a combination of free APIs
-        // 1. Gold price from GoldAPI.io (free, no key)
-        // 2. Other metals from fallback with realistic prices
-
-        let goldPrice = null;
+        let goldPriceUsd = null;
         try {
-            const goldResponse = await fetch('https://api.gold-api.com/price/XAU');
+            const goldResponse = await fetch(GOLD_API_URL);
             if (goldResponse.ok) {
                 const goldData = await goldResponse.json();
-                // Gold price is in USD per troy ounce, convert to INR
-                const usdToInr = 83; // Approximate rate
-                goldPrice = goldData.price * usdToInr;
+                if (typeof goldData.price === 'number' && goldData.price > 0) {
+                    goldPriceUsd = goldData.price;
+                }
             }
         } catch (err) {
-            console.log('[Metals] Gold API failed, using fallback');
+            console.log('[Metals] Gold API failed:', err.message);
         }
 
-        // Calculate realistic prices based on current market ratios
-        // Currency conversion rates (approximate)
-        const conversionRates = {
-            'INR': 1,
-            'USD': 0.012,  // 1 INR = 0.012 USD
-            'EUR': 0.011,  // 1 INR = 0.011 EUR
-            'GBP': 0.0095, // 1 INR = 0.0095 GBP
-            'AED': 0.044,  // 1 INR = 0.044 AED
-            'AUD': 0.018   // 1 INR = 0.018 AUD
+        // Never fabricate prices: if the live source is unavailable, say so.
+        if (goldPriceUsd == null) {
+            return res.status(503).json({
+                currency,
+                timestamp: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                _source: 'unavailable',
+                error: 'Live precious metal prices are currently unavailable',
+                prices: null
+            });
+        }
+
+        const fx = FX_FROM_USD[currency] || 1;
+        const goldPricePerOunce = goldPriceUsd * fx;
+
+        // Silver / platinum / palladium are derived from typical price ratios
+        // against gold because the free tier exposes gold only.
+        const ratios = { silver: 1 / 80, platinum: 0.55, palladium: 0.6 };
+
+        const buildMetal = (name, symbol, ratio) => {
+            const perOunce = goldPricePerOunce * ratio;
+            return {
+                name,
+                pricePerOunce: perOunce.toFixed(0),
+                pricePerGram: (perOunce / TROY_OUNCE_IN_GRAMS).toFixed(2),
+                change: null,
+                symbol
+            };
         };
 
-        const conversionRate = conversionRates[currency] || 1;
-
-        const goldPricePerOunce = goldPrice || 142206;
-        const goldPricePerOunceConverted = (goldPricePerOunce * conversionRate).toFixed(0);
-        const goldPricePerGram = ((goldPricePerOunce / 31.1035) * conversionRate).toFixed(2);
-
-        // Silver is typically 1/80th of gold price
-        const silverPricePerOunce = ((goldPricePerOunce / 80) * conversionRate).toFixed(0);
-        const silverPricePerGram = ((goldPricePerOunce / 80 / 31.1035) * conversionRate).toFixed(2);
-
-        // Platinum is typically 0.55x gold price
-        const platinumPricePerOunce = ((goldPricePerOunce * 0.55) * conversionRate).toFixed(0);
-        const platinumPricePerGram = ((goldPricePerOunce * 0.55 / 31.1035) * conversionRate).toFixed(2);
-
-        // Palladium is typically 0.6x gold price
-        const palladiumPricePerOunce = ((goldPricePerOunce * 0.6) * conversionRate).toFixed(0);
-        const palladiumPricePerGram = ((goldPricePerOunce * 0.6 / 31.1035) * conversionRate).toFixed(2);
-
         const result = {
-            currency: currency,
+            currency,
             timestamp: Date.now(),
             date: new Date().toISOString().split('T')[0],
             prices: {
                 gold: {
                     name: 'Gold (XAU)',
-                    pricePerOunce: goldPricePerOunceConverted,
-                    pricePerGram: goldPricePerGram,
-                    change: '+1.2%',
+                    pricePerOunce: goldPricePerOunce.toFixed(0),
+                    pricePerGram: (goldPricePerOunce / TROY_OUNCE_IN_GRAMS).toFixed(2),
+                    change: null,
                     symbol: '🥇'
                 },
-                silver: {
-                    name: 'Silver (XAG)',
-                    pricePerOunce: silverPricePerOunce,
-                    pricePerGram: silverPricePerGram,
-                    change: '-0.5%',
-                    symbol: '🥈'
-                },
-                platinum: {
-                    name: 'Platinum (XPT)',
-                    pricePerOunce: platinumPricePerOunce,
-                    pricePerGram: platinumPricePerGram,
-                    change: '+0.8%',
-                    symbol: '💎'
-                },
-                palladium: {
-                    name: 'Palladium (XPD)',
-                    pricePerOunce: palladiumPricePerOunce,
-                    pricePerGram: palladiumPricePerGram,
-                    change: '+2.1%',
-                    symbol: '⚪'
-                }
+                silver: buildMetal('Silver (XAG)', '🥈', ratios.silver),
+                platinum: buildMetal('Platinum (XPT)', '💎', ratios.platinum),
+                palladium: buildMetal('Palladium (XPD)', '⚪', ratios.palladium)
             },
-            _source: goldPrice ? 'live' : 'calculated'
+            _source: 'derived',
+            _approximate: true,
+            _fxRate: fx
         };
 
-        // Cache the result
         cache.set(cacheKey, result);
 
         res.json(result);
     } catch (error) {
         console.error('[Metals] Error:', error);
-
-        // Return fallback mock data if API fails
-        res.json({
-            currency: req.query.currency || 'INR',
+        res.status(503).json({
+            currency: (req.query.currency || 'INR').toUpperCase(),
             timestamp: Date.now(),
-            date: new Date().toISOString().split('T')[0],
-            prices: {
-                gold: {
-                    name: 'Gold (XAU)',
-                    pricePerOunce: '142206',
-                    pricePerGram: '4572',
-                    change: '+1.2%',
-                    symbol: '🥇'
-                },
-                silver: {
-                    name: 'Silver (XAG)',
-                    pricePerOunce: '1776',
-                    pricePerGram: '57',
-                    change: '-0.5%',
-                    symbol: '🥈'
-                },
-                platinum: {
-                    name: 'Platinum (XPT)',
-                    pricePerOunce: '78213',
-                    pricePerGram: '2515',
-                    change: '+0.8%',
-                    symbol: '💎'
-                },
-                palladium: {
-                    name: 'Palladium (XPD)',
-                    pricePerOunce: '85324',
-                    pricePerGram: '2743',
-                    change: '+2.1%',
-                    symbol: '⚪'
-                }
-            },
-            _fallback: true,
-            _reason: 'api_error',
-            error: error.message
+            _source: 'unavailable',
+            error: 'Live precious metal prices are currently unavailable',
+            prices: null
         });
     }
 });

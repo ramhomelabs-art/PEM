@@ -103,21 +103,21 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '30px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
+                style={{ backgroundColor: 'var(--pem-surface)', border: '1px solid var(--pem-border)', borderRadius: '24px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '30px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
             >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: '900', color: 'var(--pem-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                         Add New Investment
                     </h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><X /></button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--pem-text-secondary)', cursor: 'pointer' }}><X /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                     {/* Category Selection */}
                     <div>
-                        <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>ASSET CLASS</label>
+                        <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>ASSET CLASS</label>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                             {Object.entries(categories).map(([key, val]) => {
                                 const Icon = val.icon;
@@ -127,8 +127,8 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
                                         key={key}
                                         onClick={() => setFormData({ ...formData, category: key, subCategory: val.subs[0] })}
                                         style={{
-                                            backgroundColor: isSelected ? val.color : 'rgba(255,255,255,0.05)',
-                                            border: `1px solid ${isSelected ? val.color : 'rgba(255,255,255,0.1)'}`,
+                                            backgroundColor: isSelected ? val.color : 'var(--pem-surface-raised)',
+                                            border: `1px solid ${isSelected ? val.color : 'var(--pem-border)'}`,
                                             borderRadius: '16px',
                                             padding: '15px',
                                             display: 'flex',
@@ -139,8 +139,8 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
                                             transition: 'all 0.2s'
                                         }}
                                     >
-                                        <Icon color={isSelected ? 'white' : '#64748b'} />
-                                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? 'white' : '#64748b' }}>{key}</span>
+                                        <Icon color={isSelected ? 'white' : 'var(--pem-text-secondary)'} />
+                                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: isSelected ? 'white' : 'var(--pem-text-secondary)' }}>{key}</span>
                                     </div>
                                 );
                             })}
@@ -150,22 +150,22 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
                     {/* Basic Info */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>INVESTMENT NAME</label>
+                            <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>INVESTMENT NAME</label>
                             <input
                                 required
                                 type="text"
                                 placeholder="e.g. HDFC Bank, SGB 2024"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                             />
                         </div>
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>SUB-CATEGORY</label>
+                            <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>SUB-CATEGORY</label>
                             <select
                                 value={formData.subCategory}
                                 onChange={e => setFormData({ ...formData, subCategory: e.target.value })}
-                                style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                             >
                                 {categories[formData.category].subs.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
@@ -174,50 +174,50 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
 
                     {formData.category === 'Market' && (
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>TICKER / SYMBOL (Optional)</label>
+                            <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>TICKER / SYMBOL (Optional)</label>
                             <input
                                 type="text"
                                 placeholder="e.g. RELIANCE.NS, NETF.NS"
                                 value={formData.ticker}
                                 onChange={e => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
-                                style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fbbf24', marginTop: '5px', fontWeight: 'bold' }}
+                                style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: '#fbbf24', marginTop: '5px', fontWeight: 'bold' }}
                             />
-                            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: '#64748b' }}>Enter Yahoo Finance symbol for live updates (e.g. TCS.NS)</p>
+                            <p style={{ margin: '5px 0 0 0', fontSize: '10px', color: 'var(--pem-text-secondary)' }}>Enter Yahoo Finance symbol for live updates (e.g. TCS.NS)</p>
                         </div>
                     )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>PROVIDER / BROKER</label>
+                            <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>PROVIDER / BROKER</label>
                             <input
                                 type="text"
                                 placeholder="e.g. Zerodha, SBI"
                                 value={formData.provider}
                                 onChange={e => setFormData({ ...formData, provider: e.target.value })}
-                                style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                             />
                         </div>
                         <div>
-                            <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>ACCOUNT / FOLIO NO</label>
+                            <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>ACCOUNT / FOLIO NO</label>
                             <input
                                 type="text"
                                 placeholder="Optional"
                                 value={formData.accountNumber}
                                 onChange={e => setFormData({ ...formData, accountNumber: e.target.value })}
-                                style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                             />
                         </div>
                     </div>
 
                     {/* Financials */}
-                    <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '20px', borderRadius: '16px' }}>
+                    <div style={{ backgroundColor: 'var(--pem-surface-raised)', padding: '20px', borderRadius: '16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                             <DollarSign size={16} color="#10b981" />
                             <span style={{ color: '#10b981', fontWeight: 'bold' }}>Initial Investment Details</span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
                             <div>
-                                <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>INITIAL AMOUNT</label>
+                                <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>INITIAL AMOUNT</label>
                                 <input
                                     type="number"
                                     step="any"
@@ -225,40 +225,40 @@ const InvestmentForm = ({ isOpen, onClose, onSuccess }) => {
                                     placeholder="0.00"
                                     value={formData.initialAmount}
                                     onChange={e => setFormData({ ...formData, initialAmount: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px', fontWeight: 'bold', fontSize: '16px' }}
+                                    style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px', fontWeight: 'bold', fontSize: '16px' }}
                                 />
                             </div>
                             <div>
-                                <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>DATE OF INVESTMENT</label>
+                                <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>DATE OF INVESTMENT</label>
                                 <input
                                     type="date"
                                     value={formData.initialDate}
                                     onChange={e => setFormData({ ...formData, initialDate: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                    style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                                 />
                             </div>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                             <div>
-                                <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>UNITS / QUANTITY (Optional)</label>
+                                <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>UNITS / QUANTITY (Optional)</label>
                                 <input
                                     type="number"
                                     step="any"
                                     placeholder="e.g. 10"
                                     value={formData.units}
                                     onChange={e => setFormData({ ...formData, units: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                    style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                                 />
                             </div>
                             <div>
-                                <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>PRICE PER UNIT (Optional)</label>
+                                <label style={{ color: 'var(--pem-text-secondary)', fontSize: '12px', fontWeight: 'bold' }}>PRICE PER UNIT (Optional)</label>
                                 <input
                                     type="number"
                                     step="any"
                                     placeholder="e.g. 250.00"
                                     value={formData.currentPrice}
                                     onChange={e => setFormData({ ...formData, currentPrice: e.target.value })}
-                                    style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: 'white', marginTop: '5px' }}
+                                    style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-bg-sunken)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', marginTop: '5px' }}
                                 />
                             </div>
                         </div>

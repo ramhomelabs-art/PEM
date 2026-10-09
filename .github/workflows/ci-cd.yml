@@ -37,13 +37,14 @@ jobs:
 
       - name: Validate Docker Compose Configuration
         run: |
-          docker compose config
+          touch .env
+          docker compose config --quiet
 
   docker-build:
     name: Build Docker Container Images
     needs: validate-and-build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
       - name: Checkout Source Code
@@ -77,8 +78,7 @@ jobs:
           tags: pem-python-extraction:latest
 
       - name: Portainer Stack Webhook Trigger (Optional)
-        if: env.PORTAINER_WEBHOOK_URL != ''
-        env:
-          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
         run: |
-          curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" || echo "Portainer webhook triggered"
+          curl -s -S -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" || echo "Portainer webhook triggered"
+
