@@ -29,8 +29,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-expense_manager}
-      POSTGRES_USER: ${DB_USER:-pem_admin}
-      POSTGRES_PASSWORD: ${DB_PASS:-pem_secure_password_2026}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-Job@test~005}
     volumes:
       - pem_pg_data:/var/lib/postgresql/data
     ports:
@@ -72,8 +72,8 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-expense_manager}
-      DB_USER: ${DB_USER:-pem_admin}
-      DB_PASS: ${DB_PASS:-pem_secure_password_2026}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-Job@test~005}
       JWT_SECRET: ${JWT_SECRET:-c296d24e8bb618b342c5610b1cbee2e585eb3566edb0448e1e83b4f222666f16}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:5174}
       PYTHON_SERVICE_URL: http://python-service:5002
