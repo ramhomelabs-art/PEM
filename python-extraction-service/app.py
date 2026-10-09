@@ -41,7 +41,7 @@ app.add_middleware(
 )
 
 # Shared secret guarding service-control endpoints (e.g. /restart).
-SERVICE_API_KEY = os.getenv("PYTHON_API_KEY")
+SERVICE_API_KEY = os.getenv("PYTHON_API_KEY", "pem_internal_service_key_2026")
 
 
 async def require_api_key(x_api_key: Optional[str] = Header(None)):

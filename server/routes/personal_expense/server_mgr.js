@@ -469,7 +469,11 @@ router.post('/restart/python', authenticateToken, async (req, res) => {
 
     try {
         // 1. Try Graceful HTTP Restart
-        await axios.post(`${PYTHON_SERVICE_URL}/restart`, {}, { timeout: 3000 });
+        const apiKey = process.env.PYTHON_API_KEY || 'pem_internal_service_key_2026';
+        await axios.post(`${PYTHON_SERVICE_URL}/restart`, {}, {
+            headers: { 'x-api-key': apiKey },
+            timeout: 3000
+        });
         res.json({ message: 'Python service restart triggered via API' });
     } catch (error) {
         console.warn('Python API unreachable, attempting manual process spawn...', error.message);
