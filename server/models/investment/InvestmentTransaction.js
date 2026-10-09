@@ -11,7 +11,7 @@ module.exports = (sequelize) => {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'investments', // Note: Table name is typically pluralized by Sequelzie
+                model: 'legacy_investments',
                 key: 'id'
             }
         },
