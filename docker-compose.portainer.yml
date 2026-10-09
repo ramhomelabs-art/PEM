@@ -3,13 +3,6 @@ version: '3.8'
 # ==============================================================================
 # PEM FINANCE & AUTOMATION - PORTAINER PRODUCTION STACK
 # ==============================================================================
-# Designed specifically for Portainer (avoids Portainer Agent BuildKit gRPC errors)
-#
-# Prerequisite: Ensure the images are built on the host via:
-#   docker compose build
-#
-# Then paste this stack directly into Portainer Web Editor or deploy via Stacks.
-# ==============================================================================
 
 services:
   postgres:
@@ -33,6 +26,9 @@ services:
       - pem_network
 
   python-service:
+    build:
+      context: ./python-extraction-service
+      dockerfile: Dockerfile
     image: pem-python-extraction:latest
     container_name: pem_python_service
     restart: unless-stopped
@@ -47,6 +43,9 @@ services:
       - pem_network
 
   backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     image: pem-backend:latest
     container_name: pem_backend
     restart: unless-stopped
@@ -86,6 +85,9 @@ services:
       - pem_network
 
   frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     image: pem-frontend:latest
     container_name: pem_frontend
     restart: unless-stopped

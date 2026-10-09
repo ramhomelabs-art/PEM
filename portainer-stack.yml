@@ -3,12 +3,22 @@ version: '3.8'
 # ==============================================================================
 # PEM FINANCE & AUTOMATION - PORTAINER PRODUCTION STACK
 # ==============================================================================
-# Designed specifically for Portainer (avoids Portainer Agent BuildKit gRPC errors)
+# DEPLOYMENT GUIDE IN PORTAINER:
 #
-# Prerequisite: Ensure the images are built on the host via:
-#   docker compose build
+# Method 1: Git Repository (Recommended)
+#   1. In Portainer -> Stacks -> Add stack -> Select "Repository"
+#   2. Repository URL: https://github.com/ramhomelabs-art/PEM.git
+#   3. Reference: refs/heads/main
+#   4. Compose path: portainer-stack.yml
+#   5. Under "Environment variables", add these TWO variables to prevent BuildKit error:
+#        DOCKER_BUILDKIT=0
+#        COMPOSE_DOCKER_CLI_BUILD=0
+#   6. Paste the rest of your env vars and click "Deploy the stack".
 #
-# Then paste this stack directly into Portainer Web Editor or deploy via Stacks.
+# Method 2: Host Build + Web Editor
+#   1. On your Docker server terminal, run:
+#        docker compose build
+#   2. Then deploy via Web Editor using the built local images.
 # ==============================================================================
 
 services:
@@ -33,6 +43,9 @@ services:
       - pem_network
 
   python-service:
+    build:
+      context: ./python-extraction-service
+      dockerfile: Dockerfile
     image: pem-python-extraction:latest
     container_name: pem_python_service
     restart: unless-stopped
@@ -47,6 +60,9 @@ services:
       - pem_network
 
   backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     image: pem-backend:latest
     container_name: pem_backend
     restart: unless-stopped
@@ -86,6 +102,9 @@ services:
       - pem_network
 
   frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     image: pem-frontend:latest
     container_name: pem_frontend
     restart: unless-stopped
