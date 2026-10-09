@@ -364,6 +364,7 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         // Safe Route Loader Helper
         const safeLoad = (name, path) => {
             try {
+                console.log(`[STARTUP] Loading ${name} routes...`);
                 const route = require(path);
                 console.log(`✓ ${name} routes loaded`);
                 return route;

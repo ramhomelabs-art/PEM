@@ -4,12 +4,21 @@
  * so consumers can test dispatch without touching a real PDF.
  */
 
-const { PDFParse } = require('pdf-parse');
 const { parseCas } = require('./parse');
 
 /** Extract plain text from a PDF buffer. pdfImpl injectable for tests. */
 async function extractPdfText(buffer, { pdfImpl } = {}) {
-    const PDF = pdfImpl || PDFParse;
+    let PDF = pdfImpl;
+    if (!PDF) {
+        try {
+            const pdfParseModule = require('pdf-parse');
+            PDF = pdfParseModule.PDFParse || pdfParseModule;
+        } catch (e) {
+            const err = new Error('PDF parsing library is unavailable: ' + e.message);
+            err.status = 500;
+            throw err;
+        }
+    }
     const parser = new PDF({ data: buffer });
     try {
         const result = await parser.getText();
