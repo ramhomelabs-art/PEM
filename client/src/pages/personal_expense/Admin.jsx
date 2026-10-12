@@ -75,7 +75,8 @@ const Admin = () => {
             const res = await fetch(`${API_URL}/auth/config`);
             if (res.ok) {
                 const data = await res.json();
-                setLockSignup(!!data.lockSignup);
+                const isLocked = Boolean(data.lockSignup ?? data.signupLocked);
+                setLockSignup(isLocked);
             }
         } catch (e) {
             console.error('Settings fetch error:', e);
@@ -88,6 +89,7 @@ const Admin = () => {
     }, [fetchUsers, fetchSettings]);
 
     const toggleSignupLock = async () => {
+        const nextState = !lockSignup;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`${API_URL}/admin/lock-signup`, {
@@ -96,11 +98,11 @@ const Admin = () => {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ locked: !lockSignup })
+                body: JSON.stringify({ locked: nextState })
             });
             if (res.ok) {
-                setLockSignup(!lockSignup);
-                showToast(`Public signup registration ${!lockSignup ? 'locked' : 'unlocked'}`);
+                setLockSignup(nextState);
+                showToast(`Public signup registration ${nextState ? 'locked (blocked)' : 'unlocked (open)'}`, 'success');
             } else {
                 showToast('Failed to update signup lock status', 'error');
             }

@@ -110,6 +110,11 @@ const Profile = () => {
         mfaMethod: 'none'
     });
 
+    // Password Update State
+    const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [passwordStatus, setPasswordStatus] = useState({ msg: '', isError: false });
+    const [changingPassword, setChangingPassword] = useState(false);
+
     useEffect(() => {
         if (user) {
             // Initial load from context (fast)
@@ -248,6 +253,50 @@ const Profile = () => {
             alert('Failed to update role');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handlePasswordUpdate = async (e) => {
+        e.preventDefault();
+        setPasswordStatus({ msg: '', isError: false });
+        if (!passwordData.currentPassword || !passwordData.newPassword) {
+            setPasswordStatus({ msg: 'Please enter both current and new password.', isError: true });
+            return;
+        }
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordStatus({ msg: 'New passwords do not match.', isError: true });
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            setPasswordStatus({ msg: 'New password must be at least 6 characters.', isError: true });
+            return;
+        }
+
+        setChangingPassword(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/user/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    currentPassword: passwordData.currentPassword,
+                    newPassword: passwordData.newPassword
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setPasswordStatus({ msg: 'Password updated successfully!', isError: false });
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            } else {
+                setPasswordStatus({ msg: data.error || 'Failed to update password', isError: true });
+            }
+        } catch {
+            setPasswordStatus({ msg: 'Network error updating password', isError: true });
+        } finally {
+            setChangingPassword(false);
         }
     };
 
@@ -499,6 +548,74 @@ const Profile = () => {
                         </div>
                     </Panel>
                 </div>
+
+                {/* Password & Security Panel */}
+                <Panel>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-ink">Change Account Password</h3>
+                                <p className="text-xs text-ink-muted">Update your login password securely</p>
+                            </div>
+                            <Lock size={18} className="text-brand" />
+                        </div>
+
+                        {passwordStatus.msg && (
+                            <div className={`p-3 rounded-control text-xs font-bold border ${
+                                passwordStatus.isError 
+                                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300' 
+                                    : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                            }`}>
+                                {passwordStatus.msg}
+                            </div>
+                        )}
+
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Current Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.currentPassword}
+                                    onChange={(e) => setPasswordData(p => ({ ...p, currentPassword: e.target.value }))}
+                                    placeholder="••••••••"
+                                    className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">New Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.newPassword}
+                                    onChange={(e) => setPasswordData(p => ({ ...p, newPassword: e.target.value }))}
+                                    placeholder="••••••••"
+                                    className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Confirm Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.confirmPassword}
+                                    onChange={(e) => setPasswordData(p => ({ ...p, confirmPassword: e.target.value }))}
+                                    placeholder="••••••••"
+                                    className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handlePasswordUpdate}
+                                disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword}
+                                className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-raised border border-line text-ink hover:bg-line transition disabled:opacity-50"
+                            >
+                                <Lock size={14} />
+                                {changingPassword ? 'Updating...' : 'Update Password'}
+                            </button>
+                        </div>
+                    </div>
+                </Panel>
 
                 <div className="flex justify-end">
                     <motion.button

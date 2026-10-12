@@ -13,14 +13,20 @@ const { getSettings } = require('../../utils/settings');
 
 // Public Config Route
 router.get('/config', (req, res) => {
-    res.json(getSettings());
+    const settings = getSettings();
+    const isLocked = Boolean(settings.signupLocked || settings.lockSignup);
+    res.json({
+        ...settings,
+        signupLocked: isLocked,
+        lockSignup: isLocked
+    });
 });
 
 // Signup
 router.post('/signup', async (req, res) => {
     try {
         const settings = getSettings();
-        if (settings.signupLocked) {
+        if (settings.signupLocked || settings.lockSignup) {
             console.log('[AUTH] Signup Blocked: System Locked');
             return res.status(403).json({ error: 'New user registration is temporarily disabled by administrator.' });
         }

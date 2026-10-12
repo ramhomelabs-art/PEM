@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useCardSession } from '../../context/credit_card/CardSessionContext';
+import { API_URL } from '../../config';
 import { motion } from 'framer-motion';
 import { Lock, Bell, Shield, Eye, EyeOff, Save, AlertCircle, Check, DollarSign } from 'lucide-react';
 import { Panel, PanelHeader, Button } from '../../components/ui/primitives';
@@ -92,7 +93,7 @@ const CreditCardSettings = () => {
         });
     };
 
-    const handlePasswordChange = () => {
+    const handlePasswordChange = async () => {
         setPasswordError('');
         if (passwordChange.newPassword !== passwordChange.confirmPassword) {
             setPasswordError('New passwords do not match');
@@ -102,9 +103,30 @@ const CreditCardSettings = () => {
             setPasswordError('Password must be at least 6 characters');
             return;
         }
-        setSaved(true);
-        setPasswordChange({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setTimeout(() => setSaved(false), 3000);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/user/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    currentPassword: passwordChange.currentPassword,
+                    newPassword: passwordChange.newPassword
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSaved(true);
+                setPasswordChange({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setTimeout(() => setSaved(false), 3000);
+            } else {
+                setPasswordError(data.error || 'Failed to update password');
+            }
+        } catch (e) {
+            setPasswordError('Network error updating password: ' + e.message);
+        }
     };
 
     const passwordReady = passwordChange.currentPassword && passwordChange.newPassword && passwordChange.confirmPassword;

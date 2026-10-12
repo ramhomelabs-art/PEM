@@ -192,14 +192,34 @@ router.post('/users', isAdmin, async (req, res) => {
     }
 });
 
-const { saveSettings } = require('../../utils/settings');
+const { getSettings, saveSettings } = require('../../utils/settings');
+
+// Get System Config
+router.get('/config', isAdmin, (req, res) => {
+    try {
+        const settings = getSettings();
+        const isLocked = Boolean(settings.signupLocked || settings.lockSignup);
+        res.json({
+            ...settings,
+            signupLocked: isLocked,
+            lockSignup: isLocked
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Toggle Signup Lock
 router.post('/lock-signup', isAdmin, async (req, res) => {
     try {
         const { locked } = req.body; // boolean
-        saveSettings({ signupLocked: locked });
-        res.json({ message: `Signup Lock is now ${locked ? 'ON' : 'OFF'}` });
+        const isLocked = Boolean(locked);
+        saveSettings({ signupLocked: isLocked, lockSignup: isLocked });
+        res.json({ 
+            success: true, 
+            locked: isLocked, 
+            message: `Signup Lock is now ${isLocked ? 'ON (registration blocked)' : 'OFF (registration open)'}` 
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -1301,6 +1301,49 @@ class MFAService {
             userId: user.id
         };
     }
+
+    /**
+     * Configure MFA Method for user (totp, push, both, none)
+     */
+    async configureMFAMethod(userId, method) {
+        const user = await User.findByPk(userId);
+        if (!user) throw new Error('User not found');
+
+        const validMethods = ['totp', 'push', 'both', 'none'];
+        if (!validMethods.includes(method)) {
+            throw new Error(`Invalid MFA method: ${method}. Must be one of: ${validMethods.join(', ')}`);
+        }
+
+        if (method === 'none') {
+            await user.update({
+                mfaMethod: 'none',
+                mfaEnabled: false,
+                mfaConfigured: false
+            });
+            return { success: true, method: 'none', mfaEnabled: false };
+        }
+
+        // Check if TOTP is configured when selecting totp or both
+        if (method === 'totp' || method === 'both') {
+            const secret = await MfaTotpSecret.findOne({ where: { userId, isVerified: true } });
+            if (!secret) {
+                await user.update({
+                    mfaMethod: method,
+                    mfaEnabled: true,
+                    mfaConfigured: false
+                });
+                throw new Error('TOTP not configured. Please complete authenticator setup first.');
+            }
+        }
+
+        await user.update({
+            mfaMethod: method,
+            mfaEnabled: true,
+            mfaConfigured: true
+        });
+
+        return { success: true, method, mfaEnabled: true };
+    }
 }
 
 
