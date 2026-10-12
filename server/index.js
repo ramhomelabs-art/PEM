@@ -242,83 +242,78 @@ const initializeDatabase = async () => {
         console.error('Migration Error (Non-fatal):', err.message);
     }
 
-    // Auto-Sync and Seed Admin & Categories (DEV ONLY)
-    if (process.env.NODE_ENV !== 'production') {
-        const { User, Category } = require('./models');
-        try {
-            await sequelize.sync(); // Sync without alter to avoid key limit errors
+    // Auto-Sync and Seed Admin & Categories
+    const { User, Category } = require('./models');
+    try {
+        await sequelize.sync(); // Sync without alter to avoid key limit errors
+        console.log(`Database & tables synced (${process.env.NODE_ENV || 'development'} mode).`);
 
-            // Seed Admin (email/password configurable; no hardcoded default password)
-            const adminKey = require('crypto').randomBytes(16).toString('hex');
-            const adminEmail = process.env.ADMIN_EMAIL || 'rampaiyyan@gmail.com';
-            const providedPassword = process.env.ADMIN_PASSWORD;
-            const existingAdmin = await User.findOne({ where: { email: adminEmail } });
+        // Seed Admin (email/password configurable; no hardcoded default password)
+        const adminKey = require('crypto').randomBytes(16).toString('hex');
+        const adminEmail = process.env.ADMIN_EMAIL || 'rampaiyyan@gmail.com';
+        const providedPassword = process.env.ADMIN_PASSWORD;
+        const existingAdmin = await User.findOne({ where: { email: adminEmail } });
 
-            if (!existingAdmin) {
-                const bcrypt = require('bcryptjs');
-                const adminPassword = providedPassword || require('crypto').randomBytes(12).toString('base64url');
-                const hashedPassword = await bcrypt.hash(adminPassword, 10);
-                await User.create({
-                    email: adminEmail,
-                    username: process.env.ADMIN_USERNAME || 'admin',
-                    fullName: 'Ram Paiyyan',
-                    password: hashedPassword,
-                    role: 'admin',
-                    status: 'active',
-                    mfaExempt: true,
-                    country: 'India',
-                    currency: 'INR',
-                    timezone: 'IST (UTC+5:30)',
-                    mobile: '+91 98765 43210',
-                    dob: '1995-12-23',
-                    smsApiKey: adminKey
-                });
-                if (providedPassword) {
-                    console.log(`Admin account auto-seeded: ${adminEmail}`);
-                } else {
-                    console.log(`Admin account auto-seeded: ${adminEmail} | TEMP PASSWORD: ${adminPassword} (change it now)`);
-                }
+        if (!existingAdmin) {
+            const bcrypt = require('bcryptjs');
+            const adminPassword = providedPassword || require('crypto').randomBytes(12).toString('base64url');
+            const hashedPassword = await bcrypt.hash(adminPassword, 10);
+            await User.create({
+                email: adminEmail,
+                username: process.env.ADMIN_USERNAME || 'admin',
+                fullName: 'Ram Paiyyan',
+                password: hashedPassword,
+                role: 'admin',
+                status: 'active',
+                mfaExempt: true,
+                country: 'India',
+                currency: 'INR',
+                timezone: 'IST (UTC+5:30)',
+                mobile: '+91 98765 43210',
+                dob: '1995-12-23',
+                smsApiKey: adminKey
+            });
+            if (providedPassword) {
+                console.log(`Admin account auto-seeded: ${adminEmail}`);
             } else {
-                if (!existingAdmin.smsApiKey) {
-                    await existingAdmin.update({ smsApiKey: adminKey });
-                    console.log('Admin account updated: Added missing smsApiKey');
-                } else {
-                    console.log(`Admin account already exists: ${adminEmail}`);
-                }
+                console.log(`Admin account auto-seeded: ${adminEmail} | TEMP PASSWORD: ${adminPassword} (change it now)`);
             }
-
-            // Seed Categories
-            const defaultCategories = [
-                { name: 'Food', type: 'expense', color: '#f59e0b' },
-                { name: 'Travel', type: 'expense', color: '#3b82f6' },
-                { name: 'Shopping', type: 'expense', color: '#ec4899' },
-                { name: 'Medical', type: 'expense', color: '#ef4444' },
-                { name: 'Utility', type: 'expense', color: '#eab308' },
-                { name: 'Entertainment', type: 'expense', color: '#8b5cf6' },
-                { name: 'General', type: 'expense', color: '#64748b' },
-                { name: 'Salary', type: 'income', color: '#10b981' },
-                { name: 'Freelance', type: 'income', color: '#06b6d4' },
-                { name: 'Investment', type: 'income', color: '#84cc16' },
-                { name: 'Business', type: 'income', color: '#6366f1' },
-                { name: 'Gift', type: 'income', color: '#d946ef' },
-                { name: 'Other', type: 'income', color: '#94a3b8' }
-            ];
-
-            for (const cat of defaultCategories) {
-                await Category.findOrCreate({
-                    where: { name: cat.name, type: cat.type },
-                    defaults: cat
-                });
+        } else {
+            if (!existingAdmin.smsApiKey) {
+                await existingAdmin.update({ smsApiKey: adminKey });
+                console.log('Admin account updated: Added missing smsApiKey');
+            } else {
+                console.log(`Admin account already exists: ${adminEmail}`);
             }
-            console.log('Categories seeded.');
-
-        } catch (seedErr) {
-            console.error('Seeding Error: ' + seedErr);
         }
-    } else {
-        // Production: Just sync tables without altering or seeding
-        await sequelize.sync();
-        console.log('Database & tables synced (production mode).');
+
+        // Seed Default Categories (Required in all environments for dropdowns & budgeting)
+        const defaultCategories = [
+            { name: 'Food', type: 'expense', color: '#f59e0b' },
+            { name: 'Travel', type: 'expense', color: '#3b82f6' },
+            { name: 'Shopping', type: 'expense', color: '#ec4899' },
+            { name: 'Medical', type: 'expense', color: '#ef4444' },
+            { name: 'Utility', type: 'expense', color: '#eab308' },
+            { name: 'Entertainment', type: 'expense', color: '#8b5cf6' },
+            { name: 'General', type: 'expense', color: '#64748b' },
+            { name: 'Salary', type: 'income', color: '#10b981' },
+            { name: 'Freelance', type: 'income', color: '#06b6d4' },
+            { name: 'Investment', type: 'income', color: '#84cc16' },
+            { name: 'Business', type: 'income', color: '#6366f1' },
+            { name: 'Gift', type: 'income', color: '#d946ef' },
+            { name: 'Other', type: 'income', color: '#94a3b8' }
+        ];
+
+        for (const cat of defaultCategories) {
+            await Category.findOrCreate({
+                where: { name: cat.name, type: cat.type },
+                defaults: cat
+            });
+        }
+        console.log('Default categories verified/seeded.');
+
+    } catch (seedErr) {
+        console.error('Database Sync / Seeding Error: ' + seedErr.message);
     }
 };
 

@@ -46,6 +46,7 @@ import { cx } from '../../components/ui/cx';
 import { useCategories } from '../../context/CategoryContext';
 import { useCreditCards } from '../../context/credit_card/CreditCardContext';
 import CreditCardTransactionEditModal from '../../components/credit_card/CreditCardTransactionEditModal';
+import { formatCurrency as formatCurrencyUtil, symbolFor } from '../../utils/currency';
 
 const Transactions = () => {
     const { user, logout } = useAuth();
@@ -157,11 +158,8 @@ const Transactions = () => {
         return mapping[user?.country];
     };
 
-    const formatCurrency = (val) => {
-        const symbolMap = { 'USD': '$', 'INR': '₹', 'GBP': '£', 'EUR': '€', 'JPY': '¥', 'AUD': 'A$', 'CAD': 'C$', 'AED': 'د.إ', 'SGD': 'S$' };
-        const symbol = symbolMap[user?.currency] || user?.currency || '$';
-        return `${symbol}${Number(val).toLocaleString()}`;
-    };
+    const userCurrency = user?.currency || 'INR';
+    const formatCurrency = (val, cur = userCurrency) => formatCurrencyUtil(val, cur || 'INR');
 
     const filteredTransactions = transactions.filter(t => {
         const matchesSearch = t.description?.toLowerCase().includes(searchTerm.toLowerCase()) || t.category?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -207,7 +205,7 @@ const Transactions = () => {
     const exportToPDF = () => {
         setIsExporting(true);
         const doc = new jsPDF();
-        const symbol = user?.currency === 'INR' ? 'Rs.' : '$';
+        const symbol = userCurrency === 'INR' ? 'Rs.' : symbolFor(userCurrency);
 
         // Add Header
         doc.setFontSize(22);

@@ -163,19 +163,27 @@ router.post('/categories', authenticateToken, async (req, res) => {
 
         const trimmedName = String(name).trim();
 
-        // Check if category already exists (case-insensitive)
-        const existing = await Category.findOne({
-            where: sequelize.where(
-                sequelize.fn('lower', sequelize.col('name')),
-                trimmedName.toLowerCase()
-            )
-        });
-        if (existing) {
-            return res.status(409).json({ error: `Category '${trimmedName}' already exists` });
-        }
-
         const validTypes = ['income', 'expense', 'both'];
         const normalizedType = validTypes.includes(type) ? type : 'expense';
+
+        // Check if category already exists for this type (or 'both')
+        const { Op } = require('sequelize');
+        const existing = await Category.findOne({
+            where: {
+                [Op.and]: [
+                    sequelize.where(
+                        sequelize.fn('lower', sequelize.col('name')),
+                        trimmedName.toLowerCase()
+                    ),
+                    {
+                        type: { [Op.in]: [normalizedType, 'both'] }
+                    }
+                ]
+            }
+        });
+        if (existing) {
+            return res.status(409).json({ error: `Category '${trimmedName}' already exists for ${normalizedType}` });
+        }
 
         const category = await Category.create({
             name: trimmedName,

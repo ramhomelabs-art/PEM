@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
+const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:5002';
 
 // Pending Store
 const PENDING_FILE = path.join(__dirname, '../data/pending_sms.json');
@@ -261,7 +262,7 @@ router.post('/generate-api-key', authenticateToken, async (req, res) => {
 router.get('/health', async (req, res) => {
     let pythonStatus = 'unknown';
     try {
-        await axios.get('http://localhost:5002/health', { timeout: 2000 });
+        await axios.get(`${PYTHON_SERVICE_URL}/health`, { timeout: 2000 });
         pythonStatus = 'online';
     } catch (e) {
         pythonStatus = 'offline';
@@ -454,7 +455,7 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
         } else {
             // 1. Try Python AI Service (Level 3 - Primary)
             try {
-                const pyRes = await axios.post('http://localhost:5002/api/extract/text', {
+                const pyRes = await axios.post(`${PYTHON_SERVICE_URL}/api/extract/text`, {
                     text: smsContent,
                     mode: bodyData.type === 'MANUAL' ? 'manual' : 'sms'
                 }, { timeout: 3000 });

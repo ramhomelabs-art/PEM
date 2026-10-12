@@ -31,15 +31,15 @@ module.exports = (sequelize) => {
         },
         country: {
             type: DataTypes.STRING,
-            defaultValue: 'USA'
+            defaultValue: 'India'
         },
         currency: {
             type: DataTypes.STRING,
-            defaultValue: 'USD'
+            defaultValue: 'INR'
         },
         timezone: {
             type: DataTypes.STRING,
-            defaultValue: 'UTC'
+            defaultValue: 'IST (UTC+5:30)'
         },
         profilePhoto: {
             type: DataTypes.STRING, // Path to image
