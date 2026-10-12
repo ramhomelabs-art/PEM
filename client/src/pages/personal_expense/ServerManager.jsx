@@ -222,12 +222,17 @@ const ServerManager = () => {
         }
     };
 
-    const handleAddCategory = (e) => {
+    const handleAddCategory = async (e) => {
         e.preventDefault();
-        if (!newCat.name.trim()) return;
-        addCategory(newCat.name, newCat.type, newCat.color);
-        setNewCat({ name: '', type: 'expense', color: '#6366f1' });
-        showToast('Category created successfully!');
+        const trimmed = newCat.name.trim();
+        if (!trimmed) return;
+        const res = await addCategory(trimmed, newCat.type, newCat.color);
+        if (res?.success) {
+            setNewCat({ name: '', type: 'expense', color: '#6366f1' });
+            showToast('Category created successfully!');
+        } else {
+            showToast(res?.error || 'Failed to create category', 'error');
+        }
     };
 
     // Filtered logs

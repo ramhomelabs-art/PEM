@@ -146,10 +146,45 @@ router.get('/categories', authenticateToken, async (req, res) => {
 // Create category
 router.post('/categories', authenticateToken, async (req, res) => {
     try {
-        const { name, type, color } = req.body;
-        const category = await Category.create({ name, type, color });
-        res.json(category);
+        let name, type, color;
+        if (typeof req.body === 'string') {
+            name = req.body;
+            type = 'expense';
+            color = '#94a3b8';
+        } else if (req.body && typeof req.body === 'object') {
+            name = req.body.name;
+            type = req.body.type || 'expense';
+            color = req.body.color || '#94a3b8';
+        }
+
+        if (!name || !String(name).trim()) {
+            return res.status(400).json({ error: 'Category name is required' });
+        }
+
+        const trimmedName = String(name).trim();
+
+        // Check if category already exists (case-insensitive)
+        const existing = await Category.findOne({
+            where: sequelize.where(
+                sequelize.fn('lower', sequelize.col('name')),
+                trimmedName.toLowerCase()
+            )
+        });
+        if (existing) {
+            return res.status(409).json({ error: `Category '${trimmedName}' already exists` });
+        }
+
+        const validTypes = ['income', 'expense', 'both'];
+        const normalizedType = validTypes.includes(type) ? type : 'expense';
+
+        const category = await Category.create({
+            name: trimmedName,
+            type: normalizedType,
+            color: color || '#94a3b8'
+        });
+        res.status(201).json(category);
     } catch (err) {
+        console.error('[Categories] Create error:', err);
         res.status(500).json({ error: err.message });
     }
 });

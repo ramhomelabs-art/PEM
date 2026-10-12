@@ -33,18 +33,29 @@ export const CategoryProvider = ({ children }) => {
         }
     }, [user]);
 
-    const addCategory = async (category) => {
+    const addCategory = async (categoryOrName, type = 'expense', color = '#94a3b8') => {
         try {
+            const payload = (typeof categoryOrName === 'object' && categoryOrName !== null)
+                ? categoryOrName
+                : { name: categoryOrName, type, color };
+
             const res = await fetch(`${API_URL}/server/categories`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                body: JSON.stringify(category)
+                body: JSON.stringify(payload)
             });
-            if (!res.ok) console.error('Failed to add category', res.status);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Failed to add category', res.status, errData);
+                return { success: false, error: errData.error || `Error ${res.status}` };
+            }
+            const created = await res.json();
+            await fetchCategories();
+            return { success: true, category: created };
         } catch (err) {
             console.error('Failed to add category', err);
+            return { success: false, error: err.message };
         }
-        fetchCategories();
     };
 
     const updateCategory = async (id, data) => {
