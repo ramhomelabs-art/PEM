@@ -120,6 +120,11 @@ function App() {
                         />
 
                         <Route
+                          path="/server-setup"
+                          element={<ServerManager initialSetupMode={true} />}
+                        />
+
+                        <Route
                           path="/admin/mfa"
                           element={
                             <PrivateRoute role="admin">

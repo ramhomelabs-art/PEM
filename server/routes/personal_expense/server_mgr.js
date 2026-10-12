@@ -1,52 +1,305 @@
 const express = require('express');
-// console.log('LOADING SERVER ROUTES FILE...');
 const router = express.Router();
-const axios = require('axios'); // For Python Service Communication
-
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:5002';
+const axios = require('axios');
 const os = require('os');
-const { Category, Transaction, User, sequelize, Bill, Budget, Goal, Loan } = require('../../models'); // Check path
+const path = require('path');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { Op } = require('sequelize');
+const { 
+    Category, Transaction, User, sequelize, Bill, Budget, Goal, Loan,
+    MfaDevice, MfaPushRequest, MfaTotpSecret 
+} = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
 
-// --- SERVER STATS ---
-// --- SERVER STATS ---
+const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:5002';
+
+// --- PING TEST ---
 router.get('/ping', (req, res) => res.json({ message: 'PONG from server_mgr' }));
 
-router.get('/stats', authenticateToken, async (req, res) => {
-    console.log("Stats route hit - VERIFYING FILE IDENTITY");
+// --- SERVER SETUP STATUS (Public for Setup Detection) ---
+router.get('/setup-status', async (req, res) => {
     try {
-        const cpus = os.cpus();
-        const cpuUsage = cpus.reduce((acc, cpu) => {
-            const total = Object.values(cpu.times).reduce((a, b) => a + b, 0);
-            const idle = cpu.times.idle;
-            return acc + ((total - idle) / total);
-        }, 0) / cpus.length;
+        const admin = await User.findOne({
+            where: { role: 'admin' },
+            attributes: ['id', 'username', 'email', 'fullName', 'role', 'status', 'mfaExempt', 'mfaEnabled', 'createdAt']
+        });
+        const totalUsers = await User.count().catch(() => 0);
+        res.json({
+            isInitialized: !!admin,
+            adminExists: !!admin,
+            adminUser: admin ? {
+                id: admin.id,
+                username: admin.username,
+                email: admin.email,
+                fullName: admin.fullName,
+                role: admin.role,
+                status: admin.status,
+                mfaExempt: !!admin.mfaExempt,
+                mfaEnabled: !!admin.mfaEnabled,
+                createdAt: admin.createdAt
+            } : null,
+            totalUsers,
+            dbConnected: true,
+            nodeEnv: process.env.NODE_ENV || 'development'
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message, dbConnected: false });
+    }
+});
 
-        const totalMem = os.totalmem();
-        const freeMem = os.freemem();
-        const usedMem = totalMem - freeMem;
+// --- INITIAL SETUP & SERVER MANAGEMENT ROOT ACCOUNT CREATION (WITHOUT MFA) ---
+router.post('/initial-setup', async (req, res) => {
+    try {
+        const { username, email, fullName, password } = req.body;
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'Username, email, and password are required' });
+        }
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
 
-        // DB Health Check
-        let dbStatus = 'unknown';
-        let dbError = null;
+        const existingAdmin = await User.findOne({ where: { role: 'admin' } });
+
+        // If an admin already exists, enforce admin token authorization
+        if (existingAdmin) {
+            const authHeader = req.headers['authorization'];
+            const token = authHeader && authHeader.split(' ')[1];
+            if (!token) {
+                return res.status(403).json({ error: 'Server is already initialized. Please log in with existing admin credentials to modify the server management account.' });
+            }
+            const jwt = require('jsonwebtoken');
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                if (decoded.role !== 'admin') {
+                    return res.status(403).json({ error: 'Admin privileges required' });
+                }
+            } catch (tokErr) {
+                return res.status(403).json({ error: 'Invalid or expired authentication token' });
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(password.trim(), 10);
+        const smsApiKey = crypto.randomBytes(16).toString('hex');
+
+        let user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { email: email.trim().toLowerCase() },
+                    { username: username.trim() }
+                ]
+            }
+        });
+
+        if (user) {
+            // Update existing account to be the root admin without MFA
+            await user.update({
+                username: username.trim(),
+                email: email.trim().toLowerCase(),
+                fullName: fullName ? fullName.trim() : (user.fullName || 'Server Administrator'),
+                password: hashedPassword,
+                role: 'admin',
+                status: 'active',
+                mfaExempt: true,
+                mfaEnabled: false,
+                mfaConfigured: false,
+                mfaMethod: 'none',
+                smsApiKey: user.smsApiKey || smsApiKey
+            });
+        } else {
+            // Create brand new root admin
+            user = await User.create({
+                username: username.trim(),
+                email: email.trim().toLowerCase(),
+                fullName: fullName ? fullName.trim() : 'Server Administrator',
+                password: hashedPassword,
+                role: 'admin',
+                status: 'active',
+                mfaExempt: true,
+                mfaEnabled: false,
+                mfaConfigured: false,
+                mfaMethod: 'none',
+                country: 'India',
+                currency: 'INR',
+                timezone: 'IST (UTC+5:30)',
+                mobile: '+91 98765 43210',
+                smsApiKey: smsApiKey
+            });
+        }
+
+        // Clean out any leftover MFA device or secret records for this root account
         try {
-            await User.findOne({ attributes: ['id'], limit: 1 });
-            dbStatus = 'healthy';
-        } catch (e) {
-            dbStatus = 'error';
-            dbError = e.message;
-            console.error('[STATS] Database health check failed:', e.message);
+            if (MfaTotpSecret) await MfaTotpSecret.destroy({ where: { userId: user.id } });
+            if (MfaDevice) await MfaDevice.destroy({ where: { userId: user.id } });
+            if (MfaPushRequest) await MfaPushRequest.destroy({ where: { userId: user.id } });
+        } catch (mfaErr) {
+            console.warn('[Server Mgr] Could not prune old MFA records:', mfaErr.message);
         }
 
         res.json({
+            success: true,
+            message: 'Server Management Root Account configured successfully without MFA requirement.',
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                status: user.status,
+                mfaExempt: true,
+                mfaEnabled: false
+            }
+        });
+    } catch (err) {
+        console.error('[Server Mgr] Initial setup error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- RESET MFA LOCKOUT FOR ROOT SERVER ADMIN ---
+router.post('/admin-account/reset-mfa', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    try {
+        const targetId = req.body.userId || req.user.id;
+        const targetUser = await User.findByPk(targetId);
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        await targetUser.update({
+            mfaExempt: true,
+            mfaEnabled: false,
+            mfaConfigured: false,
+            mfaMethod: 'none'
+        });
+
+        if (MfaTotpSecret) await MfaTotpSecret.destroy({ where: { userId: targetId } }).catch(() => {});
+        if (MfaDevice) await MfaDevice.destroy({ where: { userId: targetId } }).catch(() => {});
+        if (MfaPushRequest) await MfaPushRequest.destroy({ where: { userId: targetId } }).catch(() => {});
+
+        res.json({
+            success: true,
+            message: `MFA permanently disabled and exemption activated for root manager '${targetUser.username}'. No 2FA required.`,
+            user: {
+                username: targetUser.username,
+                mfaExempt: true,
+                mfaEnabled: false
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- REAL SERVER TELEMETRY & HARDWARE METRICS (NO SIMULATOR) ---
+router.get('/stats', authenticateToken, async (req, res) => {
+    try {
+        const cpus = os.cpus();
+        let totalIdle = 0;
+        let totalTick = 0;
+        cpus.forEach((cpu) => {
+            for (const type in cpu.times) {
+                totalTick += cpu.times[type];
+            }
+            totalIdle += cpu.times.idle;
+        });
+        const cpuUsagePercent = totalTick > 0 
+            ? Math.min(100, Math.max(0, (((totalTick - totalIdle) / totalTick) * 100))) 
+            : 0;
+
+        const totalMemBytes = os.totalmem();
+        const freeMemBytes = os.freemem();
+        const usedMemBytes = totalMemBytes - freeMemBytes;
+        const memUsagePercent = totalMemBytes > 0 
+            ? ((usedMemBytes / totalMemBytes) * 100).toFixed(1) 
+            : 0;
+
+        // Live Database Connection Ping & Table Row Counts
+        let dbStatus = 'healthy';
+        let dbLatency = 0;
+        let dbError = null;
+        let counts = { users: 0, transactions: 0, budgets: 0, loans: 0, bills: 0, categories: 0 };
+        const dbStart = Date.now();
+        try {
+            await sequelize.authenticate();
+            dbLatency = Date.now() - dbStart;
+            const [u, t, b, l, bi, c] = await Promise.all([
+                User.count().catch(() => 0),
+                Transaction.count().catch(() => 0),
+                Budget.count().catch(() => 0),
+                Loan.count().catch(() => 0),
+                sequelize.models.Bill ? sequelize.models.Bill.count().catch(() => 0) : 0,
+                Category.count().catch(() => 0)
+            ]);
+            counts = { users: u, transactions: t, budgets: b, loans: l, bills: bi, categories: c };
+        } catch (e) {
+            dbStatus = 'error';
+            dbError = e.message;
+        }
+
+        // Live Python Service Health Check
+        let pythonStatus = 'unknown';
+        let pythonLatency = 0;
+        let pythonVersion = 'unknown';
+        try {
+            const pyStart = Date.now();
+            const pyRes = await axios.get(`${PYTHON_SERVICE_URL}/health`, { timeout: 2000 });
+            pythonLatency = Date.now() - pyStart;
+            pythonStatus = pyRes.data?.status || 'online';
+            pythonVersion = pyRes.data?.version || '1.0.0';
+        } catch (pyErr) {
+            pythonStatus = 'offline';
+        }
+
+        const uptimeSec = Math.floor(os.uptime());
+        const days = Math.floor(uptimeSec / 86400);
+        const hours = Math.floor((uptimeSec % 86400) / 3600);
+        const minutes = Math.floor((uptimeSec % 3600) / 60);
+        const uptimeFormatted = `${days > 0 ? days + 'd ' : ''}${hours}h ${minutes}m`;
+
+        res.json({
+            cpu: {
+                usage: `${cpuUsagePercent.toFixed(1)}%`,
+                usagePercent: parseFloat(cpuUsagePercent.toFixed(1)),
+                cores: cpus.length,
+                model: cpus[0]?.model || 'Processor'
+            },
+            memory: {
+                used: `${(usedMemBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+                total: `${(totalMemBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+                free: `${(freeMemBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`,
+                usagePercent: parseFloat(memUsagePercent)
+            },
+            uptime: uptimeFormatted,
+            uptimeSeconds: uptimeSec,
+            system: {
+                platform: os.platform(),
+                release: os.release(),
+                arch: os.arch(),
+                hostname: os.hostname(),
+                nodeVersion: process.version,
+                pid: process.pid,
+                env: process.env.NODE_ENV || 'development'
+            },
+            database: {
+                status: dbStatus,
+                latencyMs: dbLatency,
+                dialect: sequelize.getDialect ? sequelize.getDialect() : 'postgres',
+                totalRows: Object.values(counts).reduce((a, b) => a + b, 0),
+                counts,
+                error: dbError
+            },
+            services: {
+                backend: 'online',
+                python: pythonStatus,
+                pythonLatencyMs: pythonLatency,
+                pythonVersion
+            },
+            // Flat backwards-compatible keys
             source: 'ACTIVE_SERVER_MGR_FILE',
-            cpu: (cpuUsage * 100).toFixed(1),
-            ram: ((usedMem / totalMem) * 100).toFixed(1),
-            totalMem: (totalMem / (1024 * 1024 * 1024)).toFixed(1) + ' GB',
-            freeMem: (freeMem / (1024 * 1024 * 1024)).toFixed(1) + ' GB',
-            uptime: (os.uptime() / 3600).toFixed(1) + ' hrs',
-            platform: os.platform() + ' ' + os.release(),
+            cpuRaw: cpuUsagePercent.toFixed(1),
+            ramRaw: memUsagePercent,
+            totalMem: `${(totalMemBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`,
+            freeMem: `${(freeMemBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`,
             dbStatus,
             dbError
         });
@@ -281,9 +534,6 @@ router.put('/users/:id/group', authenticateToken, async (req, res) => {
 // --- BACKUP & RESTORE SYSTEM ---
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
 
 // DB Path (Relative to this route file: routes/personal_expense/server.js -> ../../database.sqlite)
 const DB_PATH = path.join(__dirname, '../../database.sqlite');
@@ -472,14 +722,12 @@ router.post('/restart/python', authenticateToken, async (req, res) => {
     // Helper to spawn process
     const spawnPython = () => {
         const { spawn } = require('child_process');
-        const path = require('path');
 
         // CORRECTION: 'server/routes/personal_expense' -> '../../..' -> root
         const scriptPath = path.join(__dirname, '../../../python-extraction-service/app.py');
         console.log('Spawning Python script at:', scriptPath);
 
         // Create log stream
-        const fs = require('fs');
         const logStream = fs.createWriteStream(path.join(__dirname, '../../../python-extraction-service/python_stdout.log'), { flags: 'a' });
 
         const venvWin = path.join(__dirname, '../../../python-extraction-service/venv_win/Scripts/python.exe');
@@ -562,6 +810,111 @@ router.get('/health/python', async (req, res) => {
     } catch (error) {
         res.status(503).json({ status: 'offline', error: error.message });
     }
+});
+
+// --- SYSTEM MAINTENANCE & OPERATIONS ENDPOINTS ---
+
+// Re-Seed System Categories (Income & Expense)
+router.post('/maintenance/seed-categories', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    try {
+        const defaultCategories = [
+            { name: 'Food', type: 'expense', color: '#f59e0b' },
+            { name: 'Travel', type: 'expense', color: '#3b82f6' },
+            { name: 'Shopping', type: 'expense', color: '#ec4899' },
+            { name: 'Medical', type: 'expense', color: '#ef4444' },
+            { name: 'Utility', type: 'expense', color: '#eab308' },
+            { name: 'Entertainment', type: 'expense', color: '#8b5cf6' },
+            { name: 'General', type: 'expense', color: '#64748b' },
+            { name: 'Salary', type: 'income', color: '#10b981' },
+            { name: 'Freelance', type: 'income', color: '#06b6d4' },
+            { name: 'Investment', type: 'income', color: '#84cc16' },
+            { name: 'Business', type: 'income', color: '#6366f1' },
+            { name: 'Gift', type: 'income', color: '#d946ef' },
+            { name: 'Other', type: 'income', color: '#94a3b8' }
+        ];
+
+        let createdCount = 0;
+        for (const cat of defaultCategories) {
+            const [instance, created] = await Category.findOrCreate({
+                where: { name: cat.name, type: cat.type },
+                defaults: cat
+            });
+            if (created) createdCount++;
+        }
+
+        const allCategories = await Category.findAll();
+        res.json({
+            success: true,
+            message: `Categories verified. ${createdCount} new categories seeded. Total categories: ${allCategories.length}`,
+            createdCount,
+            totalCategories: allCategories.length
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Rotate & Prune Server Logs
+router.post('/maintenance/prune-logs', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    try {
+        const logCandidates = [
+            path.join(__dirname, '../../server.log'),
+            path.join(__dirname, '../../combined.log'),
+            path.join(__dirname, '../../error.log'),
+            path.join(__dirname, '../../../python-extraction-service/python_stdout.log')
+        ];
+
+        const pruned = [];
+        let totalFreed = 0;
+
+        logCandidates.forEach((filePath) => {
+            if (fs.existsSync(filePath)) {
+                try {
+                    const stats = fs.statSync(filePath);
+                    const size = stats.size;
+                    const content = fs.readFileSync(filePath, 'utf-8');
+                    const lines = content.split('\n');
+                    const retained = lines.slice(-200).join('\n');
+                    fs.writeFileSync(filePath, retained, 'utf-8');
+                    const newSize = fs.statSync(filePath).size;
+                    const freed = size - newSize;
+                    totalFreed += Math.max(0, freed);
+                    pruned.push({ file: path.basename(filePath), originalSize: size, newSize, freed: Math.max(0, freed) });
+                } catch (fErr) {
+                    console.warn('Log prune error for', filePath, fErr.message);
+                }
+            }
+        });
+
+        res.json({
+            success: true,
+            message: `Pruning completed. Reclaimed ${(totalFreed / 1024).toFixed(1)} KB of disk space.`,
+            freedBytes: totalFreed,
+            pruned
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// System Environment Metadata
+router.get('/maintenance/system-info', authenticateToken, (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Unauthorized' });
+    res.json({
+        nodeEnv: process.env.NODE_ENV || 'development',
+        dbHost: process.env.DB_HOST || 'localhost',
+        dbPort: process.env.DB_PORT || 5432,
+        pythonUrl: PYTHON_SERVICE_URL,
+        platform: os.platform(),
+        hostname: os.hostname(),
+        arch: os.arch(),
+        nodeVersion: process.version,
+        uptimeSeconds: os.uptime(),
+        memoryUsageMb: (process.memoryUsage().rss / (1024 * 1024)).toFixed(1),
+        pid: process.pid
+    });
 });
 
 module.exports = router;
