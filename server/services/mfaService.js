@@ -906,6 +906,33 @@ class MFAService {
     }
 
     /**
+     * Reset MFA configuration and clear all paired devices/secrets for a user
+     * @param {number} userId - User ID
+     * @param {number} adminUserId - Admin performing reset (optional)
+     * @returns {Promise<{success: boolean}>}
+     */
+    async resetUserMFA(userId, adminUserId = null) {
+        await MfaTotpSecret.destroy({ where: { userId } });
+        await MfaDevice.destroy({ where: { userId } });
+        await MfaPushRequest.destroy({ where: { userId } });
+
+        const user = await User.findByPk(userId);
+        if (user) {
+            await user.update({
+                mfaConfigured: false,
+                mfaEnabled: false,
+                mfaMethod: null
+            });
+        }
+
+        await this.logMFAEvent(userId, 'mfa_reset_by_admin', null, null, {
+            resetBy: adminUserId || 'system'
+        });
+
+        return { success: true };
+    }
+
+    /**
      * Get user's MFA devices
      * @param {number} userId - User ID
      * @returns {Promise<Array>}
