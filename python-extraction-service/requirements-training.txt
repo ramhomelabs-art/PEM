@@ -1,0 +1,12 @@
+# ====================================================
+# Deep Learning & Offline Model Training Dependencies
+# Used exclusively for retraining the SMS NER model in ml_training/
+# (Not required for production runtime microservice)
+# ====================================================
+torch==2.1.1
+transformers==4.35.2
+datasets==2.15.0
+seqeval==1.2.2
+evaluate==0.4.1
+sentence-transformers==2.2.2
+spacy==3.7.2

@@ -75,16 +75,8 @@ cryptography==41.0.7
 python-dotenv==1.0.0
 # tempfile (built-in)
 
-# ====================================================
-# Deep Learning & SMS Parsing (Level 3 ML)
-# ====================================================
-transformers==4.35.2
-# torch==2.1.1 (Installed via CPU-only index in automate_fresh.sh to save disk space)
-datasets==2.15.0
-seqeval==1.2.2
-evaluate==0.4.1
-sentence-transformers==2.2.2
-spacy==3.7.2
+# Deep Learning & Offline Model Training Dependencies moved to requirements-training.txt
+# To train models offline, run: pip install -r requirements-training.txt
 
 # ====================================================
 # Additional Utilities

@@ -67,12 +67,31 @@ const smsLimiter = rateLimit({
 // Trust Cloudflare/Nginx Proxy
 app.set('trust proxy', 1);
 
-// --- LOGGING SYSTEM ---
-const logFile = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
+// --- LOGGING SYSTEM WITH ROTATION (Max 10MB) ---
+const LOG_FILE_PATH = path.join(__dirname, 'server.log');
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB cap
+let logFile = fs.createWriteStream(LOG_FILE_PATH, { flags: 'a' });
 const logStdout = process.stdout;
 const logStderr = process.stderr;
 
-// In production: log to file only. In dev: log to both console and file
+function checkLogRotation() {
+    try {
+        if (fs.existsSync(LOG_FILE_PATH)) {
+            const stats = fs.statSync(LOG_FILE_PATH);
+            if (stats.size > MAX_LOG_SIZE) {
+                logFile.end();
+                const backupPath = path.join(__dirname, 'server.log.old');
+                if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+                fs.renameSync(LOG_FILE_PATH, backupPath);
+                logFile = fs.createWriteStream(LOG_FILE_PATH, { flags: 'a' });
+            }
+        }
+    } catch {
+        // Non-fatal
+    }
+}
+setInterval(checkLogRotation, 300000); // Every 5 minutes
+
 console.log = function (...args) {
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
     const msg = `[${timestamp}] [INFO] ${args.map(a => util.format(a)).join(' ')}\n`;

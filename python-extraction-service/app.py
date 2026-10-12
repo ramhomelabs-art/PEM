@@ -20,11 +20,12 @@ app = FastAPI(
 
 # Configure logging globally for the application
 import logging
+from logging.handlers import RotatingFileHandler
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("extraction_service.log"),
+        RotatingFileHandler("extraction_service.log", maxBytes=10 * 1024 * 1024, backupCount=2),
         logging.StreamHandler()
     ]
 )

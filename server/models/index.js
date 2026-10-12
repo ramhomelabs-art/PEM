@@ -13,43 +13,49 @@ if (!process.env.DB_USER) {
     // Allow it to proceed to let verify check it, or default to root if desperate
 }
 
+const sequelizeOptions = {
+    dialect: process.env.DB_DIALECT || 'postgres',
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 5432,
+    logging: (msg) => console.log(`[SEQUELIZE] ${msg}`),
+    hooks: {
+        beforeConnect: (config) => {
+            console.log(`[DEBUG] Connecting to DB: ${config.database} as User: '${config.username}'`);
+            if (!config.username) console.error('!!! CRITICAL ERROR: DB_USER is empty/undefined !!!');
+        }
+    },
+    pool: {
+        max: 8,
+        min: 1,
+        acquire: 30000,
+        idle: 10000
+    }
+};
+
+if (process.env.DB_REPLICA_HOST) {
+    sequelizeOptions.replication = {
+        read: [
+            {
+                host: process.env.DB_REPLICA_HOST,
+                username: process.env.DB_REPLICA_USER || process.env.DB_USER,
+                password: process.env.DB_REPLICA_PASS || process.env.DB_PASS,
+                port: process.env.DB_REPLICA_PORT || process.env.DB_PORT || 5432
+            }
+        ],
+        write: {
+            host: process.env.DB_HOST,
+            username: process.env.DB_USER,
+            password: process.env.DB_PASS,
+            port: process.env.DB_PORT || 5432
+        }
+    };
+}
+
 const sequelize = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,
     process.env.DB_PASS,
-    {
-        dialect: process.env.DB_DIALECT || 'postgres',
-        // DEBUG LOGGING
-        logging: (msg) => console.log(`[SEQUELIZE] ${msg}`),
-        hooks: {
-            beforeConnect: (config) => {
-                console.log(`[DEBUG] Connecting to DB: ${config.database} as User: '${config.username}'`);
-                if (!config.username) console.error('!!! CRITICAL ERROR: DB_USER is empty/undefined !!!');
-            }
-        },
-        replication: {
-            read: [
-                {
-                    host: process.env.DB_REPLICA_HOST || process.env.DB_HOST,
-                    username: process.env.DB_REPLICA_USER || process.env.DB_USER,
-                    password: process.env.DB_REPLICA_PASS || process.env.DB_PASS,
-                    port: process.env.DB_REPLICA_PORT || process.env.DB_PORT || 5432
-                }
-            ],
-            write: {
-                host: process.env.DB_HOST,
-                username: process.env.DB_USER,
-                password: process.env.DB_PASS,
-                port: process.env.DB_PORT || 5432
-            }
-        },
-        // logging: falseOverride removed
-        pool: {
-            max: 10,
-            min: 0,
-            idle: 10000
-        }
-    }
+    sequelizeOptions
 );
 
 const User = require('./personal_expense/User')(sequelize);

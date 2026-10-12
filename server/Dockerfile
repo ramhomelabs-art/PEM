@@ -1,11 +1,10 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Install system dependencies if required for native modules
-RUN apk add --no-cache python3 make g++
-
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN apk add --no-cache --virtual .build-deps python3 make g++ \
+    && npm ci --omit=dev \
+    && apk del .build-deps
 
 COPY . .
 
