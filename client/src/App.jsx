@@ -111,6 +111,15 @@ function App() {
                         />
 
                         <Route
+                          path="/server-manager"
+                          element={
+                            <PrivateRoute role="admin">
+                              <ServerManager />
+                            </PrivateRoute>
+                          }
+                        />
+
+                        <Route
                           path="/admin/mfa"
                           element={
                             <PrivateRoute role="admin">
