@@ -98,7 +98,7 @@ const CompanyNewsWidget = ({ news, isDarkMode }) => {
                                 transition: 'all 0.2s',
                                 position: 'relative'
                             }}
-                            onClick={() => window.open(article.url, '_blank')}
+                            onClick={() => { const u = String(article.url || ''); if (/^https?:\/\//i.test(u)) window.open(u, '_blank', 'noopener,noreferrer'); }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.transform = 'translateX(4px)';
                                 e.currentTarget.style.borderColor = '#3b82f6';

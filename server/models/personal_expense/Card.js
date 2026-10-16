@@ -30,7 +30,8 @@ module.exports = (sequelize) => {
         },
         cvv: {
             type: DataTypes.STRING,
-            allowNull: false
+            allowNull: true,
+            defaultValue: '***'
         },
         type: {
             type: DataTypes.ENUM('Credit', 'Debit', 'Virtual'),

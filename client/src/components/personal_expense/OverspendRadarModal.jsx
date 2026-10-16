@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Radar,
@@ -38,6 +39,7 @@ export function OverspendRadarModal({
     onNavigateBudgets,
 }) {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     // Data states for bills & loans if not supplied via props
     const [bills, setBills] = useState(propsBills || []);
@@ -181,8 +183,7 @@ export function OverspendRadarModal({
         if (onNavigateBudgets) {
             onNavigateBudgets();
         } else {
-            // Default hash or push
-            window.location.hash = '#/budgets';
+            navigate('/budgets');
         }
     };
 

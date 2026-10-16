@@ -31,7 +31,7 @@ const ServerManager = ({ initialSetupMode = false }) => {
     const [setupForm, setSetupForm] = useState({
         username: 'admin',
         fullName: 'Server Administrator',
-        email: 'rampaiyyan@gmail.com',
+        email: '',
         password: '',
         confirmPassword: ''
     });
@@ -83,6 +83,13 @@ const ServerManager = ({ initialSetupMode = false }) => {
             setSetupStatus(res.data);
             if (!res.data.adminExists) {
                 setActiveTab('setup');
+            } else if (res.data?.adminUser) {
+                setSetupForm(prev => ({
+                    ...prev,
+                    username: res.data.adminUser.username || prev.username,
+                    email: res.data.adminUser.email || prev.email,
+                    fullName: res.data.adminUser.fullName || prev.fullName
+                }));
             }
         } catch (e) {
             console.error('Setup status fetch error:', e);
@@ -745,7 +752,7 @@ const ServerManager = ({ initialSetupMode = false }) => {
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-ink-muted uppercase">Primary Admin Account:</span>
                                     <span className="text-sm font-extrabold text-ink">
-                                        {setupStatus?.adminUser?.username || 'Not Initialized'}
+                                        {setupLoading ? 'Checking...' : (setupStatus?.adminUser?.username || 'Not Initialized')}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                         MFA EXEMPT (ACTIVE)
@@ -1112,9 +1119,10 @@ const ServerManager = ({ initialSetupMode = false }) => {
 
                                 <button
                                     onClick={() => handleTestApi(ep.method, ep.path)}
-                                    className="px-2.5 py-1 rounded-lg bg-raised hover:bg-line text-[11px] font-bold text-ink-muted shrink-0"
+                                    disabled={testLoading}
+                                    className="px-2.5 py-1 rounded-lg bg-raised hover:bg-line text-[11px] font-bold text-ink-muted shrink-0 disabled:opacity-50"
                                 >
-                                    Ping Test
+                                    {testLoading ? 'Testing...' : 'Ping Test'}
                                 </button>
                             </div>
                         ))}

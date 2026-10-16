@@ -166,6 +166,17 @@ app.use((req, res, next) => {
         })(req, res, next);
     }
 });
+
+// Redact secrets from logged URLs: query-string params AND path segments that
+// carry credentials (e.g. /api/sms/webhook/<apiKey>).
+const redactUrl = (url) => {
+    let out = url || '';
+    // Query params: apiKey/password/token/secret/key
+    out = out.replace(/([?&](?:apiKey|apikey|password|pass|token|secret|key)=)[^&]*/gi, '$1[REDACTED]');
+    // Path fragment right after the SMS webhook base: /webhook/<key>
+    out = out.replace(/(\/webhook\/)[^\/?\s]+/gi, '$1[REDACTED]');
+    return out;
+};
 app.use(express.urlencoded({
     extended: true,
     verify: (req, res, buf) => {
@@ -184,7 +195,7 @@ app.use(express.text({
 
 // DEBUG LOGGING
 app.use((req, res, next) => {
-    console.log(`[DEBUG] INCOMING: ${req.method} ${req.originalUrl}`);
+    console.log(`[DEBUG] INCOMING: ${req.method} ${redactUrl(req.originalUrl)}`);
     next();
 });
 
@@ -215,6 +226,10 @@ const initializeDatabase = async () => {
             await safeRun("ALTER TABLE Users ADD COLUMN deviceInfo TEXT;");
             await safeRun("ALTER TABLE Users ADD COLUMN lastHeartbeat DATETIME;");
             await safeRun("ALTER TABLE Users ADD COLUMN encryptionKey TEXT;");
+            await safeRun("ALTER TABLE Users ADD COLUMN failedLoginAttempts INTEGER DEFAULT 0;");
+            await safeRun("ALTER TABLE Users ADD COLUMN lockoutUntil DATETIME;");
+            await safeRun("ALTER TABLE users ADD COLUMN recoveryMethod VARCHAR(10) DEFAULT 'email';");
+            await safeRun("ALTER TABLE recovery_tokens MODIFY purpose ENUM('password_reset','username_recovery','recovery_check') NOT NULL DEFAULT 'password_reset';");
 
             // Bills Table Migrations
             await safeRun("ALTER TABLE bills ADD COLUMN status ENUM('generated', 'unpaid', 'paid', 'overdue') DEFAULT 'unpaid';");
@@ -243,6 +258,12 @@ const initializeDatabase = async () => {
             await safeRun("ALTER TABLE goals ADD COLUMN icon VARCHAR(50) DEFAULT 'Target';");
         } else {
             // PostgreSQL: uses IF NOT EXISTS so the migration is idempotent.
+            await safeRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS "failedLoginAttempts" INTEGER DEFAULT 0;');
+            await safeRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS "lockoutUntil" TIMESTAMP WITH TIME ZONE;');
+            await safeRun(`DO $$ BEGIN CREATE TYPE "enum_users_recoveryMethod" AS ENUM('email', 'mfa'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+            await safeRun(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "recoveryMethod" "enum_users_recoveryMethod" NOT NULL DEFAULT 'email';`);
+            // Profile "test recovery" flow uses a dedicated token purpose.
+            await safeRun(`ALTER TYPE "enum_recovery_tokens_purpose" ADD VALUE IF NOT EXISTS 'recovery_check';`);
             await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "emiDay" INTEGER DEFAULT 1;');
             await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "lastPaymentDate" DATE;');
             await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "interestType" VARCHAR(50) DEFAULT \'Reducing Balance\';');
@@ -295,7 +316,19 @@ const initializeDatabase = async () => {
             if (providedPassword) {
                 console.log(`Admin account auto-seeded: ${adminEmail}`);
             } else {
-                console.log(`Admin account auto-seeded: ${adminEmail} | TEMP PASSWORD: ${adminPassword} (change it now)`);
+                // Never print the generated password to the console (it can leak via
+                // aggregated logs). Persist it to a gitignored file for the operator.
+                const bootstrapFile = path.join(__dirname, 'data', 'admin-bootstrap-password.txt');
+                try {
+                    fs.mkdirSync(path.dirname(bootstrapFile), { recursive: true });
+                    fs.writeFileSync(bootstrapFile,
+                        `Admin: ${adminEmail}\nTemp password: ${adminPassword}\nChange it after first login.\n`,
+                        { mode: 0o600 });
+                    try { fs.chmodSync(bootstrapFile, 0o600); } catch { /* Windows may not support chmod */ }
+                    console.log(`Admin account auto-seeded: ${adminEmail} | Temporary password written to ${bootstrapFile} (not shown in logs).`);
+                } catch (wErr) {
+                    console.log(`Admin account auto-seeded: ${adminEmail} | Warning: could not persist temp password (${wErr.message}). Set ADMIN_PASSWORD to control it.`);
+                }
             }
         } else {
             if (!existingAdmin.smsApiKey) {
@@ -496,6 +529,10 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
         if (invTaxRoutes) app.use('/api/investing/tax', authenticateToken, invTaxRoutes);
 
 
+        app.get('/api/health', (req, res) => {
+            res.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: new Date().toISOString() });
+        });
+
         app.get('/', (req, res) => {
             res.send('Personal Expense Manager API Running');
         });
@@ -531,6 +568,15 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
             console.error('[PriceSync] scheduler start failed:', err.message);
         }
 
+        // Start the pending-items email digest scheduler (Automation inbox
+        // transactions + pending notifications). Never blocks boot.
+        try {
+            const { startPendingDigestScheduler } = require('./services/pendingDigestService');
+            startPendingDigestScheduler();
+        } catch (err) {
+            console.error('[PendingDigest] scheduler start failed:', err.message);
+        }
+
         // Ensure Python AI Extraction Service is running
         (async () => {
             const pythonUrl = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:5002';
@@ -551,10 +597,11 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
                     const proc = spawn(pyCmd, [scriptPath], {
                         cwd: path.dirname(scriptPath),
                         detached: true,
-                        stdio: 'ignore'
+                        stdio: 'ignore',
+                        env: { ...process.env, PORT: '5002', PYTHON_PORT: '5002' }
                     });
                     proc.unref();
-                    console.log(`[AI Extractor] Auto-started Python AI Extraction Service via ${pyCmd}`);
+                    console.log(`[AI Extractor] Auto-started Python AI Extraction Service via ${pyCmd} on port 5002`);
                 }
             }
         })().catch(err => console.error('[AI Extractor] Auto-supervision error:', err.message));

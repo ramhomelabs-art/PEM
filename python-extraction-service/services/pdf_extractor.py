@@ -57,26 +57,26 @@ def extract_statement(pdf_path, password=None):
     try:
         if PYMUPDF_AVAILABLE:
             doc = fitz.open(pdf_path)
-        if doc.needs_pass:
-            if not password:
+            if doc.needs_pass:
+                if not password:
+                    doc.close()
+                    raise ValueError("PASSWORD_REQUIRED")
+                # Try to authenticate with password
+                auth_result = doc.authenticate(password)
+                if not auth_result:
+                    doc.close()
+                    raise ValueError("INVALID_PASSWORD")
+                print(f"PDF unlocked successfully with password")
+                
+                # Create decrypted copy for other tools to use
+                decrypted_path = pdf_path.replace('.pdf', '_decrypted.pdf')
+                doc.save(decrypted_path)
                 doc.close()
-                raise ValueError("PASSWORD_REQUIRED")
-            # Try to authenticate with password
-            auth_result = doc.authenticate(password)
-            if not auth_result:
+                
+                # Use decrypted version for extraction
+                pdf_path = decrypted_path
+            else:
                 doc.close()
-                raise ValueError("INVALID_PASSWORD")
-            print(f"PDF unlocked successfully with password")
-            
-            # Create decrypted copy for other tools to use
-            decrypted_path = pdf_path.replace('.pdf', '_decrypted.pdf')
-            doc.save(decrypted_path)
-            doc.close()
-            
-            # Use decrypted version for extraction
-            pdf_path = decrypted_path
-        else:
-            doc.close()
     except ValueError as ve:
         # Re-raise our custom errors
         raise ve

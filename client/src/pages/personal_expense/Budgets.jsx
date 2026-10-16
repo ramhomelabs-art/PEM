@@ -465,6 +465,12 @@ const Budgets = () => {
                 budgets={budgets}
                 transactions={transactions}
                 currency={currency}
+                onNavigateBudgets={() => {
+                    setIsRadarOpen(false);
+                    setSelectedBudget(null);
+                    setModalMode('add');
+                    setIsModalOpen(true);
+                }}
             />
         </div>
     );

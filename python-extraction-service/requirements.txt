@@ -3,7 +3,7 @@
 # ====================================================
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+python-multipart==0.0.18
 pydantic==2.5.0
 
 # ====================================================
@@ -37,7 +37,7 @@ pdfminer.six==20221105
 # paddlepaddle>=2.6.2
 pytesseract==0.3.10
 opencv-python-headless>=4.8.1.78
-Pillow==10.1.0
+Pillow==11.0.0
 numpy>=1.26.2
 
 # ====================================================
@@ -71,7 +71,7 @@ scipy==1.11.4
 # ====================================================
 # Security & Data Protection
 # ====================================================
-cryptography==41.0.7
+cryptography==43.0.1
 python-dotenv==1.0.0
 # tempfile (built-in)
 
@@ -81,5 +81,5 @@ python-dotenv==1.0.0
 # ====================================================
 # Additional Utilities
 # ====================================================
-requests==2.31.0
+requests==2.32.3
 python-magic==0.4.27

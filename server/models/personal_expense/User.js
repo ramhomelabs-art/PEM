@@ -117,6 +117,22 @@ module.exports = (sequelize) => {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
             comment: 'Whether phone number is verified'
+        },
+        failedLoginAttempts: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0,
+            comment: 'Consecutive failed login attempts; drives the forgot-password prompt'
+        },
+        lockoutUntil: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            comment: 'Account is temporarily locked for login until this time'
+        },
+        recoveryMethod: {
+            type: DataTypes.ENUM('email', 'mfa'),
+            allowNull: false,
+            defaultValue: 'email',
+            comment: 'Preferred self-service password/username recovery factor'
         }
     }, {
         tableName: 'users',

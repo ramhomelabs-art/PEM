@@ -26,9 +26,12 @@ const CreditCardLoading = () => {
         }
 
         // Data ready (or no cards) — fill the bar, then open the dashboard.
-        setProgress(100);
+        const progressTimeout = setTimeout(() => setProgress(100), 0);
         const timeout = setTimeout(() => navigate('/credit-cards/dashboard', { replace: true }), 600);
-        return () => clearTimeout(timeout);
+        return () => {
+            clearTimeout(progressTimeout);
+            clearTimeout(timeout);
+        };
     }, [unlocked, loading, cards, navigate]);
 
     return (

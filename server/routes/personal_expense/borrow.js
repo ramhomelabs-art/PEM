@@ -7,8 +7,16 @@ const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-
 // Get all borrow/lend records for a user
 router.get('/user/:userId', async (req, res) => {
     try {
+        const requestedId = parseInt(req.params.userId, 10);
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+
+        // BOLA Prevention: Verify ownership
+        if (req.user.id !== requestedId && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot access another user\'s borrow records' });
+        }
+
         const records = await Borrow.findAll({
-            where: { userId: req.params.userId },
+            where: { userId: requestedId },
             order: [['date', 'DESC']]
         });
         res.json(records || []);
@@ -22,18 +30,27 @@ router.get('/user/:userId', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         if (!isValidUUID(req.params.id)) return res.status(404).json({ error: 'Record not found' });
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
         
         // 1. Try finding by PK
         const record = await Borrow.findByPk(req.params.id);
-        if (record) return res.json(record);
+        if (record) {
+            if (record.userId !== req.user.id && !isAdmin) {
+                return res.status(403).json({ error: 'Access denied: Cannot view another user\'s record' });
+            }
+            return res.json(record);
+        }
 
         // 2. Try finding by userId
-        const userRecords = await Borrow.findAll({
-            where: { userId: req.params.id },
-            order: [['date', 'DESC']]
-        });
-        if (userRecords && userRecords.length > 0) {
-            return res.json(userRecords);
+        const requestedUserId = parseInt(req.params.id, 10);
+        if (!isNaN(requestedUserId) && (req.user.id === requestedUserId || isAdmin)) {
+            const userRecords = await Borrow.findAll({
+                where: { userId: requestedUserId },
+                order: [['date', 'DESC']]
+            });
+            if (userRecords && userRecords.length > 0) {
+                return res.json(userRecords);
+            }
         }
 
         res.status(404).json({ error: 'Record not found' });
@@ -46,10 +63,12 @@ router.get('/:id', async (req, res) => {
 // Add new record
 router.post('/', async (req, res) => {
     try {
-        const { userId, type, personName, amount, date, dueDate, description } = req.body;
+        const { type, personName, amount, date, dueDate, description } = req.body;
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        const targetUserId = (isAdmin && req.body.userId) ? parseInt(req.body.userId, 10) : req.user.id;
 
         const record = await Borrow.create({
-            userId,
+            userId: targetUserId,
             type,
             personName,
             amount,
@@ -64,7 +83,7 @@ router.post('/', async (req, res) => {
         // Let's create a transaction for it automatically.
         const txnType = type === 'borrow' ? 'income' : 'expense';
         await Transaction.create({
-            userId,
+            userId: targetUserId,
             type: txnType,
             amount,
             category: 'Debt/Loan', // Or 'Borrow/Lend'
@@ -85,6 +104,11 @@ router.post('/settle/:id', async (req, res) => {
         if (!isValidUUID(req.params.id)) return res.status(404).json({ error: 'Record not found' });
         const record = await Borrow.findByPk(req.params.id);
         if (!record) return res.status(404).json({ error: 'Record not found' });
+
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (record.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot settle another user\'s record' });
+        }
 
         if (record.status === 'settled') return res.status(400).json({ error: 'Already settled' });
 
@@ -120,6 +144,12 @@ router.post('/:id/payment', async (req, res) => {
         const record = await Borrow.findByPk(req.params.id);
 
         if (!record) return res.status(404).json({ error: 'Record not found' });
+
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (record.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot record payment for another user\'s record' });
+        }
+
         if (record.status === 'settled') return res.status(400).json({ error: 'Already settled' });
 
         const paymentAmount = parseFloat(amount);
@@ -178,6 +208,14 @@ router.post('/:id/payment', async (req, res) => {
 router.get('/:id/payments', async (req, res) => {
     try {
         if (!isValidUUID(req.params.id)) return res.json([]);
+        const record = await Borrow.findByPk(req.params.id);
+        if (!record) return res.status(404).json({ error: 'Record not found' });
+
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (record.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot access another user\'s payment history' });
+        }
+
         const payments = await BorrowPayment.findAll({
             where: { borrowId: req.params.id },
             order: [['paymentDate', 'DESC']]
@@ -194,6 +232,11 @@ router.delete('/:id', async (req, res) => {
         if (!isValidUUID(req.params.id)) return res.status(404).json({ error: 'Record not found' });
         const record = await Borrow.findByPk(req.params.id);
         if (!record) return res.status(404).json({ error: 'Record not found' });
+
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (record.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot delete another user\'s record' });
+        }
 
         // Delete associated payments first to prevent foreign key violations
         await BorrowPayment.destroy({ where: { borrowId: req.params.id } });

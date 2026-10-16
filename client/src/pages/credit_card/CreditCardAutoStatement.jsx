@@ -82,6 +82,25 @@ const formatFullDate = (dateString) => {
     });
 };
 
+// Normalize dates coming back from the AI extractor (e.g. "12 - 10 - 2026",
+// "12/10/2026", "12-10-26") into a clean YYYY-MM-DD string. Falls back to the
+// original value when the format is not recognized.
+const normalizeStatementDate = (value) => {
+    if (!value || typeof value !== 'string') return value;
+    const cleaned = value.trim().replace(/\s+/g, '');
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(cleaned)) {
+        const [y, m, d] = cleaned.split('-').map(Number);
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    const match = cleaned.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+    if (match) {
+        let [, dd, mm, yyyy] = match;
+        if (yyyy.length === 2) yyyy = `20${yyyy}`;
+        return `${yyyy}-${String(Number(mm)).padStart(2, '0')}-${String(Number(dd)).padStart(2, '0')}`;
+    }
+    return value;
+};
+
 const SUPPORTED_BANKS = [
     { name: 'HDFC Bank', color: 'from-blue-600 to-indigo-700', badge: 'HDFC' },
     { name: 'State Bank of India', color: 'from-sky-600 to-blue-700', badge: 'SBI' },
@@ -227,13 +246,28 @@ const CreditCardAutoStatement = () => {
                 const height = 680;
                 const left = window.screen.width / 2 - width / 2;
                 const top = window.screen.height / 2 - height / 2;
+
+                // Only ever navigate to a real Google OAuth consent URL.
+                let authUrl = null;
+                try {
+                    authUrl = new URL(data.authUrl);
+                } catch {
+                    authUrl = null;
+                }
+                const isGoogle = authUrl && authUrl.protocol === 'https:' &&
+                    (authUrl.hostname === 'accounts.google.com' || authUrl.hostname.endsWith('.google.com'));
+                if (!isGoogle) {
+                    showToast('Received an invalid authentication URL', 'error');
+                    return;
+                }
+
                 const popup = window.open(
-                    data.authUrl,
+                    authUrl.href,
                     'GoogleOAuthLogin',
                     `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
                 );
                 if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-                    window.location.href = data.authUrl;
+                    window.location.href = authUrl.href;
                 }
             } else {
                 showToast(data.error || 'Failed to generate Google Auth URL', 'error');
@@ -340,19 +374,28 @@ const CreditCardAutoStatement = () => {
             isOpen: true,
             title: 'Disconnect Google Account',
             message: 'Are you sure you want to disconnect your Gmail sync? You will need to re-authorize to scan statements.',
-            type: 'confirm',
+            type: 'danger',
+            confirmText: 'Disconnect',
             onConfirm: async () => {
                 try {
                     const token = localStorage.getItem('token');
-                    await fetch(`${API_URL}/credit-cards/gmail/disconnect`, {
+                    const res = await fetch(`${API_URL}/credit-cards/gmail/disconnect`, {
                         method: 'POST',
-                        headers: { Authorization: `Bearer ${token}` }
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        }
                     });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || 'Failed to disconnect Gmail');
+                    }
                     setGmailStatus({ connected: false, email: null, lastSync: null, isConfigured: true });
                     setGmailStatements([]);
-                    showToast('Gmail account disconnected', 'info');
-                } catch {
-                    showToast('Failed to disconnect Gmail', 'error');
+                    showToast('Gmail account disconnected successfully', 'info');
+                    await fetchGmailStatus();
+                } catch (e) {
+                    showToast(e.message || 'Failed to disconnect Gmail', 'error');
                 } finally {
                     closeModal();
                 }
@@ -377,8 +420,13 @@ const CreditCardAutoStatement = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    statement,
-                    cardId: matchedCardId
+                    cardId: matchedCardId,
+                    totalDue: statement.totalDue,
+                    minDue: statement.minDue,
+                    dueDate: statement.dueDate,
+                    billDate: statement.billDate || statement.statementDate,
+                    statementDetails: statement,
+                    statement
                 })
             });
             const data = await res.json();
@@ -426,6 +474,7 @@ const CreditCardAutoStatement = () => {
         }
 
         const handleOAuthMessage = (event) => {
+            if (event.origin !== window.location.origin) return;
             if (event.data?.type === 'GMAIL_OAUTH_CODE' && event.data.code) {
                 handleGoogleCallback(event.data.code);
             }
@@ -436,7 +485,7 @@ const CreditCardAutoStatement = () => {
         const code = urlParams.get('code');
         if (code) {
             if (window.opener) {
-                window.opener.postMessage({ type: 'GMAIL_OAUTH_CODE', code }, '*');
+                window.opener.postMessage({ type: 'GMAIL_OAUTH_CODE', code }, window.location.origin);
                 window.close();
                 return;
             }
@@ -445,6 +494,7 @@ const CreditCardAutoStatement = () => {
         }
 
         return () => window.removeEventListener('message', handleOAuthMessage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ----------------------------------------------------
@@ -480,13 +530,12 @@ const CreditCardAutoStatement = () => {
         setParseError(null);
 
         const formData = new FormData();
-        formData.append('pdf', pdfFile);
-        if (selectedCard) formData.append('cardId', selectedCard);
+        formData.append('statement', pdfFile);
         if (pdfPassword) formData.append('password', pdfPassword);
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/credit-cards/parse-statement`, {
+            const res = await fetch(`${API_URL}/statements/parse`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData
@@ -526,12 +575,12 @@ const CreditCardAutoStatement = () => {
         setPasswordError('');
 
         const formData = new FormData();
-        formData.append('pdf', pdfFile);
+        formData.append('statement', pdfFile);
         formData.append('password', pdfPassword);
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/credit-cards/unlock-pdf`, {
+            const res = await fetch(`${API_URL}/statements/parse`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData
@@ -539,14 +588,18 @@ const CreditCardAutoStatement = () => {
 
             const data = await res.json();
 
-            if (!res.ok) {
+            if (res.status === 401) {
                 throw new Error(data.error || 'Invalid password');
+            }
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to unlock statement');
             }
 
             setIsUnlocked(true);
             setShowPasswordInput(false);
-            showToast('PDF unlocked! Processing transactions...');
-            handleProcessStatement();
+            setPasswordError('');
+            handleParseSuccess(data);
+            showToast('PDF unlocked and processed successfully!');
         } catch (err) {
             setPasswordError(err.message);
             showToast(err.message, 'error');
@@ -566,13 +619,13 @@ const CreditCardAutoStatement = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/credit-cards/parse-text`, {
+            const res = await fetch(`${API_URL}/statements/parse-text`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ text: smsText, cardId: selectedCard })
+                body: JSON.stringify({ text: smsText, mode: 'manual' })
             });
 
             const data = await res.json();
@@ -592,7 +645,7 @@ const CreditCardAutoStatement = () => {
     };
 
     const handleParseSuccess = (data) => {
-        setStatementData(data.summary || null);
+        setStatementData(data.statementData || data.summary || null);
         setRawExtractedText(data.rawText || '');
 
         if (data.cardEnding) {
@@ -609,7 +662,7 @@ const CreditCardAutoStatement = () => {
         if (data.transactions && data.transactions.length > 0) {
             const newTxs = data.transactions.map((tx, index) => ({
                 id: `extracted-${Date.now()}-${index}`,
-                date: tx.date || new Date().toISOString().slice(0, 10),
+                date: normalizeStatementDate(tx.date) || new Date().toISOString().slice(0, 10),
                 description: tx.description || 'Unknown Merchant',
                 merchant: tx.merchant || tx.description || 'Unknown Merchant',
                 amount: parseFloat(tx.amount) || 0,
@@ -818,7 +871,9 @@ const CreditCardAutoStatement = () => {
                 title={modal.title}
                 message={modal.message}
                 type={modal.type}
+                confirmText={modal.confirmText || 'Confirm'}
                 onConfirm={modal.onConfirm}
+                onClose={closeModal}
                 onCancel={closeModal}
             />
 
@@ -846,7 +901,7 @@ const CreditCardAutoStatement = () => {
                 {/* Status Telemetry Badges */}
                 <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                     {/* Gmail Connection Status */}
-                    <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
+                    <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-sunken/70 border border-line">
                         <div className={`w-2.5 h-2.5 rounded-full ${gmailStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                         <div className="flex flex-col">
                             <span className="text-[9px] font-bold uppercase tracking-wider text-ink-muted">Gmail Sync</span>
@@ -854,6 +909,15 @@ const CreditCardAutoStatement = () => {
                                 {gmailStatus.connected ? (maskEmail(gmailStatus.email) || 'CONNECTED') : 'READY TO LINK'}
                             </span>
                         </div>
+                        {gmailStatus.connected && (
+                            <button
+                                onClick={handleDisconnectGmail}
+                                className="ml-1 p-1 rounded-lg text-ink-faint hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                title="Disconnect Gmail"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     {/* Discovered Statements Counter */}
@@ -1053,6 +1117,15 @@ const CreditCardAutoStatement = () => {
                                     >
                                         <RefreshCw className={`w-3.5 h-3.5 ${gmailSyncing ? 'animate-spin' : ''}`} />
                                         <span>{gmailSyncing ? 'Scanning...' : 'Sync Gmail'}</span>
+                                    </button>
+
+                                    <button
+                                        onClick={handleDisconnectGmail}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold text-xs transition-all"
+                                        title="Disconnect Gmail Account"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-rose-400" />
+                                        <span>Disconnect</span>
                                     </button>
 
                                     <button
@@ -1509,7 +1582,7 @@ const CreditCardAutoStatement = () => {
                                             type={showClientId || showSensitiveKeys ? 'text' : 'password'}
                                             value={gmailConfig.clientId}
                                             onChange={(e) => setGmailConfig(prev => ({ ...prev, clientId: e.target.value.trim() }))}
-                                            placeholder="434689533284-••••••••.apps.googleusercontent.com"
+                                            placeholder="your-client-id.apps.googleusercontent.com"
                                             className="w-full px-3.5 py-2.5 bg-sunken/90 border border-line rounded-xl text-xs text-ink font-mono placeholder:text-ink-faint outline-none focus:border-amber-500"
                                         />
                                     </div>
@@ -1581,6 +1654,17 @@ const CreditCardAutoStatement = () => {
                                             <Sparkles className="w-4 h-4" />
                                             <span>{gmailLoading ? 'Authorizing...' : (gmailStatus.connected ? 'Re-Authorize Gmail' : 'Connect & Authorize')}</span>
                                         </button>
+
+                                        {gmailStatus.connected && (
+                                            <button
+                                                onClick={handleDisconnectGmail}
+                                                className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                                                title="Disconnect Gmail Account"
+                                            >
+                                                <X className="w-4 h-4 text-rose-400" />
+                                                <span>Disconnect</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

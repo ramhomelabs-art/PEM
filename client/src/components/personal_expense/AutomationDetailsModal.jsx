@@ -48,7 +48,10 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
 
     useEffect(() => {
         if (isOpen && data) {
-            setFormData(buildInitialFormData(data));
+            const timer = setTimeout(() => {
+                setFormData(buildInitialFormData(data));
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [isOpen, data]);
 

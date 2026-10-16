@@ -4,39 +4,27 @@ const { parseSMS, categorize } = require('../../utils/smsParser');
 const { parseBillSMS } = require('../../lib/bill-parser');
 const { User, Bill } = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:5002';
 
-// Pending Store
-const PENDING_FILE = path.join(__dirname, '../data/pending_sms.json');
-
-// Ensure data directory exists
-if (!fs.existsSync(path.join(__dirname, '../data'))) {
-    fs.mkdirSync(path.join(__dirname, '../data'));
-}
-if (!fs.existsSync(PENDING_FILE)) {
-    fs.writeFileSync(PENDING_FILE, '[]');
-}
-
-// Helpers
-function getPendingSMS() {
-    if (!fs.existsSync(PENDING_FILE)) return [];
-    try {
-        return JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    } catch (e) { return []; }
-}
-
-function savePendingSMS(data) {
-    fs.writeFile(PENDING_FILE, JSON.stringify(data, null, 2), (err) => {
-        if (err) console.error('[PendingSMS] Save error:', err.message);
-    });
-}
+// Pending Store (shared with routes/bills.js and the email digest service)
+const {
+    getPendingSMS,
+    savePendingSMS,
+    filterPendingForUser
+} = require('../../utils/pendingStore');
 
 // --- ENCRYPTION UTILS (Ported from FinanceWebhookHandler.ts) ---
 const SMS_ENCRYPTION_KEY = process.env.SMS_ENCRYPTION_KEY || null;
+
+// Constant-time comparison for HMAC digests (avoids leaking match progress via timing).
+function safeEqualDigest(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    const ha = crypto.createHash('sha256').update(a).digest();
+    const hb = crypto.createHash('sha256').update(b).digest();
+    return crypto.timingSafeEqual(ha, hb);
+}
 
 function validateSignature(rawBody, signature, secret, timestamp, nonce) {
     if (!secret || !signature) return false;
@@ -54,7 +42,7 @@ function validateSignature(rawBody, signature, secret, timestamp, nonce) {
         for (const p of payloads) {
             const hexDigest = crypto.createHmac('sha256', secret).update(p).digest('hex');
             const b64Digest = crypto.createHmac('sha256', secret).update(p).digest('base64');
-            if (hexDigest.toLowerCase() === signature.toLowerCase() || b64Digest === signature) {
+            if (safeEqualDigest(hexDigest.toLowerCase(), signature.toLowerCase()) || safeEqualDigest(b64Digest, signature)) {
                 return true;
             }
         }
@@ -281,7 +269,9 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
     try {
         const authHeader = req.headers['authorization'];
         const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
-        const apiKey = req.params.apiKey || req.headers['x-api-key'] || bearerToken || req.query.apiKey;
+        // Prefer header-based credentials; the URL path form is legacy (and is
+        // redacted from logs) but still accepted.
+        const apiKey = req.headers['x-api-key'] || bearerToken || req.params.apiKey || req.query.apiKey;
         const signature = req.headers['x-signature'];
 
         if (!apiKey) return res.status(403).json({ error: 'Missing API Key' });
@@ -294,10 +284,11 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                 const { MfaDevice } = require('../../models');
                 matchedDevice = await MfaDevice.findOne({ where: { secretKey: apiKey } });
                 if (matchedDevice) {
-                    user = await User.findByPk(matchedDevice.userId);
+                    // Revoked devices stay revoked — never silently re-activate.
                     if (!matchedDevice.isActive) {
-                        matchedDevice.isActive = true;
-                        await matchedDevice.save().catch(() => {});
+                        matchedDevice = null;
+                    } else {
+                        user = await User.findByPk(matchedDevice.userId);
                     }
                 }
             } catch (err) {
@@ -310,7 +301,7 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
             try {
                 const jwt = require('jsonwebtoken');
                 const { JWT_SECRET } = require('../../config/auth');
-                const decoded = jwt.verify(bearerToken, JWT_SECRET || 'your_jwt_secret');
+                const decoded = jwt.verify(bearerToken, JWT_SECRET);
                 if (decoded && (decoded.id || decoded.userId)) {
                     user = await User.findByPk(decoded.id || decoded.userId);
                 }
@@ -323,25 +314,9 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
             return res.status(403).json({ error: 'Invalid API Key' });
         }
 
-        console.log(`[Webhook INCOMING] Received POST webhook. User: ${user.username} (ID: ${user.id}). Headers: x-api-key=${apiKey ? apiKey.substring(0, 8) + '...' : 'none'}, signature=${!!signature}`);
+        console.log(`[Webhook INCOMING] Received POST webhook. User: ${user.username} (ID: ${user.id}). keyPrefix=${apiKey ? apiKey.substring(0, 8) + '...' : 'none'}, signature=${!!signature}`);
 
-        user.lastDeviceSync = new Date();
-        await user.save().catch(() => {});
-
-        let bodyData = req.body;
-        let senderName = "Unknown";
-        const userAgent = req.headers['user-agent'] || '';
-
-        // Immediate Ping / Heartbeat response
-        if (bodyData && (bodyData.event === 'ping' || bodyData.type === 'ping' || bodyData.type === 'HEARTBEAT' || userAgent.includes('Heartbeat'))) {
-            console.log(`[Webhook] Ping/Heartbeat from ${user.username}`);
-            if (bodyData.model) {
-                user.deviceInfo = { model: bodyData.model, id: bodyData.deviceId, manufacturer: bodyData.manufacturer, version: bodyData.version };
-                await user.save().catch(() => {});
-            }
-            return res.json({ status: 'ok', message: 'SMS Webhook is active and reachable' });
-        }
-
+        // --- Signature validation (must run BEFORE any early returns) ---
         const reqTimestamp = req.headers['x-timestamp'];
         const reqNonce = req.headers['x-nonce'];
 
@@ -363,8 +338,29 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
             }
 
             if (!isValid) {
-                console.warn('[Webhook] Signature validation mismatch (non-fatal, authenticated via apiKey)');
+                // A signature was supplied but did not verify — reject. (Requests
+                // with no signature are still accepted for legacy clients that rely
+                // solely on the apiKey, but a wrong signature is never tolerated.)
+                console.warn(`[Webhook] Signature validation failed for user ${user.username}`);
+                return res.status(401).json({ error: 'Invalid signature' });
             }
+        }
+
+        user.lastDeviceSync = new Date();
+        await user.save().catch(() => {});
+
+        let bodyData = req.body;
+        let senderName = "Unknown";
+        const userAgent = req.headers['user-agent'] || '';
+
+        // Immediate Ping / Heartbeat response
+        if (bodyData && (bodyData.event === 'ping' || bodyData.type === 'ping' || bodyData.type === 'HEARTBEAT' || userAgent.includes('Heartbeat'))) {
+            console.log(`[Webhook] Ping/Heartbeat from ${user.username}`);
+            if (bodyData.model) {
+                user.deviceInfo = { model: bodyData.model, id: bodyData.deviceId, manufacturer: bodyData.manufacturer, version: bodyData.version };
+                await user.save().catch(() => {});
+            }
+            return res.json({ status: 'ok', message: 'SMS Webhook is active and reachable' });
         }
 
         // Decrypt Payload if encrypted
@@ -636,23 +632,7 @@ router.get(['/webhook', '/webhook/:apiKey'], (req, res) => {
 router.get('/pending', authenticateToken, (req, res) => {
     const userId = req.user.id;
     const role = req.user.role;
-    const pending = getPendingSMS();
-    const userPending = pending.filter(p => {
-        // Exclude credit card transactions so they never clutter Personal Expense Automation
-        const isCreditCard = (
-            p.isCreditCard === true ||
-            p.paymentMethod === 'Credit Card' ||
-            p.mode === 'CREDIT_CARD' ||
-            /\b(credit\s*card|creditcard)\b/i.test(p.raw_message || p.description || '') ||
-            /\bcard\s+(?:ending|x{2,}|\*{2,})\b/i.test(p.raw_message || p.description || '') ||
-            /\b(spent\s+on\s+.*card|used\s+at\s+.*limit)\b/i.test(p.raw_message || p.description || '')
-        );
-        if (isCreditCard) return false;
-
-        if (role === 'admin' || role === 'administrator') return true;
-        return p.userId == userId || (!p.userId && userId == 1);
-    });
-    res.json(userPending);
+    res.json(filterPendingForUser(getPendingSMS(), userId, role));
 });
 
 // 3. REJECT (Called by Frontend)
@@ -660,9 +640,9 @@ router.delete('/reject/:id', authenticateToken, (req, res) => {
     const isAdmin = req.user.role === 'admin' || req.user.role === 'administrator';
     let pending = getPendingSMS();
     pending = pending.filter(p => {
-        if (p.id != req.params.id) return true;
+        if (String(p.id) !== String(req.params.id)) return true;
         if (isAdmin) return false;
-        return p.userId != req.user.id;
+        return Number(p.userId) !== Number(req.user.id);
     });
     savePendingSMS(pending);
     res.json({ status: 'deleted' });
@@ -720,18 +700,30 @@ router.post('/batch-reject-all', authenticateToken, (req, res) => {
     }
 });
 
-module.exports = router;
-
-
 // POST /bill-upload - Physical receipt upload and AI bill extraction
 const multer = require('multer');
-const billUpload = multer({ limits: { fileSize: 15 * 1024 * 1024 } });
+const billUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024 }
+});
 
-router.post('/bill-upload', billUpload.fields([{ name: 'photo', maxCount: 1 }, { name: 'receipt', maxCount: 1 }]), async (req, res) => {
+const handleBillUploadMiddleware = (req, res, next) => {
+    billUpload.any()(req, res, (err) => {
+        if (err) {
+            console.error('[Bill Upload] Multer error:', err);
+            return res.status(400).json({ error: `File upload failed: ${err.message}` });
+        }
+        next();
+    });
+};
+
+router.post('/bill-upload', handleBillUploadMiddleware, async (req, res) => {
     try {
         const authHeader = req.headers['authorization'];
-        const apiKey = req.headers['x-api-key'] || req.query.apiKey || (authHeader ? authHeader.replace('Bearer ', '') : null);
+        const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+        const apiKey = req.headers['x-api-key'] || req.query.apiKey || (!bearerToken ? authHeader : null);
         let user = null;
+
         if (apiKey) {
             user = await User.findOne({ where: { smsApiKey: apiKey } });
             if (!user) {
@@ -740,21 +732,63 @@ router.post('/bill-upload', billUpload.fields([{ name: 'photo', maxCount: 1 }, {
                 if (device) user = await User.findByPk(device.userId);
             }
         }
-        if (!user) {
-            user = await User.findOne({ order: [['id', 'ASC']] });
+
+        if (!user && bearerToken) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const { JWT_SECRET } = require('../../config/auth');
+                const decoded = jwt.verify(bearerToken, JWT_SECRET);
+                if (decoded && (decoded.id || decoded.userId)) {
+                    user = await User.findByPk(decoded.id || decoded.userId);
+                }
+            } catch (jwtErr) {
+                console.warn('[Bill Upload] JWT token verification warning:', jwtErr.message);
+            }
         }
 
-        const merchant = req.body.merchant || req.body.name || "Physical Bill";
-        const amount = parseFloat(req.body.amount || "0.00");
-        const category = req.body.category || "General";
-        const notes = req.body.notes || req.body.lineItems || req.body.description || "Captured from Android Companion";
-        const date = req.body.date || req.body.dueDate || new Date().toISOString();
+        if (!user) {
+            return res.status(401).json({ error: 'Authentication required: provide a valid session token or API key.' });
+        }
+
+        // Check for uploaded receipt file
+        const files = req.files || (req.file ? [req.file] : []);
+        const uploadedFile = files.find(f => ['bill', 'receipt', 'photo', 'file'].includes(f.fieldname)) || files[0];
+
+        let parsedOcr = {
+            merchant: 'Store / Merchant',
+            amount: 0,
+            date: new Date().toISOString().slice(0, 10),
+            category: 'General',
+            tax: 0,
+            rawText: ''
+        };
+
+        if (uploadedFile && uploadedFile.buffer) {
+            const { extractTextFromFile, parseReceiptText } = require('../../utils/receiptParser');
+            const rawText = await extractTextFromFile({
+                buffer: uploadedFile.buffer,
+                mimetype: uploadedFile.mimetype,
+                originalname: uploadedFile.originalname
+            });
+            if (rawText && rawText.trim()) {
+                parsedOcr = parseReceiptText(rawText);
+            }
+        }
+
+        // Merge with client-provided body fields (Android companion app sends pre-parsed fields)
+        const merchant = req.body.merchant || req.body.name || (parsedOcr.merchant !== 'Store / Merchant' ? parsedOcr.merchant : "Physical Bill");
+        const amount = parseFloat(req.body.amount || parsedOcr.amount || "0.00") || 0;
+        const category = req.body.category || parsedOcr.category || "General";
+        const tax = parseFloat(req.body.tax || parsedOcr.tax || "0.00") || 0;
+        const notes = req.body.notes || req.body.lineItems || req.body.description || (parsedOcr.rawText ? "OCR Scan" : "Captured Receipt");
+        const date = req.body.date || req.body.dueDate || parsedOcr.date || new Date().toISOString().slice(0, 10);
 
         const billItem = {
             id: Date.now() + Math.random(),
             merchant: merchant,
             amount: amount,
             category: category,
+            tax: tax,
             date: date,
             received_at: new Date().toISOString(),
             description: notes,
@@ -763,7 +797,7 @@ router.post('/bill-upload', billUpload.fields([{ name: 'photo', maxCount: 1 }, {
             type: "BILL_SUGGESTION",
             mode: "OCR / Physical Receipt",
             raw_message: `Physical Receipt: ${merchant} - Rs ${amount} (${notes})`,
-            userId: user ? user.id : 6,
+            userId: user.id,
             source: 'RECEIPT_OCR',
             tag: 'receipt_ocr'
         };
@@ -772,10 +806,25 @@ router.post('/bill-upload', billUpload.fields([{ name: 'photo', maxCount: 1 }, {
         currentPending.unshift(billItem);
         savePendingSMS(currentPending);
 
-        console.log(`[SMS/Bills] Physical bill added to Automation Inbox: ${merchant} (Rs ${amount}) for user ${user?.id}`);
-        res.json({ success: true, message: "Receipt uploaded and queued for approval", item: billItem });
+        console.log(`[SMS/Bills] Physical bill processed: ${merchant} (Rs ${amount}) for user ${user.id} (${user.username})`);
+        res.json({
+            success: true,
+            message: "Receipt uploaded and scanned successfully",
+            parsed: {
+                merchant: merchant,
+                amount: amount,
+                date: date,
+                category: category,
+                tax: tax,
+                rawText: parsedOcr.rawText || ''
+            },
+            item: billItem
+        });
     } catch (e) {
         console.error('[Bill Upload Error]', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message || 'Internal bill upload error' });
     }
 });
+
+module.exports = router;
+

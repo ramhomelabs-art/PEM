@@ -58,9 +58,9 @@ const Archive = () => {
     }, [user, fetchArchivedData]);
 
     const handleDelete = async (id, type) => {
-        const endpoint = type === 'loan' ? `api/loans/${id}` : `api/borrow/${id}`;
+        const endpoint = type === 'loan' ? `/api/loans/${id}` : `/api/borrow/${id}`;
         try {
-            const res = await fetch(`${BASE_URL}/${endpoint}`, {
+            const res = await fetch(`${BASE_URL}${endpoint}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
             });

@@ -141,7 +141,7 @@ const InvestmentDashboard = () => {
     const [taxReport, setTaxReport] = useState(null);
     const [taxError, setTaxError] = useState(false);
 
-    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'USD');
+    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'INR');
     const signed = (val) => {
         const n = Number(val) || 0;
         return `${n > 0 ? '+' : ''}${formatCurrency(n)}`;

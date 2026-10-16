@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const { User } = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
 const multer = require('multer');
@@ -28,11 +29,23 @@ const storage = multer.diskStorage({
         cb(null, dest)
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname)) // Append extension
+        cb(null, crypto.randomUUID() + path.extname(file.originalname)) // Random name to avoid collisions/enumeration
     }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|webp|gif/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        if (extname && mimetype) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image files (JPEG, PNG, WebP, GIF) are allowed'));
+    }
+});
 
 const fs = require('fs');
 
@@ -40,6 +53,9 @@ const fs = require('fs');
 router.post('/upload-photo/:userId', authenticateToken, isSelfOrAdmin, upload.single('photo'), async (req, res) => {
     try {
         const { userId } = req.params;
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded or invalid file format' });
+        }
         const photoPath = req.file.path; // Absolute path from multer
 
         // Find user to get old photo
@@ -75,7 +91,6 @@ router.put('/profile/:userId', authenticateToken, isSelfOrAdmin, async (req, res
         const { fullName, mobile, email, country, currency, timezone, profilePhoto, dob } = req.body;
 
         console.log('[PROFILE UPDATE] User ID:', userId);
-        console.log('[PROFILE UPDATE] Request body:', req.body);
 
         // Sanitize dob to null if it's empty or invalid to prevent PostgreSQL schema crashes
         const sanitizedDob = (!dob || dob === '' || dob === 'Invalid date') ? null : dob;
@@ -94,7 +109,9 @@ router.put('/profile/:userId', authenticateToken, isSelfOrAdmin, async (req, res
 router.get('/profile/:userId', authenticateToken, isSelfOrAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        const user = await User.findByPk(userId);
+        const user = await User.findByPk(userId, {
+            attributes: { exclude: ['password'] }
+        });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         res.json({

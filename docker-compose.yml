@@ -10,7 +10,7 @@ services:
     volumes:
       - pem_pg_data:/var/lib/postgresql/data
     ports:
-      - "${DB_EXTERNAL_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_EXTERNAL_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-expense_manager}"]
       interval: 10s
@@ -32,7 +32,13 @@ services:
     container_name: pem_python_service
     restart: unless-stopped
     ports:
-      - "${PYTHON_PORT:-5002}:5002"
+      - "127.0.0.1:${PYTHON_PORT:-5002}:5002"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5002/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - pem_network
     logging:
@@ -52,31 +58,39 @@ services:
       postgres:
         condition: service_healthy
       python-service:
-        condition: service_started
+        condition: service_healthy
     environment:
       PORT: 5005
       NODE_ENV: production
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-expense_manager}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-Job@test~005}
-      JWT_SECRET: ${JWT_SECRET:-c296d24e8bb618b342c5610b1cbee2e585eb3566edb0448e1e83b4f222666f16}
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:5174}
+      DB_NAME: "${DB_NAME:-expense_manager}"
+      DB_USER: "${DB_USER:-postgres}"
+      DB_PASS: "${DB_PASS:-Job@test~005}"
+      JWT_SECRET: "${JWT_SECRET:-c296d24e8bb618b342c5610b1cbee2e585eb3566edb0448e1e83b4f222666f16}"
+      CLIENT_URL: "${CLIENT_URL:-http://localhost:5174}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       PYTHON_SERVICE_URL: http://python-service:5002
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5174/credit-cards/auto-statement}
-      PEM_QR_PAIRING_SECRET: ${PEM_QR_PAIRING_SECRET:-f0dbde8b909d58ecc08257c6335035aa379db2c11c2464d6295b9f1aa5409402}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-12345678901234567890123456789012}
-      NEWS_API_KEY: ${NEWS_API_KEY:-}
-      TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
-      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      GOOGLE_REDIRECT_URI: "${GOOGLE_REDIRECT_URI:-http://localhost:5174/credit-cards/auto-statement}"
+      PEM_QR_PAIRING_SECRET: "${PEM_QR_PAIRING_SECRET:-f0dbde8b909d58ecc08257c6335035aa379db2c11c2464d6295b9f1aa5409402}"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-12345678901234567890123456789012}"
+      NEWS_API_KEY: "${NEWS_API_KEY:-}"
+      TWELVE_DATA_API_KEY: "${TWELVE_DATA_API_KEY:-}"
+      ALPHA_VANTAGE_API_KEY: "${ALPHA_VANTAGE_API_KEY:-}"
     volumes:
       - pem_uploads:/app/uploads
       - pem_storage:/app/storage
     ports:
       - "${BACKEND_PORT:-5005}:5005"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5005/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - pem_network
     logging:
@@ -93,7 +107,8 @@ services:
     container_name: pem_frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5174}:80"
     networks:

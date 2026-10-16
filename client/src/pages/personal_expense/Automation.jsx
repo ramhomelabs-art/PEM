@@ -11,7 +11,7 @@ import {
     QrCode, Key, Copy, ChevronDown, ChevronUp, ShieldCheck,
     Play, ArrowDownRight, ArrowUpRight, Cpu, Sparkles, Filter,
     Search, CheckCheck, Trash2, Eye, EyeOff, Radio, HelpCircle,
-    SlidersHorizontal, CheckSquare
+    SlidersHorizontal, CheckSquare, Mail, Bell, Clock, TrendingDown, TrendingUp
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -55,8 +55,14 @@ const Automation = () => {
     const [health, setHealth] = useState({ status: 'online', python: 'unknown' });
     const [confirmAction, setConfirmAction] = useState(null);
 
+    // Email Digest State
+    const [digest, setDigest] = useState(null);
+    const [digestLoading, setDigestLoading] = useState(false);
+    const [digestSaving, setDigestSaving] = useState(false);
+    const [digestSending, setDigestSending] = useState(false);
+
     // Navigation Tab
-    const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'manual' | 'connect'
+    const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'manual' | 'connect' | 'digest'
     const [editingItem, setEditingItem] = useState(null);
 
     const [serverLanIp, setServerLanIp] = useState(null);
@@ -112,6 +118,63 @@ const Automation = () => {
             setHealth({ status: res.data.status, python: res.data.python_service });
         } catch {
             setHealth({ status: 'offline', python: 'offline' });
+        }
+    };
+
+    const fetchDigest = async () => {
+        setDigestLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await axios.get(`${API_URL}/notifications/digest/preview`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setDigest(res.data);
+        } catch (e) {
+            console.error('Digest preview fetch failed', e);
+        } finally {
+            setDigestLoading(false);
+        }
+    };
+
+    const toggleDigest = async () => {
+        if (!digest) return;
+        const nextEnabled = !digest.enabled;
+        setDigestSaving(true);
+        // Optimistic update
+        setDigest(prev => (prev ? { ...prev, enabled: nextEnabled } : prev));
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`${API_URL}/notifications/digest/preference`, { enabled: nextEnabled }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            notify(nextEnabled ? 'Pending email digest enabled' : 'Pending email digest disabled', 'success');
+            fetchDigest();
+        } catch (e) {
+            setDigest(prev => (prev ? { ...prev, enabled: !nextEnabled } : prev));
+            notify('Failed to update digest preference', 'error');
+        } finally {
+            setDigestSaving(false);
+        }
+    };
+
+    const sendDigestNow = async () => {
+        setDigestSending(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.post(`${API_URL}/notifications/digest/send`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.data?.delivered) {
+                notify('Pending digest emailed to you', 'success');
+            } else if (res.data?.sent) {
+                notify('Digest generated but email is not configured on the server', 'warning', 5000);
+            }
+            fetchDigest();
+        } catch (e) {
+            notify(e.response?.data?.error || 'Failed to send digest email', 'error');
+        } finally {
+            setDigestSending(false);
         }
     };
 
@@ -183,6 +246,7 @@ const Automation = () => {
         fetchConfig();
         fetchPending();
         fetchHealth();
+        fetchDigest();
         const interval = setInterval(fetchHealth, 25000);
         return () => clearInterval(interval);
     }, []);
@@ -198,6 +262,10 @@ const Automation = () => {
             }, 4000);
             return () => clearInterval(connectPoll);
         }
+        if (activeTab === 'digest') {
+            fetchDigest();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
     // --- ACTIONS ---
@@ -467,7 +535,7 @@ const Automation = () => {
 
             {/* Segmented Navigation Tab Bar */}
             <div className="max-w-7xl mx-auto mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded-2xl bg-surface/90 shadow-xl backdrop-blur-md">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-surface/90 shadow-xl backdrop-blur-md">
                     {/* Tab 1: SMS Inbox */}
                     <button
                         onClick={() => setActiveTab('pending')}
@@ -515,6 +583,24 @@ const Automation = () => {
                     >
                         <QrCode className="w-4 h-4" />
                         <span>Android Pairing & Keys</span>
+                    </button>
+
+                    {/* Tab 4: Email Digest */}
+                    <button
+                        onClick={() => setActiveTab('digest')}
+                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all relative ${
+                            activeTab === 'digest'
+                                ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-500/25'
+                                : 'text-ink-muted hover:text-ink hover:bg-line'
+                        }`}
+                    >
+                        <Mail className="w-4 h-4" />
+                        <span>Email Digest</span>
+                        {digest && digest.counts?.total > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-sm">
+                                {digest.counts.total}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -921,6 +1007,207 @@ const Automation = () => {
                                             {encryptionKey || '••••••••••••••••••••••••••••••••'}
                                         </code>
                                     </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 5. EMAIL DIGEST */}
+                {activeTab === 'digest' && (
+                    <div className="max-w-4xl mx-auto space-y-6">
+                        {/* Hero / Toggle Card */}
+                        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-fuchsia-950/40 border border-line shadow-2xl">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-line">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-600 text-white shadow-lg shadow-fuchsia-500/20">
+                                        <Mail className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl sm:text-2xl font-black text-ink tracking-tight">Pending Items Email Digest</h2>
+                                        <p className="text-xs sm:text-sm text-ink-muted mt-1">
+                                            A branded summary of your unreviewed transactions &amp; notifications, sent to {digest?.email || user?.email || 'your email'}.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs font-bold ${digest?.enabled ? 'text-emerald-400' : 'text-ink-muted'}`}>
+                                        {digest?.enabled ? 'Enabled' : 'Disabled'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={toggleDigest}
+                                        disabled={digestSaving || !digest}
+                                        className={`relative inline-flex items-center w-14 h-8 rounded-full transition-colors disabled:opacity-50 ${digest?.enabled ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                                        title={digest?.enabled ? 'Disable digest' : 'Enable digest'}
+                                    >
+                                        <span className={`inline-block w-6 h-6 transform bg-white rounded-full shadow transition-transform ${digest?.enabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {digest?.mailConfigured === false && (
+                                <div className="mt-5 flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                                    <HelpCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                    <span>SMTP is not configured on the server yet. Ask an admin to configure outbound email in Settings &rarr; Profile, otherwise digests are only written to the server log.</span>
+                                </div>
+                            )}
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+                                <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                    <div className="flex items-center gap-2 text-ink-faint">
+                                        <TrendingDown className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Pending Expenses</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-rose-300 mt-1.5">{formatCurrency(digest?.summary?.expenseTotal ?? 0, user?.currency || 'INR')}</div>
+                                    <div className="text-[11px] text-ink-muted mt-0.5">{digest?.counts?.expenses ?? 0} item(s)</div>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                    <div className="flex items-center gap-2 text-ink-faint">
+                                        <TrendingUp className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Pending Income</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-emerald-300 mt-1.5">{formatCurrency(digest?.summary?.incomeTotal ?? 0, user?.currency || 'INR')}</div>
+                                    <div className="text-[11px] text-ink-muted mt-0.5">{digest?.counts?.income ?? 0} item(s)</div>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                    <div className="flex items-center gap-2 text-ink-faint">
+                                        <Bell className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Notifications</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-amber-300 mt-1.5">{digest?.counts?.notifications ?? 0}</div>
+                                    <div className="text-[11px] text-ink-muted mt-0.5">awaiting review</div>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-sunken/70 border border-line">
+                                    <div className="flex items-center gap-2 text-ink-faint">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Last Sent</span>
+                                    </div>
+                                    <div className="text-sm font-extrabold text-ink mt-2">
+                                        {digest?.lastSentAt ? new Date(digest.lastSentAt).toLocaleString() : 'Never'}
+                                    </div>
+                                    <div className="text-[11px] text-ink-muted mt-0.5">
+                                        Runs every {digest?.intervalMinutes ? Math.round(digest.intervalMinutes / 60) : 24}h
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-6">
+                                <button
+                                    type="button"
+                                    onClick={fetchDigest}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-raised hover:bg-line text-ink text-xs font-bold transition-colors"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${digestLoading ? 'animate-spin' : ''}`} /> Refresh Preview
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={sendDigestNow}
+                                    disabled={digestSending}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white text-xs font-bold shadow-lg shadow-fuchsia-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {digestSending ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    Email Me The Digest Now
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Preview Lists */}
+                        <div className="p-6 rounded-3xl bg-surface/90 border border-line shadow-xl">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <FileText className="w-5 h-5 text-fuchsia-400" />
+                                <div>
+                                    <h3 className="text-sm font-bold text-ink">Digest Preview</h3>
+                                    <p className="text-xs text-ink-muted">A sneak peek of what the next email will include.</p>
+                                </div>
+                            </div>
+
+                            {digestLoading && !digest ? (
+                                <div className="py-10 flex items-center justify-center">
+                                    <Loader className="w-6 h-6 text-fuchsia-400 animate-spin" />
+                                </div>
+                            ) : (digest?.counts?.total ?? 0) === 0 ? (
+                                <div className="text-center py-10 rounded-2xl bg-sunken/40 border border-line">
+                                    <CheckCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                                    <p className="text-sm font-bold text-ink">Nothing pending — you&apos;re all caught up!</p>
+                                    <p className="text-xs text-ink-muted mt-1">The digest is only sent when there is at least one item to review.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-5">
+                                    {digest?.expenses?.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h4 className="text-[11px] font-black uppercase tracking-wider text-rose-300 flex items-center gap-1.5">
+                                                    <TrendingDown className="w-3.5 h-3.5" /> Expenses ({digest.counts.expenses})
+                                                </h4>
+                                                <span className="text-[11px] font-bold text-rose-300">{formatCurrency(digest?.summary?.expenseTotal ?? 0, user?.currency || 'INR')}</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {digest.expenses.map((t, i) => (
+                                                    <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-sunken/60 border border-line">
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-bold text-ink truncate">{t.merchant || t.provider || 'Unknown'}</div>
+                                                            <div className="text-[11px] text-ink-muted">{t.category || 'General'}</div>
+                                                        </div>
+                                                        <div className="text-sm font-black text-rose-300 shrink-0">- {formatCurrency(t.amount, user?.currency || 'INR')}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {digest?.income?.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h4 className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                                                    <TrendingUp className="w-3.5 h-3.5" /> Income ({digest.counts.income})
+                                                </h4>
+                                                <span className="text-[11px] font-bold text-emerald-300">{formatCurrency(digest?.summary?.incomeTotal ?? 0, user?.currency || 'INR')}</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {digest.income.map((t, i) => (
+                                                    <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-sunken/60 border border-line">
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-bold text-ink truncate">{t.merchant || t.provider || 'Unknown'}</div>
+                                                            <div className="text-[11px] text-ink-muted">{t.category || 'General'}</div>
+                                                        </div>
+                                                        <div className="text-sm font-black text-emerald-300 shrink-0">+ {formatCurrency(t.amount, user?.currency || 'INR')}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {digest?.notifications?.length > 0 && (
+                                        <div>
+                                            <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-300 mb-2">Notifications ({digest.counts.notifications})</h4>
+                                            <div className="space-y-2">
+                                                {digest.notifications.map((n, i) => (
+                                                    <div key={i} className="p-3 rounded-xl bg-sunken/60 border border-line">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                                n.severity === 'critical' ? 'bg-rose-500/20 text-rose-300'
+                                                                : n.severity === 'warning' ? 'bg-amber-500/20 text-amber-300'
+                                                                : 'bg-indigo-500/20 text-indigo-300'
+                                                            }`}>{n.severity || 'info'}</span>
+                                                            <span className="text-sm font-bold text-ink">{n.title}</span>
+                                                        </div>
+                                                        {n.body && <div className="text-[11px] text-ink-muted mt-1">{n.body}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {digest?.counts?.total > (digest.expenses.length + digest.income.length + digest.notifications.length) && (
+                                        <p className="text-[11px] text-ink-faint text-center">
+                                            +{digest.counts.total - (digest.expenses.length + digest.income.length + digest.notifications.length)} more item(s) will be included in the email.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>

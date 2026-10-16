@@ -28,7 +28,7 @@ export const CreditCardProvider = ({ children }) => {
         if (!user) {
             setCards([]);
             setLoading(false);
-            return;
+            return false;
         }
         setLoading(true);
         try {
@@ -43,7 +43,7 @@ export const CreditCardProvider = ({ children }) => {
                 if (cardsResponse.status === 403) {
                     setCards([]);
                     setError(null);
-                    return;
+                    return true;
                 }
                 throw new Error('Failed to fetch credit cards');
             }
@@ -66,9 +66,23 @@ export const CreditCardProvider = ({ children }) => {
                 // Unbilled = Used - Billed - Remaining EMI Principal
                 const unbilled = Math.max(0, used - billed - remainingEmiPrincipal);
 
+                const rawLast4 = card.last4 || (card.cardNumber ? card.cardNumber.replace(/\D/g, '').slice(-4) : '');
+                const lastFourDigits = rawLast4 || '0000';
+
                 return {
                     ...card,
-                    name: card.cardName,
+                    name: card.cardName || card.name,
+                    bank: card.bankName || card.bank || 'Bank',
+                    lastFourDigits: lastFourDigits,
+                    last4: lastFourDigits,
+                    rewardRate: Number(card.rewardRate) || 1,
+                    rewardPoints: Number(card.rewardPoints) || 0,
+                    annualFee: Number(card.annualFee) || 0,
+                    joiningFee: Number(card.joiningFee) || 0,
+                    cashback: Number(card.cashback) || 0,
+                    apr: Number(card.apr) || 42,
+                    interestFreeDays: Number(card.interestFreeDays) || 45,
+                    benefits: Array.isArray(card.benefits) ? card.benefits : (typeof card.benefits === 'string' ? JSON.parse(card.benefits || '[]') : []),
                     number: card.cardNumber,
                     limit: parseFloat(card.creditLimit || 0),
                     used: used,
@@ -98,9 +112,11 @@ export const CreditCardProvider = ({ children }) => {
             }
 
             setError(null);
+            return true;
         } catch (err) {
             console.error("Error fetching cards:", err);
             setError(err.message);
+            return false;
         } finally {
             setLoading(false);
         }

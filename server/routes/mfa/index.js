@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
-const { mfaRateLimiter, setupRateLimiter, validatePushSignature } = require('../../middleware/mfaMiddleware');
+const { mfaRateLimiter, setupRateLimiter, totpRateLimiter, validatePushSignature } = require('../../middleware/mfaMiddleware');
 const mfaService = require('../../services/mfaService');
 const { User } = require('../../models');
 const bcrypt = require('bcryptjs');
@@ -53,11 +53,25 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        // Enforce the shared account lockout before checking the password.
+        const loginGuard = require('../../utils/loginGuard');
+        if (loginGuard.isLocked(user)) {
+            return res.status(429).json({
+                error: 'Account temporarily locked after repeated failed attempts. Try again later or reset your password.',
+                locked: true,
+                showForgotPassword: true
+            });
+        }
+
         // Verify password
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            const { attempts, locked } = await loginGuard.registerFailure(user);
+            return res.status(401).json({ error: 'Invalid credentials', attempts, locked, showForgotPassword: attempts >= 3 });
         }
+
+        // Successful credential check — clear any failed-attempt / lockout state.
+        await loginGuard.clearFailures(user);
 
         // Check if user is active
         if (user.status !== 'active') {
@@ -113,6 +127,15 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
         // MFA is enabled - determine method
         const mfaMethod = user.mfaMethod;
 
+        // Short-lived ticket proving the password factor already passed. The
+        // TOTP/backup-code endpoint MUST require this — otherwise possession of
+        // a single 6-digit code alone would be a passwordless login.
+        const mfaChallenge = jwt.sign(
+            { id: user.id, username: user.username, role: user.role, purpose: 'mfa_challenge' },
+            JWT_SECRET,
+            { expiresIn: '10m' }
+        );
+
         if (mfaMethod === 'push' || mfaMethod === 'both') {
             // Send push notification
             try {
@@ -127,6 +150,7 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
                     mfaRequired: true,
                     mfaMethod: mfaMethod,
                     requestId: pushRequest.requestId,
+                    mfaChallenge,
                     expiresAt: pushRequest.expiresAt,
                     message: 'Push notification sent. Please approve on your device.'
                 });
@@ -139,6 +163,7 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
                     mfaRequired: true,
                     mfaMethod: 'totp',
                     userId: user.id,
+                    mfaChallenge,
                     message: 'Push notification failed. Please enter TOTP code.'
                 });
             }
@@ -148,6 +173,7 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
                 mfaRequired: true,
                 mfaMethod: 'totp',
                 userId: user.id,
+                mfaChallenge,
                 message: 'Please enter your 6-digit TOTP code.'
             });
         }
@@ -209,12 +235,27 @@ router.get('/auth/status/:requestId', async (req, res) => {
  * POST /api/mfa/auth/verify-totp
  * Verify TOTP code
  */
-router.post('/auth/verify-totp', mfaRateLimiter, async (req, res) => {
+router.post('/auth/verify-totp', totpRateLimiter, async (req, res) => {
     try {
-        const { userId, code, backupCode } = req.body;
+        const { userId, code, backupCode, mfaChallenge } = req.body;
 
         if (!userId) {
             return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        // Require a valid pre-auth challenge ticket. Without it, a leaked 6-digit
+        // code alone would be a passwordless login.
+        if (!mfaChallenge) {
+            return res.status(401).json({ error: 'Login session expired. Please sign in again.', code: 'MFA_CHALLENGE_REQUIRED' });
+        }
+        let challenge;
+        try {
+            challenge = jwt.verify(mfaChallenge, JWT_SECRET);
+        } catch {
+            return res.status(401).json({ error: 'Login session expired. Please sign in again.', code: 'MFA_CHALLENGE_EXPIRED' });
+        }
+        if (!challenge || challenge.purpose !== 'mfa_challenge' || Number(challenge.id) !== Number(userId)) {
+            return res.status(401).json({ error: 'Invalid login session. Please sign in again.', code: 'MFA_CHALLENGE_INVALID' });
         }
 
         let result;
@@ -325,7 +366,7 @@ router.post(['/setup/generate-qr', '/setup/qr'], authenticateToken, setupRateLim
 router.post('/setup/bind-device', setupRateLimiter, async (req, res) => {
     try {
         const { userId, bindingToken, deviceInfo, fcmToken } = req.body;
-        console.log(`[MFA Route] POST /setup/bind-device received for userId: ${userId}, tokenPrefix: ${(bindingToken || '').substring(0, 8)}, device: ${deviceInfo?.manufacturer} ${deviceInfo?.model}`);
+        console.log(`[MFA Route] POST /setup/bind-device received for userId: ${userId}, device: ${deviceInfo?.manufacturer} ${deviceInfo?.model}`);
 
         if (!userId || !bindingToken || !deviceInfo) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -629,7 +670,7 @@ router.post('/mobile/login', mfaRateLimiter, async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error('Mobile login error:', error);
-        res.status(401).json({ error: error.message });
+        res.status(error.statusCode || 401).json({ error: error.message });
     }
 });
 

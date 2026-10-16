@@ -12,7 +12,7 @@ const InvestmentTable = ({ investments, onSelect }) => {
     const [search, setSearch] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'currentValue', direction: 'desc' });
 
-    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'USD');
+    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'INR');
 
     const compare = (a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;

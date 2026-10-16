@@ -7,7 +7,8 @@ const { authenticateToken } = require('../../middleware/auth');
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const cards = await Card.findAll({
-            where: { userId: req.user.id }
+            where: { userId: req.user.id },
+            attributes: { exclude: ['cvv'] }
         });
         res.json(cards);
     } catch (err) {
@@ -19,7 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Add new card
 router.post('/', authenticateToken, async (req, res) => {
     try {
-        const { bankId, cardNumber, cardHolder, expiry, cvv, type, limit } = req.body;
+        const { bankId, cardNumber, cardHolder, expiry, type, limit } = req.body;
 
         // Validate required fields
         if (!bankId || !cardNumber || !cardHolder) {
@@ -32,11 +33,13 @@ router.post('/', authenticateToken, async (req, res) => {
             cardNumber,
             cardHolder,
             expiry,
-            cvv,
+            cvv: '***', // Never persist actual CVV in plaintext (PCI-DSS compliance)
             type,
             limit
         });
-        res.status(201).json(card);
+        const cardJson = card.toJSON();
+        delete cardJson.cvv;
+        res.status(201).json(cardJson);
     } catch (err) {
         console.error("Error adding card:", err);
         res.status(400).json({ error: err.message });

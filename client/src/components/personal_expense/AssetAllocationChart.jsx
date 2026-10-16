@@ -71,7 +71,7 @@ const AssetAllocationChart = ({ data, currencyCode, target }) => {
                     <Tooltip
                         contentStyle={{ backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                         itemStyle={{ color: 'var(--pem-text)', fontWeight: 'bold' }}
-                        formatter={(value) => formatCurrency(value, currencyCode || 'USD')}
+                        formatter={(value) => formatCurrency(value, currencyCode || 'INR')}
                     />
                     <Legend
                         layout="vertical"

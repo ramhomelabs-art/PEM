@@ -10,7 +10,18 @@ if (!fs.existsSync(path.dirname(SETTINGS_FILE))) {
 
 // Default Settings
 const DEFAULT_SETTINGS = {
-    signupLocked: false
+    signupLocked: false,
+    // Account-recovery email delivery (configured from the admin Profile UI).
+    // `smtpPassEnc` is stored encrypted via utils/secretBox and never returned.
+    mail: {
+        enabled: false,
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        smtpPassEnc: '',
+        from: ''
+    }
 };
 
 // Initialize if not exists
@@ -40,4 +51,17 @@ const saveSettings = (newSettings) => {
     }
 };
 
-module.exports = { getSettings, saveSettings };
+// Merge the stored mail config over the defaults so callers always get a full shape.
+const getMailSettings = () => {
+    const s = getSettings();
+    return { ...DEFAULT_SETTINGS.mail, ...(s.mail || {}) };
+};
+
+// Persist a partial mail-config update (nested merge).
+const saveMailSettings = (partial) => {
+    const merged = { ...getMailSettings(), ...(partial || {}) };
+    return saveSettings({ mail: merged }).mail;
+};
+
+module.exports = { getSettings, saveSettings, getMailSettings, saveMailSettings, DEFAULT_SETTINGS };
+

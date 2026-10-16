@@ -121,11 +121,13 @@ async function disconnect(userId) {
     const user = await User.findByPk(userId);
     if (!user) throw new Error('User not found');
 
-    const prefs = user.preferences || {};
+    const prefs = user.preferences ? JSON.parse(JSON.stringify(user.preferences)) : {};
     if (prefs.gmailSync) {
         prefs.gmailSync.connected = false;
+        prefs.gmailSync.email = null;
         delete prefs.gmailSync.tokens;
         user.preferences = prefs;
+        user.changed('preferences', true);
         await user.save();
     }
 

@@ -4,20 +4,7 @@ const multer = require('multer');
 const upload = multer({ limits: { fileSize: 15 * 1024 * 1024 } });
 const { Bill, Transaction, User } = require('../../models');
 const { authenticateToken: authenticate } = require('../../middleware/auth');
-const fs = require('fs');
-const path = require('path');
-
-// Pending Store for Automation Inbox
-const PENDING_FILE = path.join(__dirname, '../data/pending_sms.json');
-function getPendingSMS() {
-    if (!fs.existsSync(PENDING_FILE)) return [];
-    try {
-        return JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
-    } catch (e) { return []; }
-}
-function savePendingSMS(data) {
-    fs.writeFileSync(PENDING_FILE, JSON.stringify(data, null, 2));
-}
+const { getPendingSMS, savePendingSMS } = require('../../utils/pendingStore');
 
 // Get all bills for the authenticated user
 router.get('/', authenticate, async (req, res) => {
@@ -59,7 +46,7 @@ router.get('/', authenticate, async (req, res) => {
 // Get all bills for a specific user (Used by Dashboard)
 router.get('/user/:userId', authenticate, async (req, res) => {
     try {
-        if (req.user.role !== 'admin' && req.user.id != req.params.userId) {
+        if (req.user.role !== 'admin' && Number(req.user.id) !== Number(req.params.userId)) {
             return res.status(403).json({ error: 'Unauthorized access to user bills' });
         }
 
@@ -160,14 +147,8 @@ router.post('/:billId/pay', authenticate, async (req, res) => {
         });
         if (!bill) return res.status(404).json({ error: 'Bill not found' });
 
-        let payerId = bill.userId;
-
-        if (req.body.userId) {
-            if (!payerId) {
-                payerId = req.body.userId;
-                bill.userId = payerId;
-            }
-        }
+        // The bill belongs to the authenticated user (queried with userId: req.user.id).
+        const payerId = bill.userId;
 
         if (!payerId) {
             return res.status(500).json({ error: 'Bill data corrupted: Missing User ID' });
@@ -189,8 +170,7 @@ router.post('/:billId/pay', authenticate, async (req, res) => {
 
         await bill.save();
 
-        const rawUserId = req.body.userId || bill.userId;
-        const transactionUserId = parseInt(rawUserId, 10);
+        const transactionUserId = bill.userId;
 
         const txn = await Transaction.create({
             userId: transactionUserId,

@@ -95,8 +95,16 @@ const computeLoanBreakdown = (loan) => {
 // Get all loans for a user
 router.get('/user/:userId', async (req, res) => {
     try {
+        const requestedId = parseInt(req.params.userId, 10);
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+
+        // BOLA Prevention: Verify ownership
+        if (req.user.id !== requestedId && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot access another user\'s loans' });
+        }
+
         const loans = await Loan.findAll({
-            where: { userId: req.params.userId },
+            where: { userId: requestedId },
             order: [['startDate', 'DESC']]
         });
 

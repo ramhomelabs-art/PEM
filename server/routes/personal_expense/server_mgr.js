@@ -11,6 +11,7 @@ const {
     Category, Transaction, User, sequelize, Bill, Budget, Goal, Loan,
     MfaDevice, MfaPushRequest, MfaTotpSecret 
 } = require('../../models');
+const dbModels = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
 
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:5002';
@@ -19,26 +20,33 @@ const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:5
 router.get('/ping', (req, res) => res.json({ message: 'PONG from server_mgr' }));
 
 // --- SERVER SETUP STATUS (Public for Setup Detection) ---
+// Stays public so the login page can detect whether initial setup is required,
+// but admin PII is only returned to an authenticated admin caller.
 router.get('/setup-status', async (req, res) => {
     try {
-        const admin = await User.findOne({
-            where: { role: 'admin' },
-            attributes: ['id', 'username', 'email', 'fullName', 'role', 'status', 'mfaExempt', 'mfaEnabled', 'createdAt']
-        });
+        const admin = await User.findOne({ where: { role: 'admin' } });
         const totalUsers = await User.count().catch(() => 0);
+
+        let isAdminCaller = false;
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const { JWT_SECRET } = require('../../config/auth');
+                const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET);
+                isAdminCaller = decoded && (decoded.role === 'admin' || decoded.role === 'administrator');
+            } catch {
+                isAdminCaller = false;
+            }
+        }
+
         res.json({
             isInitialized: !!admin,
             adminExists: !!admin,
-            adminUser: admin ? {
-                id: admin.id,
+            adminUser: (admin && isAdminCaller) ? {
                 username: admin.username,
                 email: admin.email,
-                fullName: admin.fullName,
-                role: admin.role,
-                status: admin.status,
-                mfaExempt: !!admin.mfaExempt,
-                mfaEnabled: !!admin.mfaEnabled,
-                createdAt: admin.createdAt
+                fullName: admin.fullName
             } : null,
             totalUsers,
             dbConnected: true,
@@ -60,24 +68,31 @@ router.post('/initial-setup', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters long' });
         }
 
+        // Bootstrap is only permitted on a truly empty database (zero users).
+        // If ANY user exists, admin credentials are required — otherwise deleting
+        // the last admin would let an unauthenticated attacker mint a new root admin.
+        const userCount = await User.count();
         const existingAdmin = await User.findOne({ where: { role: 'admin' } });
 
-        // If an admin already exists, enforce admin token authorization
-        if (existingAdmin) {
+        if (userCount > 0) {
             const authHeader = req.headers['authorization'];
             const token = authHeader && authHeader.split(' ')[1];
             if (!token) {
                 return res.status(403).json({ error: 'Server is already initialized. Please log in with existing admin credentials to modify the server management account.' });
             }
             const jwt = require('jsonwebtoken');
+            const { JWT_SECRET } = require('../../config/auth');
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                const decoded = jwt.verify(token, JWT_SECRET);
                 if (decoded.role !== 'admin') {
                     return res.status(403).json({ error: 'Admin privileges required' });
                 }
             } catch (tokErr) {
                 return res.status(403).json({ error: 'Invalid or expired authentication token' });
             }
+        } else if (existingAdmin) {
+            // Defensive: no users counted but an admin row somehow exists.
+            return res.status(409).json({ error: 'Server already has an administrator. Please sign in as admin.' });
         }
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
@@ -539,7 +554,7 @@ const upload = multer({ dest: 'uploads/' });
 const DB_PATH = path.join(__dirname, '../../database.sqlite');
 
 // Encrypt and Stream Backup
-router.get('/backup', authenticateToken, (req, res) => {
+router.get('/backup', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
         return res.status(403).json({ error: 'Admin access required' });
     }
@@ -547,9 +562,34 @@ router.get('/backup', authenticateToken, (req, res) => {
         const { password } = req.query;
         if (!password) return res.status(400).json({ error: 'Password required' });
 
-        // 1. Read Database File
-        if (!fs.existsSync(DB_PATH)) return res.status(404).json({ error: 'Database not found' });
-        const fileData = fs.readFileSync(DB_PATH);
+        let fileData;
+        const dialect = sequelize.getDialect();
+
+        if (dialect === 'sqlite' && fs.existsSync(DB_PATH)) {
+            fileData = fs.readFileSync(DB_PATH);
+        } else {
+            // PostgreSQL, MySQL or generic Sequelize dump
+            const allModelKeys = Object.keys(dbModels).filter(
+                (k) => k !== 'sequelize' && k !== 'Sequelize' && typeof dbModels[k]?.findAll === 'function'
+            );
+
+            const dump = {
+                type: 'PEM_BACKUP_V2',
+                version: '2.0.0',
+                dialect,
+                timestamp: new Date().toISOString(),
+                tables: {}
+            };
+
+            for (const modelName of allModelKeys) {
+                try {
+                    dump.tables[modelName] = await dbModels[modelName].findAll({ raw: true });
+                } catch (e) {
+                    console.warn(`[BACKUP] Table ${modelName} fetch skipped:`, e.message);
+                }
+            }
+            fileData = Buffer.from(JSON.stringify(dump), 'utf8');
+        }
 
         // 2. Derive Key
         const salt = crypto.randomBytes(16);
@@ -566,7 +606,7 @@ router.get('/backup', authenticateToken, (req, res) => {
 
         // 5. Send File
         const dateStr = new Date().toISOString().slice(0, 10);
-        res.setHeader('Content-Disposition', `attachment; filename = finance_backup_${dateStr}.pemdb`);
+        res.setHeader('Content-Disposition', `attachment; filename=finance_backup_${dateStr}.pemdb`);
         res.setHeader('Content-Type', 'application/octet-stream');
         res.send(output);
 
@@ -577,7 +617,7 @@ router.get('/backup', authenticateToken, (req, res) => {
 });
 
 // Restore Database
-router.post('/restore', authenticateToken, upload.single('backupFile'), (req, res) => {
+router.post('/restore', authenticateToken, upload.single('backupFile'), async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
         return res.status(403).json({ error: 'Admin access required' });
     }
@@ -589,16 +629,14 @@ router.post('/restore', authenticateToken, upload.single('backupFile'), (req, re
 
         // 1. Read Uploaded File
         const input = fs.readFileSync(file.path);
-
-        // Cleanup temp file immediately
         fs.unlinkSync(file.path);
 
         if (input.length < 44) return res.status(400).json({ error: 'Invalid file format' });
 
         // 2. Parse Components
         const salt = input.slice(0, 16);
-        const iv = input.slice(16, 28); // 16+12 = 28
-        const tag = input.slice(28, 44); // 28+16 = 44
+        const iv = input.slice(16, 28);
+        const tag = input.slice(28, 44);
         const encryptedData = input.slice(44);
 
         // 3. Derive Key
@@ -612,28 +650,54 @@ router.post('/restore', authenticateToken, upload.single('backupFile'), (req, re
         try {
             decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
         } catch (authErr) {
-            return res.status(401).json({ error: 'Decryption Incorrect Password or Corrupted File' });
+            return res.status(401).json({ error: 'Decryption failed: Incorrect Password or Corrupted File' });
         }
 
-        // 5. Validate SQLite Header (First 16 bytes: "SQLite format 3\0")
+        // 5. Detect payload format
         const header = decrypted.slice(0, 16).toString();
-        if (!header.startsWith('SQLite format 3')) {
-            return res.status(400).json({ error: 'Invalid Database File (Not SQLite)' });
+        const isSqlite = header.startsWith('SQLite format 3');
+        const dialect = sequelize.getDialect();
+
+        if (isSqlite) {
+            if (dialect === 'sqlite') {
+                fs.writeFileSync(DB_PATH, decrypted);
+            } else {
+                return res.status(400).json({
+                    error: `Uploaded file is a legacy SQLite binary, but the server is running PostgreSQL (${dialect}). Please restore using a PEM_BACKUP_V2 archive or migrate tables.`
+                });
+            }
+        } else {
+            // Attempt to parse JSON payload
+            let dump;
+            try {
+                dump = JSON.parse(decrypted.toString('utf8'));
+            } catch (parseErr) {
+                return res.status(400).json({ error: 'Invalid backup file payload: unrecognized format' });
+            }
+
+            if (!dump || dump.type !== 'PEM_BACKUP_V2' || !dump.tables) {
+                return res.status(400).json({ error: 'Invalid backup signature or missing tables' });
+            }
+
+            // Restore tables in transaction
+            const t = await sequelize.transaction();
+            try {
+                for (const [modelName, rows] of Object.entries(dump.tables)) {
+                    if (dbModels[modelName] && Array.isArray(rows) && rows.length > 0) {
+                        for (const row of rows) {
+                            await dbModels[modelName].upsert(row, { transaction: t });
+                        }
+                    }
+                }
+                await t.commit();
+            } catch (restoreTxErr) {
+                await t.rollback();
+                console.error('Restore transaction failed:', restoreTxErr);
+                return res.status(500).json({ error: 'Database restore failed: ' + restoreTxErr.message });
+            }
         }
 
-        // 6. Overwrite Database
-        // We need to release the file lock if possible, but in SQLite + Node, just writing might fail if busy.
-        // We will try.
-        fs.writeFileSync(DB_PATH, decrypted);
-
-        // 7. Restart Trigger
-        // We send success, then exit process to force reload.
-        res.json({ message: 'Restore Successful. Server restarting...' });
-
-        setTimeout(() => {
-            console.log("RESTORING DATABASE - TRIGGERING RESTART...");
-            process.exit(0);
-        }, 1000);
+        res.json({ message: 'Restore Successful. Database updated successfully.' });
 
     } catch (err) {
         console.error("Restore Error:", err);
@@ -760,7 +824,10 @@ router.post('/restart/python', authenticateToken, async (req, res) => {
 
     try {
         // 1. Try Graceful HTTP Restart
-        const apiKey = process.env.PYTHON_API_KEY || 'pem_internal_service_key_2026';
+        const apiKey = process.env.PYTHON_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: 'PYTHON_API_KEY is not configured.' });
+        }
         await axios.post(`${PYTHON_SERVICE_URL}/restart`, {}, {
             headers: { 'x-api-key': apiKey },
             timeout: 3000

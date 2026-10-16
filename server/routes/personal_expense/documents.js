@@ -26,7 +26,7 @@ const upload = multer({
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|pdf|doc|docx|txt|csv|xls|xlsx|ppt|pptx|zip|rar|7z|odt|ods|odp/;
+        const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|pdf|doc|docx|txt|csv|xls|xlsx|ppt|pptx|odt|ods|odp/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
 
         // Accept common document mimetypes
@@ -45,11 +45,6 @@ const upload = multer({
             // Text files
             'text/plain',
             'text/csv',
-            // Archives
-            'application/zip',
-            'application/x-zip-compressed',
-            'application/x-rar-compressed',
-            'application/x-7z-compressed',
             // OpenDocument
             'application/vnd.oasis.opendocument.text',
             'application/vnd.oasis.opendocument.spreadsheet',
@@ -58,7 +53,7 @@ const upload = multer({
 
         const mimetypeValid = allowedMimeTypes.includes(file.mimetype);
 
-        if (mimetypeValid || extname) {
+        if (mimetypeValid && extname) {
             return cb(null, true);
         } else {
             cb(new Error('File type not supported. Please upload images, PDFs, or documents.'));
@@ -69,8 +64,15 @@ const upload = multer({
 // GET all documents for a user
 router.get('/user/:userId', async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        if (req.user.role !== 'admin' && Number(req.user.id) !== Number(req.params.userId)) {
+            return res.status(403).json({ error: 'Unauthorized access to user documents' });
+        }
+        const targetUserId = req.user.role === 'admin' ? req.params.userId : req.user.id;
         const documents = await Document.findAll({
-            where: { userId: req.params.userId },
+            where: { userId: targetUserId },
             order: [['uploadedAt', 'DESC']]
         });
         res.json(documents);
@@ -83,7 +85,13 @@ router.get('/user/:userId', async (req, res) => {
 // POST upload new document
 router.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        const { documentName, documentType, userId } = req.body;
+        const { documentName, documentType } = req.body;
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        // Documents always belong to the authenticated user (admins may target another user).
+        const userId = req.user.role === 'admin' && req.body.userId ? req.body.userId : req.user.id;
 
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -110,10 +118,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // DELETE document
 router.delete('/:id', async (req, res) => {
     try {
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
         const document = await Document.findByPk(req.params.id);
 
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
+        }
+
+        if (req.user.role !== 'admin' && Number(req.user.id) !== Number(document.userId)) {
+            return res.status(403).json({ error: 'Unauthorized to delete this document' });
         }
 
         // Delete file from filesystem

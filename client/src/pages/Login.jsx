@@ -5,21 +5,63 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, User, Lock, ArrowRight, Star, Heart, Flame, Eye, EyeOff } from 'lucide-react';
 import { API_URL, BASE_URL } from '../config';
+import { peekLogoutReason } from '../utils/session';
 
 const Login = () => {
+    const [rememberMe, setRememberMe] = useState(() => {
+        return localStorage.getItem('rememberMe') === 'true' || Boolean(localStorage.getItem('rememberedUsername'));
+    });
     const [username, setUsername] = useState(() => localStorage.getItem('rememberedUsername') || '');
-    const [password, setPassword] = useState('');
+    const [password, setPassword] = useState(() => {
+        try {
+            const saved = localStorage.getItem('rememberedPassword');
+            if (!saved) return '';
+            try {
+                return decodeURIComponent(escape(atob(saved)));
+            } catch {
+                return atob(saved);
+            }
+        } catch {
+            return '';
+        }
+    });
     const [status, setStatus] = useState('idle'); // idle, loading, success, error
     const [loggedInUser, setLoggedInUser] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(() => Boolean(localStorage.getItem('rememberedUsername')));
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    const [needsSetup, setNeedsSetup] = useState(false);
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [showRecovery, setShowRecovery] = useState(false);
+    const [sessionNotice] = useState(() => {
+        const reason = peekLogoutReason();
+        if (reason === 'idle') return 'You were signed out automatically after a period of inactivity.';
+        if (reason === 'expired') return 'Your session expired. Please sign in again.';
+        return null;
+    });
+
     useEffect(() => {
         document.title = "PEM Pro | Secure Gateway";
+        fetch(`${API_URL}/server/setup-status`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.adminExists === false) {
+                    setNeedsSetup(true);
+                }
+            })
+            .catch(() => {});
     }, []);
 
+    const handleRememberMeChange = (e) => {
+        const checked = e.target.checked;
+        setRememberMe(checked);
+        if (!checked) {
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('rememberedUsername');
+            localStorage.removeItem('rememberedPassword');
+        }
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -35,6 +77,23 @@ const Login = () => {
             const data = await response.json();
 
             if (response.ok) {
+                // Immediately save or clear credentials before any MFA redirects
+                if (rememberMe) {
+                    localStorage.setItem('rememberMe', 'true');
+                    localStorage.setItem('rememberedUsername', username);
+                    if (password) {
+                        try {
+                            localStorage.setItem('rememberedPassword', btoa(unescape(encodeURIComponent(password))));
+                        } catch {
+                            localStorage.setItem('rememberedPassword', btoa(password));
+                        }
+                    }
+                } else {
+                    localStorage.removeItem('rememberMe');
+                    localStorage.removeItem('rememberedUsername');
+                    localStorage.removeItem('rememberedPassword');
+                }
+
                 const userData = {
                     id: data.id,
                     username: data.username,
@@ -51,7 +110,14 @@ const Login = () => {
                 // Check for MFA Requirement BEFORE showing success
                 if (data.mfaRequired) {
                     // Navigate immediately to MFA Verify
-                    navigate('/mfa-verify', { state: { userId: data.userId, mfaMethod: data.mfaMethod, requestId: data.requestId } });
+                    navigate('/mfa-verify', {
+                        state: {
+                            userId: data.userId,
+                            mfaMethod: data.mfaMethod,
+                            requestId: data.requestId,
+                            mfaChallenge: data.mfaChallenge
+                        }
+                    });
                     return;
                 }
 
@@ -67,14 +133,14 @@ const Login = () => {
                 login(userData, data.token); // Set Auth Context immediately for smooth transition
 
                 setTimeout(() => {
-                    if (rememberMe) {
-                        localStorage.setItem('rememberedUsername', username);
-                    } else {
-                        localStorage.removeItem('rememberedUsername');
-                    }
                     navigate('/');
                 }, 900);
             } else {
+                const attempts = typeof data?.attempts === 'number' ? data.attempts : failedAttempts + 1;
+                setFailedAttempts(attempts);
+                if (data?.showForgotPassword || data?.locked || attempts >= 3) {
+                    setShowRecovery(true);
+                }
                 setStatus('error');
                 setTimeout(() => setStatus('idle'), 1500);
             }
@@ -361,6 +427,30 @@ const Login = () => {
                                 <p className="auth-header-subtitle" style={{ color: theme.textSecondary }}>Personal Management</p>
                             </div>
 
+                            {needsSetup && (
+                                <div className="mb-6 mx-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs text-left">
+                                    <p className="font-bold flex items-center gap-1.5 text-sm mb-1 text-amber-400">
+                                        <span>⚙️ Initial Setup Required</span>
+                                    </p>
+                                    <p className="text-amber-200/80 mb-3">
+                                        No administrator account detected. Configure the initial server management account to get started without MFA.
+                                    </p>
+                                    <Link
+                                        to="/server-setup"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition"
+                                    >
+                                        Start Initial Server Setup →
+                                    </Link>
+                                </div>
+                            )}
+
+                            {sessionNotice && (
+                                <div className="mb-6 mx-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs text-left flex items-start gap-2">
+                                    <span className="text-base leading-none">⏱️</span>
+                                    <span>{sessionNotice}</span>
+                                </div>
+                            )}
+
                             <form onSubmit={handleLogin} className="flex flex-col gap-6 w-full px-4">
                                 <div className="relative w-full">
                                     <User className="absolute left-5 top-[14px] text-gray-400" size={24} />
@@ -402,7 +492,7 @@ const Login = () => {
                                         id="rememberMe"
                                         className="w-5 h-5 accent-emerald-500 cursor-pointer"
                                         checked={rememberMe}
-                                        onChange={(e) => setRememberMe(e.target.checked)}
+                                        onChange={handleRememberMeChange}
                                     />
                                     <label htmlFor="rememberMe" className="font-bold cursor-pointer select-none" style={{ color: theme.textSecondary }}>
                                         Remember login credentials
@@ -430,6 +520,31 @@ const Login = () => {
                                     )}
                                 </motion.button>
                             </form>
+
+                            {showRecovery && (
+                                <div className="mt-6 mx-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-left">
+                                    <p className="text-sm font-bold text-rose-400 mb-1">
+                                        Having trouble signing in?
+                                    </p>
+                                    <p className="text-xs text-rose-200/80 mb-3">
+                                        After repeated failed attempts, you can recover access using email verification or your authenticator app.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Link
+                                            to="/forgot-password"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition"
+                                        >
+                                            Forgot password?
+                                        </Link>
+                                        <Link
+                                            to="/forgot-username"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sunken border border-line text-ink font-bold text-xs hover:text-emerald-400 transition"
+                                        >
+                                            Forgot username?
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="mt-14 text-center">
                                 <p className="text-xl font-bold" style={{ color: theme.textSecondary }}>

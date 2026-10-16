@@ -75,7 +75,7 @@ const isTypingTarget = (el) =>
         el.isContentEditable);
 
 const Dashboard = () => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const { cards = [] } = useCreditCards();
     const { notes = [], openNotes } = useSmartNotes();
     const navigate = useNavigate();
@@ -162,7 +162,7 @@ const Dashboard = () => {
     }, [transactions]);
 
     const openAdd = useCallback(
-        () => setModal({ open: true, mode: 'add', entry: null }),
+        (initial = null) => setModal({ open: true, mode: 'add', entry: initial }),
         []
     );
 
@@ -349,7 +349,7 @@ const Dashboard = () => {
             safeTodayRemaining,
             totalObligations,
         };
-    }, [transactions, banks, bills, loans, borrow, kpi.current.balance]);
+    }, [transactions, banks, bills, loans, borrow, kpi]);
 
     const loading = txLoading || commitmentsLoading;
 
@@ -652,6 +652,7 @@ const Dashboard = () => {
                 onReload={reloadTransactions}
                 mode={modal.mode}
                 editData={modal.entry}
+                logout={logout}
             />
 
             <ConfirmDialog
@@ -755,7 +756,7 @@ const Dashboard = () => {
                 onClose={() => setShowReceiptScanner(false)}
                 onSaveTransaction={async (tx) => {
                     try {
-                        openAdd();
+                        openAdd(tx);
                     } catch (e) {
                         console.error(e);
                     }

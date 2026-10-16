@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calculator, Ruler, Percent, History, Trash2, Zap, Music, Receipt, Activity, ChevronDown } from 'lucide-react';
+import { evaluateExpression } from '../../utils/mathEval';
 
 const unitCategories = {
     length: { label: 'Length', units: { m: 1, km: 1000, cm: 0.01, mm: 0.001, ft: 0.3048, mi: 1609.34, in: 0.0254, yd: 0.9144 } },
@@ -57,11 +58,8 @@ const CalculatorPanel = ({ isOpen, onClose }) => {
 
     const calculate = useCallback(() => {
         try {
-            const sanitize = (str) => str.replace(/[^0-9+\-*/(). ]/g, '');
             const fullEq = equation + display;
-            // Safe alternative to eval() - uses Function constructor with sanitized input
-            const safeEval = new Function('return (' + sanitize(fullEq) + ')')();
-            const result = safeEval;
+            const result = evaluateExpression(fullEq);
 
             setHistory(prev => [{ eq: fullEq, res: result, time: new Date().toLocaleTimeString() }, ...prev].slice(0, 10));
             setDisplay(String(result));

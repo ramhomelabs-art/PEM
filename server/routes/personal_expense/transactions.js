@@ -28,11 +28,15 @@ router.post('/manual', async (req, res) => {
     try {
         const { type, amount, category, description, userId, date, paymentMode, otherPaymentMode, source } = req.body;
 
+        // Enforce user ownership: non-admin cannot create transactions for other users
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        const targetUserId = (isAdmin && userId) ? parseInt(userId, 10) : req.user.id;
+
         // Safety Check: Ensure user exists to prevent Foreign Key crashes
         const { User } = require('../../models');
-        const userExists = await User.findByPk(userId);
+        const userExists = await User.findByPk(targetUserId);
         if (!userExists) {
-            console.error(`User not found for ID: ${userId}`);
+            console.error(`User not found for ID: ${targetUserId}`);
             return res.status(404).json({ error: "User session is invalid or user not found. Please log out and sign up again." });
         }
 
@@ -41,7 +45,7 @@ router.post('/manual', async (req, res) => {
             amount: parseFloat(amount),
             category,
             description,
-            userId,
+            userId: targetUserId,
             paymentMode,
             otherPaymentMode,
             date: date || new Date(),
@@ -56,7 +60,8 @@ router.post('/manual', async (req, res) => {
 // 2. SMS Parser Webhook (Integrated with Android Automate/Tasker)
 router.post('/sms-parse', async (req, res) => {
     try {
-        const { sender, content, userId } = req.body;
+        const { sender, content } = req.body;
+        const targetUserId = req.user.id;
 
         // Basic Extracting Regex for amounts like "500", "500.00", "Rs. 500", "$500"
         const amountMatch = content.match(/(?:Rs|Rs\.|INR|\$|USD)?\s?(\d+(?:\.\d{2})?)/i);
@@ -74,7 +79,7 @@ router.post('/sms-parse', async (req, res) => {
             amount,
             category,
             description: `SMS from ${sender}: ${content.substring(0, 30)}...`,
-            userId,
+            userId: targetUserId,
             source: 'sms',
             rawContent: content
         });
@@ -88,7 +93,8 @@ router.post('/sms-parse', async (req, res) => {
 // 3. Email Statement Parser Webhook
 router.post('/email-parse', async (req, res) => {
     try {
-        const { subject, body, userId } = req.body;
+        const { subject, body } = req.body;
+        const targetUserId = req.user.id;
 
         // Similar to SMS but maybe slightly different regex
         const amountMatch = body.match(/(\d+(?:\.\d{2})?)/);
@@ -99,7 +105,7 @@ router.post('/email-parse', async (req, res) => {
             amount,
             category: autoCategorize(subject + ' ' + body),
             description: `Email Statement: ${subject}`,
-            userId,
+            userId: targetUserId,
             source: 'email',
             rawContent: body
         });
@@ -114,11 +120,19 @@ router.post('/email-parse', async (req, res) => {
 router.get('/user/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+        const requestedId = parseInt(userId, 10);
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+
+        // BOLA Prevention: Verify ownership
+        if (req.user.id !== requestedId && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot access another user\'s transactions' });
+        }
+
         const { User } = require('../../models');
 
         // Fetch regular transactions only - credit card transactions remain isolated to credit card module
         const regularTransactions = await Transaction.findAll({
-            where: { userId },
+            where: { userId: requestedId },
             include: [{
                 model: User,
                 attributes: ['fullName', 'username']
@@ -141,6 +155,12 @@ router.put('/manual/:id', async (req, res) => {
 
         const transaction = await Transaction.findByPk(id);
         if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
+
+        // BOLA Prevention: Verify ownership
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (transaction.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot modify another user\'s transaction' });
+        }
 
         await transaction.update({
             type: type || transaction.type,
@@ -165,6 +185,12 @@ router.delete('/manual/:id', async (req, res) => {
         const { id } = req.params;
         const transaction = await Transaction.findByPk(id);
         if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
+
+        // BOLA Prevention: Verify ownership
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (transaction.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot delete another user\'s transaction' });
+        }
 
         await transaction.destroy();
         res.json({ message: 'Transaction deleted' });

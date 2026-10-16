@@ -15,9 +15,9 @@ const Signup = () => {
         dob: '',
         password: '',
         confirmPassword: '',
-        country: 'USA',
-        currency: 'USD',
-        timezone: 'America/New_York'
+        country: 'India',
+        currency: 'INR',
+        timezone: 'Asia/Kolkata'
     });
     const [error, setError] = useState('');
     const [isLocked, setIsLocked] = useState(false); // NEW

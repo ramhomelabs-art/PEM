@@ -62,7 +62,7 @@ const TaxReportModal = ({ isOpen, onClose }) => {
         document.body.removeChild(link);
     };
 
-    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'USD');
+    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'INR');
 
     if (!isOpen) return null;
 

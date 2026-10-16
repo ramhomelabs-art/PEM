@@ -668,12 +668,15 @@ export function CategoryTransactionsModal({
     // Synchronize initial state when modal opens
     useEffect(() => {
         if (isOpen) {
-            setSelectedCategory(initialCategory || category || 'ALL');
-            setIsExpanded(startExpanded);
-            setSearch('');
-            setScope('period');
-            setSortBy('date-desc');
-            setIsLoading(false);
+            const timer = setTimeout(() => {
+                setSelectedCategory(initialCategory || category || 'ALL');
+                setIsExpanded(startExpanded);
+                setSearch('');
+                setScope('period');
+                setSortBy('date-desc');
+                setIsLoading(false);
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [isOpen, initialCategory, category, startExpanded]);
 

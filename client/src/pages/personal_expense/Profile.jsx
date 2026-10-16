@@ -18,7 +18,13 @@ import {
     Sun,
     ArrowLeft,
     Target,
-    Check
+    Check,
+    ShieldCheck,
+    Server,
+    Send,
+    KeyRound,
+    CheckCircle2,
+    AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Panel, Button } from '../../components/ui/primitives';
@@ -103,9 +109,9 @@ const Profile = () => {
         email: '',
         mobile: '',
         dob: '',
-        country: 'USA',
-        currency: 'USD',
-        timezone: 'EST (UTC-5)',
+        country: 'India',
+        currency: 'INR',
+        timezone: 'IST (UTC+5:30)',
         role: 'user',
         mfaMethod: 'none'
     });
@@ -115,6 +121,36 @@ const Profile = () => {
     const [passwordStatus, setPasswordStatus] = useState({ msg: '', isError: false });
     const [changingPassword, setChangingPassword] = useState(false);
 
+    // Recovery preference State
+    const [recoveryMethod, setRecoveryMethod] = useState('email');
+    const [recoveryMfaAvailable, setRecoveryMfaAvailable] = useState(false);
+    const [recoveryStatus, setRecoveryStatus] = useState({ msg: '', isError: false });
+    const [savingRecovery, setSavingRecovery] = useState(false);
+
+    // Admin email (SMTP) configuration State
+    const [emailCfg, setEmailCfg] = useState({
+        enabled: false,
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        from: '',
+        hasPassword: false,
+        configured: false,
+        source: null
+    });
+    const [smtpPassword, setSmtpPassword] = useState('');
+    const [emailStatus, setEmailStatus] = useState({ msg: '', isError: false });
+    const [savingEmail, setSavingEmail] = useState(false);
+    const [testingEmail, setTestingEmail] = useState(false);
+
+    // Recovery self-test State
+    const [selfTestCode, setSelfTestCode] = useState('');
+    const [selfTestSent, setSelfTestSent] = useState(null);
+    const [selfTestStatus, setSelfTestStatus] = useState({ msg: '', isError: false });
+    const [sendingSelfTest, setSendingSelfTest] = useState(false);
+    const [verifyingSelfTest, setVerifyingSelfTest] = useState(false);
+
     useEffect(() => {
         if (user) {
             // Initial load from context (fast)
@@ -123,9 +159,9 @@ const Profile = () => {
                 email: user.email || '',
                 mobile: user.mobile || '',
                 dob: user.dob || '',
-                country: user.country || 'USA',
-                currency: user.currency || 'USD',
-                timezone: user.timezone || 'EST (UTC-5)',
+                country: user.country || 'India',
+                currency: user.currency || 'INR',
+                timezone: user.timezone || 'IST (UTC+5:30)',
                 role: user.role || 'user',
                 mfaMethod: user.mfaMethod || 'none'
             });
@@ -156,6 +192,47 @@ const Profile = () => {
                     }
                 })
                 .catch(err => console.error("Failed to fetch fresh profile:", err));
+        }
+    }, [user]);
+
+    // Load recovery preference + admin email configuration.
+    useEffect(() => {
+        if (!user) return;
+        const token = localStorage.getItem('token');
+
+        fetch(`${API_URL}/auth/recovery/preference`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data && !data.error) {
+                    setRecoveryMethod(data.recoveryMethod || 'email');
+                    setRecoveryMfaAvailable(Boolean(data.mfaAvailable));
+                }
+            })
+            .catch(err => console.error('Failed to load recovery preference:', err));
+
+        if (user.role === 'admin') {
+            fetch(`${API_URL}/auth/recovery/email-config`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && !data.error) {
+                        setEmailCfg({
+                            enabled: Boolean(data.enabled),
+                            host: data.host || '',
+                            port: data.port || 587,
+                            secure: Boolean(data.secure),
+                            user: data.user || '',
+                            from: data.from || '',
+                            hasPassword: Boolean(data.hasPassword),
+                            configured: Boolean(data.configured),
+                            source: data.source || null
+                        });
+                    }
+                })
+                .catch(err => console.error('Failed to load email configuration:', err));
         }
     }, [user]);
 
@@ -297,6 +374,175 @@ const Profile = () => {
             setPasswordStatus({ msg: 'Network error updating password', isError: true });
         } finally {
             setChangingPassword(false);
+        }
+    };
+
+    const handleSaveRecovery = async () => {
+        setRecoveryStatus({ msg: '', isError: false });
+        if (recoveryMethod === 'mfa' && !recoveryMfaAvailable) {
+            setRecoveryStatus({ msg: 'Set up your authenticator app (MFA) first.', isError: true });
+            return;
+        }
+        setSavingRecovery(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/auth/recovery/preference`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ recoveryMethod })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setRecoveryStatus({ msg: 'Recovery preference saved.', isError: false });
+            } else {
+                setRecoveryStatus({ msg: data.error || 'Failed to save preference.', isError: true });
+            }
+        } catch {
+            setRecoveryStatus({ msg: 'Network error saving preference.', isError: true });
+        } finally {
+            setSavingRecovery(false);
+        }
+    };
+
+    const handleSaveEmailConfig = async () => {
+        setEmailStatus({ msg: '', isError: false });
+        if (emailCfg.enabled && (!emailCfg.host || !emailCfg.user)) {
+            setEmailStatus({ msg: 'Host and sender email are required to enable email recovery.', isError: true });
+            return;
+        }
+        if (emailCfg.enabled && !emailCfg.hasPassword && !smtpPassword) {
+            setEmailStatus({ msg: 'An app password is required to enable email recovery.', isError: true });
+            return;
+        }
+        setSavingEmail(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/auth/recovery/email-config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    enabled: emailCfg.enabled,
+                    host: emailCfg.host,
+                    port: emailCfg.port,
+                    secure: emailCfg.secure,
+                    user: emailCfg.user,
+                    from: emailCfg.from,
+                    password: smtpPassword
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setEmailCfg(prev => ({
+                    ...prev,
+                    hasPassword: Boolean(data.hasPassword),
+                    configured: Boolean(data.configured)
+                }));
+                setSmtpPassword('');
+                setEmailStatus({ msg: 'Email configuration saved.', isError: false });
+            } else {
+                setEmailStatus({ msg: data.error || 'Failed to save configuration.', isError: true });
+            }
+        } catch {
+            setEmailStatus({ msg: 'Network error saving configuration.', isError: true });
+        } finally {
+            setSavingEmail(false);
+        }
+    };
+
+    const handleTestEmail = async () => {
+        setEmailStatus({ msg: '', isError: false });
+        setTestingEmail(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/auth/recovery/email-config/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (res.ok && data.delivered) {
+                setEmailStatus({ msg: data.message || 'Test email sent.', isError: false });
+            } else {
+                setEmailStatus({ msg: data.error || 'Test email failed.', isError: true });
+            }
+        } catch {
+            setEmailStatus({ msg: 'Network error sending test email.', isError: true });
+        } finally {
+            setTestingEmail(false);
+        }
+    };
+
+    const handleSendSelfTest = async () => {
+        setSelfTestStatus({ msg: '', isError: false });
+        setSendingSelfTest(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/auth/recovery/self-test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSelfTestSent({ maskedEmail: data.maskedEmail, delivered: data.delivered, logged: data.logged });
+                setSelfTestCode('');
+                setSelfTestStatus({
+                    msg: data.delivered
+                        ? `A 6-digit code was emailed to ${data.maskedEmail}. Enter it below to confirm.`
+                        : 'Email delivery is not configured, so the code was written to the server log (dev mode).',
+                    isError: false
+                });
+            } else {
+                setSelfTestStatus({ msg: data.error || 'Unable to send a recovery code.', isError: true });
+            }
+        } catch {
+            setSelfTestStatus({ msg: 'Network error sending the recovery code.', isError: true });
+        } finally {
+            setSendingSelfTest(false);
+        }
+    };
+
+    const handleVerifySelfTest = async () => {
+        setSelfTestStatus({ msg: '', isError: false });
+        if (selfTestCode.trim().length !== 6) {
+            setSelfTestStatus({ msg: 'Enter the 6-digit code.', isError: true });
+            return;
+        }
+        setVerifyingSelfTest(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/auth/recovery/self-test/verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ code: selfTestCode.trim() })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSelfTestStatus({ msg: data.message || 'Recovery code verified.', isError: false });
+                setSelfTestSent(null);
+                setSelfTestCode('');
+            } else {
+                setSelfTestStatus({ msg: data.error || 'Invalid or expired code.', isError: true });
+            }
+        } catch {
+            setSelfTestStatus({ msg: 'Network error verifying the code.', isError: true });
+        } finally {
+            setVerifyingSelfTest(false);
         }
     };
 
@@ -614,6 +860,257 @@ const Profile = () => {
                                 {changingPassword ? 'Updating...' : 'Update Password'}
                             </button>
                         </div>
+
+                {/* Password Recovery Configuration Panel */}
+                <div className="mt-6 border-t border-line pt-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-ink">Password Recovery</h3>
+                                <p className="text-xs text-ink-muted">Choose how you verify your identity to reset your password or recover your username</p>
+                            </div>
+                            <ShieldCheck size={18} className="text-brand" />
+                        </div>
+
+                        {recoveryStatus.msg && (
+                            <div className={`p-3 rounded-control text-xs font-bold border ${
+                                recoveryStatus.isError
+                                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                                    : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                            }`}>
+                                {recoveryStatus.msg}
+                            </div>
+                        )}
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Recovery Method</label>
+                                <select
+                                    value={recoveryMethod}
+                                    onChange={(e) => setRecoveryMethod(e.target.value)}
+                                    className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                >
+                                    <option value="email">Email One-Time Passcode (OTP)</option>
+                                    <option value="mfa" disabled={!recoveryMfaAvailable}>
+                                        Authenticator App (MFA){recoveryMfaAvailable ? '' : ' — not set up'}
+                                    </option>
+                                </select>
+                                <p className="mt-1.5 text-xs text-ink-faint">
+                                    {recoveryMethod === 'email'
+                                        ? 'A 6-digit code will be emailed to your registered address.'
+                                        : 'You will enter a 6-digit code from your authenticator app.'}
+                                </p>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    type="button"
+                                    onClick={handleSaveRecovery}
+                                    disabled={savingRecovery}
+                                    className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-raised border border-line text-ink hover:bg-line transition disabled:opacity-50"
+                                >
+                                    <ShieldCheck size={14} />
+                                    {savingRecovery ? 'Saving...' : 'Save Preference'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Recovery self-test */}
+                        <div className="mt-2 border-t border-line pt-4">
+                            <div className="mb-3 flex items-center gap-2">
+                                <Send size={16} className="text-brand" />
+                                <h4 className="text-sm font-bold text-ink">Test Your Recovery</h4>
+                            </div>
+                            <p className="mb-3 text-xs text-ink-muted">
+                                Send yourself a recovery code to confirm the email channel works end to end.
+                            </p>
+
+                            {selfTestStatus.msg && (
+                                <div className={`mb-3 p-3 rounded-control text-xs font-bold border ${
+                                    selfTestStatus.isError
+                                        ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                                        : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                                }`}>
+                                    {selfTestStatus.msg}
+                                </div>
+                            )}
+
+                            {!selfTestSent ? (
+                                <button
+                                    type="button"
+                                    onClick={handleSendSelfTest}
+                                    disabled={sendingSelfTest}
+                                    className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-raised border border-line text-ink hover:bg-line transition disabled:opacity-50"
+                                >
+                                    <Send size={14} />
+                                    {sendingSelfTest ? 'Sending...' : 'Send Recovery Code'}
+                                </button>
+                            ) : (
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                    <div className="flex-1">
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Enter the 6-digit code</label>
+                                        <input
+                                            value={selfTestCode}
+                                            onChange={(e) => setSelfTestCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            placeholder="000000"
+                                            className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm font-bold tracking-[0.3em] text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleVerifySelfTest}
+                                        disabled={verifyingSelfTest}
+                                        className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-brand text-slate-950 hover:brightness-110 transition disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 size={14} />
+                                        {verifyingSelfTest ? 'Verifying...' : 'Verify Code'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSendSelfTest}
+                                        disabled={sendingSelfTest}
+                                        className="inline-flex items-center gap-2 rounded-pill px-4 py-2 text-xs font-bold tracking-[0.12em] bg-sunken border border-line text-ink hover:bg-line transition disabled:opacity-50"
+                                    >
+                                        {sendingSelfTest ? 'Sending...' : 'Resend'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {user?.role === 'admin' && (
+                            <div className="mt-2 border-t border-line pt-4">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Server size={16} className="text-brand" />
+                                        <h4 className="text-sm font-bold text-ink">Recovery Email Sender</h4>
+                                    </div>
+                                    <span className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${
+                                        emailCfg.configured
+                                            ? 'bg-brand-soft text-brand'
+                                            : 'bg-sunken text-ink-faint'
+                                    }`}>
+                                        {emailCfg.configured ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                                        {emailCfg.configured
+                                            ? `Configured${emailCfg.source === 'env' ? ' (env)' : ''}`
+                                            : 'Not configured'}
+                                    </span>
+                                </div>
+                                <p className="mb-4 text-xs text-ink-muted">
+                                    SMTP account used to deliver recovery codes. The app password is stored encrypted and never shown again.
+                                </p>
+
+                                {emailStatus.msg && (
+                                    <div className={`mb-4 p-3 rounded-control text-xs font-bold border ${
+                                        emailStatus.isError
+                                            ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                                            : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                                    }`}>
+                                        {emailStatus.msg}
+                                    </div>
+                                )}
+
+                                <label className="mb-4 flex cursor-pointer items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={emailCfg.enabled}
+                                        onChange={(e) => setEmailCfg(p => ({ ...p, enabled: e.target.checked }))}
+                                        className="h-4 w-4 accent-emerald-500"
+                                    />
+                                    <span className="text-xs font-bold text-ink">Enable email delivery for recovery codes</span>
+                                </label>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">SMTP Host</label>
+                                        <input
+                                            value={emailCfg.host}
+                                            onChange={(e) => setEmailCfg(p => ({ ...p, host: e.target.value }))}
+                                            placeholder="smtp.gmail.com"
+                                            className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Port</label>
+                                            <input
+                                                type="number"
+                                                value={emailCfg.port}
+                                                onChange={(e) => setEmailCfg(p => ({ ...p, port: e.target.value }))}
+                                                placeholder="587"
+                                                className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                            />
+                                        </div>
+                                        <div className="flex items-end pb-2.5">
+                                            <label className="flex cursor-pointer items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={emailCfg.secure}
+                                                    onChange={(e) => setEmailCfg(p => ({ ...p, secure: e.target.checked }))}
+                                                    className="h-4 w-4 accent-emerald-500"
+                                                />
+                                                <span className="text-xs font-bold text-ink">SSL/TLS</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">Sender Email (SMTP User)</label>
+                                        <input
+                                            type="email"
+                                            value={emailCfg.user}
+                                            onChange={(e) => setEmailCfg(p => ({ ...p, user: e.target.value }))}
+                                            placeholder="you@gmail.com"
+                                            className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">
+                                            App Password {emailCfg.hasPassword && <span className="text-brand">(leave blank to keep)</span>}
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={smtpPassword}
+                                            onChange={(e) => setSmtpPassword(e.target.value)}
+                                            placeholder={emailCfg.hasPassword ? '••••••••••••' : '16-character app password'}
+                                            className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">From Address (optional)</label>
+                                        <input
+                                            value={emailCfg.from}
+                                            onChange={(e) => setEmailCfg(p => ({ ...p, from: e.target.value }))}
+                                            placeholder="PEM Pro <you@gmail.com>"
+                                            className="w-full rounded-control border border-line bg-sunken px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                                        />
+                                        <p className="mt-1.5 text-xs text-ink-faint">For Gmail, use an App Password (requires 2-Step Verification). Remove spaces from the 16-character code.</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleTestEmail}
+                                        disabled={testingEmail}
+                                        className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-sunken border border-line text-ink hover:bg-line transition disabled:opacity-50"
+                                    >
+                                        <Send size={14} />
+                                        {testingEmail ? 'Sending...' : 'Send Test Email'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveEmailConfig}
+                                        disabled={savingEmail}
+                                        className="inline-flex items-center gap-2 rounded-pill px-5 py-2 text-xs font-bold tracking-[0.12em] bg-brand text-slate-950 hover:brightness-110 transition disabled:opacity-50"
+                                    >
+                                        <KeyRound size={14} />
+                                        {savingEmail ? 'Saving...' : 'Save Configuration'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
                     </div>
                 </Panel>
 

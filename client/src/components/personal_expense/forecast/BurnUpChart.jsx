@@ -56,23 +56,27 @@ function MiniBurnUpTooltip({ active, payload, currency = 'INR', limit }) {
 export function BurnUpChart({ categoryForecast, timeInfo, currency = 'INR' }) {
     const {
         limit,
-        spentSoFar,
-        runRate,
-        projectedLow,
-        projectedHigh,
         limitBreachDate,
-        regularExpenseTxs = [],
-        oneOffTxs = [],
     } = categoryForecast || {};
 
-    const { day, daysInMonth, elapsedDays, remainingDays } = timeInfo || {
-        day: 1,
-        daysInMonth: 30,
-        elapsedDays: 1,
-        remainingDays: 29,
-    };
+    const { day } = timeInfo || {};
 
     const chartData = useMemo(() => {
+        const {
+            spentSoFar = 0,
+            runRate = 0,
+            projectedLow = 0,
+            projectedHigh = 0,
+            regularExpenseTxs = [],
+            oneOffTxs = [],
+        } = categoryForecast || {};
+
+        const {
+            daysInMonth: totalDays = 30,
+            elapsedDays = 1,
+            remainingDays = 29,
+        } = timeInfo || {};
+
         // Daily spend grouping
         const dailySpendMap = {};
         for (const tx of [...regularExpenseTxs, ...oneOffTxs]) {
@@ -83,11 +87,11 @@ export function BurnUpChart({ categoryForecast, timeInfo, currency = 'INR' }) {
 
         const series = [];
         let cumActual = 0;
-        const currentFloorDay = Math.min(daysInMonth, Math.floor(elapsedDays));
+        const currentFloorDay = Math.min(totalDays, Math.floor(elapsedDays));
         const lowDailyRate = Math.max(0, (projectedLow - spentSoFar) / Math.max(1, remainingDays));
         const highDailyRate = Math.max(lowDailyRate, (projectedHigh - spentSoFar) / Math.max(1, remainingDays));
 
-        for (let d = 1; d <= daysInMonth; d++) {
+        for (let d = 1; d <= totalDays; d++) {
             const daySpend = dailySpendMap[d] || 0;
 
             if (d <= currentFloorDay) {

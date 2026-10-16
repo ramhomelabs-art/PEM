@@ -192,7 +192,7 @@ const MfaManager = () => {
                 cancelText="Keep MFA"
                 type="danger"
                 onConfirm={handleResetMFA}
-                onClose={() => setConfirmReset({ isOpen: false, userId: null, username: '' })}
+                onCancel={() => setConfirmReset({ isOpen: false, userId: null, username: '' })}
             />
 
             {/* Header */}

@@ -26,6 +26,7 @@ export default function ReceiptScannerModal({
     isOpen,
     onClose,
     onSaveExpense,
+    onSaveTransaction,
 }) {
     const fileInputRef = useRef(null);
     const [isScanning, setIsScanning] = useState(false);
@@ -97,15 +98,21 @@ export default function ReceiptScannerModal({
 
     const handleSave = () => {
         if (!scannedData) return;
-        if (onSaveExpense) {
-            onSaveExpense({
-                merchant: scannedData.merchant,
-                amount: scannedData.amount,
-                date: scannedData.date,
-                category: scannedData.category,
-                splitWith: splitWithFriends ? splitMembers : null,
-                splitAmount: splitWithFriends ? splitPerPerson : null
-            });
+        const payload = {
+            merchant: scannedData.merchant,
+            amount: scannedData.amount,
+            date: scannedData.date,
+            category: scannedData.category,
+            description: scannedData.merchant,
+            items: scannedData.items,
+            split: splitWithFriends ? splitMembers.filter(m => m.share > 0) : [],
+            splitWith: splitWithFriends ? splitMembers : null,
+            splitAmount: splitWithFriends ? splitPerPerson : null
+        };
+        if (onSaveTransaction) {
+            onSaveTransaction(payload);
+        } else if (onSaveExpense) {
+            onSaveExpense(payload);
         }
         onClose();
     };

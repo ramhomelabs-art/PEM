@@ -9,7 +9,7 @@ const MfaVerify = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
-    const { userId, mfaMethod, requestId } = location.state || {};
+    const { userId, mfaMethod, requestId, mfaChallenge } = location.state || {};
 
     const hasPush = Boolean(requestId && (mfaMethod === 'push' || mfaMethod === 'both'));
 
@@ -62,7 +62,7 @@ const MfaVerify = () => {
     }, [requestId, handleSuccess]);
 
     useEffect(() => {
-        if (!userId) {
+        if (!userId || !mfaChallenge) {
             navigate('/login');
             return undefined;
         }
@@ -71,7 +71,7 @@ const MfaVerify = () => {
             return startPolling();
         }
         return undefined;
-    }, [userId, hasPush, mode, status, navigate, startPolling]);
+    }, [userId, mfaChallenge, hasPush, mode, status, navigate, startPolling]);
 
     const handleOtpSubmit = async (e) => {
         e?.preventDefault?.();
@@ -83,7 +83,7 @@ const MfaVerify = () => {
             const response = await fetch(`${API_URL}/mfa/auth/verify-totp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, code: otp })
+                body: JSON.stringify({ userId, code: otp, mfaChallenge })
             });
 
             if (response.ok) {

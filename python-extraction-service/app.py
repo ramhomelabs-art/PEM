@@ -42,7 +42,8 @@ app.add_middleware(
 )
 
 # Shared secret guarding service-control endpoints (e.g. /restart).
-SERVICE_API_KEY = os.getenv("PYTHON_API_KEY", "pem_internal_service_key_2026")
+# No hardcoded default: if unset, service-control endpoints stay disabled.
+SERVICE_API_KEY = os.getenv("PYTHON_API_KEY")
 
 
 async def require_api_key(x_api_key: Optional[str] = Header(None)):
@@ -58,6 +59,14 @@ UPLOAD_FOLDER = 'temp_uploads'
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Reject oversized request bodies before they are spooled to disk/memory.
+@app.middleware("http")
+async def limit_request_size(request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_FILE_SIZE + (1024 * 1024):
+        return JSONResponse(status_code=413, content={"error": "Payload too large"})
+    return await call_next(request)
 
 # Import services
 from services.pdf_extractor import extract_statement
@@ -139,24 +148,25 @@ async def extract_statement_endpoint(
         if password:
             print(f"Password length: {len(password)}")
         
-        # Extract transactions (pass password if provided)
-        # RUN IN THREADPOOL to avoid blocking the async event loop
-        import asyncio
-        from functools import partial
-        
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, 
-            partial(extract_statement, filepath, password=password)
-        )
-        
-        # Clean up temporary file
         try:
-            os.remove(filepath)
-        except:
-            pass
-        
-        return result
+            # Extract transactions (pass password if provided)
+            # RUN IN THREADPOOL to avoid blocking the async event loop
+            import asyncio
+            from functools import partial
+            
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None, 
+                partial(extract_statement, filepath, password=password)
+            )
+            return result
+        finally:
+            # Clean up temporary file unconditionally to prevent disk leaks
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception:
+                pass
         
     except ValueError as e:
         # Check for password error explicitly
@@ -170,11 +180,12 @@ async def extract_statement_endpoint(
                 status_code=401,
                 content={"error": "Invalid password", "encrypted": True}
             )
-        return JSONResponse(status_code=422, content={"error": str(e)})
+        return JSONResponse(status_code=422, content={"error": "Unable to process the statement"})
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Statement extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal statement extraction error")
 
 
 class TextExtractionRequest(BaseModel):
@@ -193,13 +204,21 @@ async def extract_text_endpoint(request: TextExtractionRequest):
         import re
 
         text = request.text
+        if len(text) > 100000:
+            raise HTTPException(status_code=413, detail="Text payload too large")
         matched_txn = None
         extractor_type = 'unknown'
 
         # 0. Try Level 3 ML SMS Parser (NEW!)
         if ml_nlp_pipeline and request.mode != 'manual':
             try:
-                ml_parsed = parse_sms_ml(text, ml_nlp_pipeline)
+                import asyncio
+                from functools import partial
+                loop = asyncio.get_running_loop()
+                ml_parsed = await loop.run_in_executor(
+                    None,
+                    partial(parse_sms_ml, text, ml_nlp_pipeline)
+                )
                 if ml_parsed.get('confidence', 0) > 0.85:
                     # Use ML result if high confidence
                     merchant = ml_parsed.get('merchant', 'Unknown')
@@ -238,7 +257,8 @@ async def extract_text_endpoint(request: TextExtractionRequest):
         # 1. Try Node.js SMS Parser Service (Level 2 - Advanced Regex)
         try:
             import requests
-            node_response = requests.post('http://localhost:5003/parse', 
+            node_url = os.getenv('NODE_PARSER_URL', 'http://localhost:5003/parse')
+            node_response = requests.post(node_url, 
                 json={'text': text}, 
                 timeout=2
             )
@@ -252,7 +272,7 @@ async def extract_text_endpoint(request: TextExtractionRequest):
                         "type": parsed.get('type', 'debit'),  # Already 'credit' or 'debit'
                         "merchant": parsed.get('merchant', 'Unknown'),
                         "category": detect_category(parsed.get('merchant', ''), text)[0],
-                        "date": matched_txn.get('date') if matched_txn else None,
+                        "date": parsed.get('date') or (matched_txn.get('date') if matched_txn else None),
                         "description": text[:100],
                         "paymentMethod": parsed.get('paymentMethod', 'Card'),
                         "raw_message": text,
@@ -362,7 +382,7 @@ async def extract_text_endpoint(request: TextExtractionRequest):
 
     except Exception as e:
         logger.error(f"Text extraction failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal text extraction error")
 
 @app.post("/api/extract/validate")
 async def validate_extraction_endpoint(data: ValidationRequest):
@@ -372,11 +392,12 @@ async def validate_extraction_endpoint(data: ValidationRequest):
     Returns: validation results
     """
     try:
-        validation_result = validate_extraction(data.dict())
+        validation_result = validate_extraction(data.model_dump())
         return validation_result
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Validation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal validation error")
 
 
 @app.post("/restart")
@@ -400,14 +421,16 @@ async def restart_service(_: bool = Depends(require_api_key)):
 
 if __name__ == '__main__':
     import uvicorn
-    port = int(os.getenv('PORT', 5002))
+    port = int(os.getenv('PYTHON_PORT') or os.getenv('PORT') or 5002)
+    if port == 5005:
+        port = 5002
     
     print(f"Starting AI Extraction Service on port {port}")
     print(f"API Documentation: http://localhost:{port}/docs")
     
     uvicorn.run(
         "app:app",
-        host='0.0.0.0',
+        host=os.getenv('PYTHON_HOST', '127.0.0.1'),
         port=port
     )
 

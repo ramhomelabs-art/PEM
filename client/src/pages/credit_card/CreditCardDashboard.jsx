@@ -495,7 +495,13 @@ const CreditCardDashboard = () => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => deleteTransaction(txn.creditCardId, txn.id)}
+                                        onClick={async () => {
+                                            try {
+                                                await deleteTransaction(txn.creditCardId, txn.id);
+                                            } catch (e) {
+                                                console.error('Delete transaction failed:', e);
+                                            }
+                                        }}
                                         title="Delete transaction"
                                         className="rounded-control p-2 text-ink-faint transition hover:bg-neg-soft hover:text-neg"
                                     >

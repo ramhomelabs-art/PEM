@@ -264,7 +264,7 @@ const NotificationCenter = ({
                                                 <Row
                                                     key={`bill-${bill.id}`}
                                                     tone="warn"
-                                                    title={`Bill due: ${bill.name}`}
+                                                    title={bill.title || `Bill due: ${bill.name || 'Bill'}`}
                                                     meta={`${formatCurrency(bill.amount)} · due ${safeDate(bill.dueDate)}`}
                                                     onClick={() => handleItemClick('/bills')}
                                                     onDismiss={() => onDismiss && onDismiss(`bill-${bill.id}`)}
@@ -283,8 +283,8 @@ const NotificationCenter = ({
                                                 <Row
                                                     key={`loan-${loan.id}`}
                                                     tone="neg"
-                                                    title={`EMI due: ${loan.name}`}
-                                                    meta={`${formatCurrency(loan.emiAmount)} · ${safeDate(loan.nextEmiDate)}`}
+                                                    title={loan.title || `EMI due: ${loan.name || 'Loan'}`}
+                                                    meta={`${formatCurrency(loan.emiAmount || loan.amount)} · ${safeDate(loan.nextEmiDate || loan.dueDate)}`}
                                                     onClick={() => handleItemClick('/loans')}
                                                     onDismiss={() => onDismiss && onDismiss(`loan-${loan.id}`)}
                                                 />
@@ -301,8 +301,8 @@ const NotificationCenter = ({
                                             {activeReminders.borrow.map((item) => (
                                                 <Row
                                                     key={`borrow-${item.id}`}
-                                                    tone="pos"
-                                                    title={`Debt settling: ${item.person}`}
+                                                    tone={item.type === 'lend' ? 'pos' : 'warn'}
+                                                    title={item.title || (item.person || item.personName ? `Debt settling: ${item.person || item.personName}` : 'Debt settling')}
                                                     meta={`${formatCurrency(item.amount)} · due ${safeDate(item.dueDate)}`}
                                                     onClick={() => handleItemClick('/borrow')}
                                                     onDismiss={() => onDismiss && onDismiss(`borrow-${item.id}`)}

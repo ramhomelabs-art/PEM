@@ -22,6 +22,7 @@ const CreditCardSettings = () => {
     const { user } = useAuth();
     const { authFetch } = useCardSession();
     const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [passwordChange, setPasswordChange] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -77,11 +78,14 @@ const CreditCardSettings = () => {
             if (!res.ok) throw new Error('Failed to save settings');
         } catch (e) {
             console.error('Save settings error:', e);
+            setSaveError('Failed to save settings. Please try again.');
+            return;
         } finally {
             setIsSaving(false);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
         }
+        setSaveError('');
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
     };
 
     const handleChange = (key, value) => {
@@ -157,6 +161,13 @@ const CreditCardSettings = () => {
                     <Check size={20} aria-hidden="true" />
                     Settings saved successfully!
                 </motion.div>
+            )}
+
+            {saveError && (
+                <div className="mb-6 flex items-center gap-2.5 rounded-control border border-neg bg-neg-soft px-5 py-3.5 font-bold text-neg">
+                    <AlertCircle size={20} aria-hidden="true" />
+                    {saveError}
+                </div>
             )}
 
             <div className="flex flex-col gap-6">

@@ -13,14 +13,26 @@ if (!process.env.DB_USER) {
     // Allow it to proceed to let verify check it, or default to root if desperate
 }
 
+// Dev query logging: redact string literals compared against secret-bearing
+// columns (smsApiKey, secretKey, encryptionKey, password, token, hashes, ...)
+// so credentials never land in the log file.
+function redactSequelizeLog(message) {
+    if (typeof message !== 'string') return message;
+    return message
+        .replace(/("[^"]*(?:key|secret|token|password|hash|code)[^"]*")\s*=\s*'[^']*'/gi, "$1 = '[REDACTED]'")
+        .replace(/("[^"]*(?:key|secret|token|password|hash|code)[^"]*")\s*IS\s+NULL/gi, '$1 IS NULL');
+}
+
 const sequelizeOptions = {
     dialect: process.env.DB_DIALECT || 'postgres',
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
-    logging: (msg) => console.log(`[SEQUELIZE] ${msg}`),
+    logging: process.env.NODE_ENV === 'production' ? false : (msg) => console.log(`[SEQUELIZE] ${redactSequelizeLog(msg)}`),
     hooks: {
         beforeConnect: (config) => {
-            console.log(`[DEBUG] Connecting to DB: ${config.database} as User: '${config.username}'`);
+            if (process.env.NODE_ENV !== 'production') {
+                console.log(`[DEBUG] Connecting to DB: ${config.database} as User: '${config.username}'`);
+            }
             if (!config.username) console.error('!!! CRITICAL ERROR: DB_USER is empty/undefined !!!');
         }
     },
@@ -114,6 +126,9 @@ const MfaDevice = require('./personal_expense/MfaDevice')(sequelize);
 const MfaPushRequest = require('./personal_expense/MfaPushRequest')(sequelize);
 const MfaTotpSecret = require('./personal_expense/MfaTotpSecret')(sequelize);
 const MfaAuditLog = require('./personal_expense/MfaAuditLog')(sequelize);
+
+// Account Recovery
+const RecoveryToken = require('./personal_expense/RecoveryToken')(sequelize);
 
 
 
@@ -301,6 +316,10 @@ MfaAuditLog.belongsTo(User, { foreignKey: 'userId' });
 MfaDevice.hasMany(MfaAuditLog, { foreignKey: 'deviceId', as: 'auditLogs' });
 MfaAuditLog.belongsTo(MfaDevice, { foreignKey: 'deviceId' });
 
+// Account Recovery Associations
+User.hasMany(RecoveryToken, { foreignKey: 'userId', as: 'recoveryTokens' });
+RecoveryToken.belongsTo(User, { foreignKey: 'userId' });
+
 // Alert Associations
 User.hasMany(Alert, { foreignKey: 'userId', as: 'alerts' });
 Alert.belongsTo(User, { foreignKey: 'userId' });
@@ -353,5 +372,6 @@ module.exports = {
     MfaDevice,
     MfaPushRequest,
     MfaTotpSecret,
-    MfaAuditLog
+    MfaAuditLog,
+    RecoveryToken
 };

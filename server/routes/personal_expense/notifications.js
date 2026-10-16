@@ -1,7 +1,8 @@
 const express = require('express');
 const { authenticateToken } = require('../../middleware/auth');
-const { Alert } = require('../../models');
+const { Alert, User } = require('../../models');
 const alertService = require('../../services/alertService');
+const pendingDigestService = require('../../services/pendingDigestService');
 
 const router = express.Router();
 
@@ -91,6 +92,85 @@ router.post('/test', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('[notifications] test error:', err.message);
         res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/notifications/digest/preview
+ * Returns the current user's digest settings and a preview of what the next
+ * pending-items email would contain.
+ */
+router.get('/digest/preview', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const pref = pendingDigestService.getDigestPreference(user);
+        const { transactions, expenses, income, notifications, summary } = await pendingDigestService.buildDigest(user);
+
+        res.json({
+            enabled: pref.enabled,
+            lastSentAt: pref.lastSentAt,
+            intervalMinutes: pendingDigestService.INTERVAL_MINUTES,
+            mailConfigured: require('../../utils/mailer').isConfigured(),
+            email: user.email,
+            counts: {
+                transactions: transactions.length,
+                expenses: expenses.length,
+                income: income.length,
+                notifications: notifications.length,
+                total: transactions.length + notifications.length
+            },
+            summary,
+            expenses: expenses.slice(0, 10),
+            income: income.slice(0, 10),
+            transactions: transactions.slice(0, 10),
+            notifications: notifications.slice(0, 10)
+        });
+    } catch (err) {
+        console.error('[notifications] digest preview error:', err.message);
+        res.status(500).json({ error: 'Failed to build digest preview' });
+    }
+});
+
+/**
+ * POST /api/notifications/digest/send
+ * Send the pending-items digest to the current user immediately.
+ */
+router.post('/digest/send', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const result = await pendingDigestService.sendDigestForUser(user, { force: true });
+        if (!result.sent) {
+            return res.status(400).json({ success: false, error: result.skipped || 'Could not send digest', ...result });
+        }
+        res.json({ success: true, ...result });
+    } catch (err) {
+        console.error('[notifications] digest send error:', err.message);
+        res.status(500).json({ error: 'Failed to send digest' });
+    }
+});
+
+/**
+ * PUT /api/notifications/digest/preference
+ * Enable/disable the pending-items email digest for the current user.
+ */
+router.put('/digest/preference', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const enabled = !(req.body && req.body.enabled === false);
+        const prefs = { ...(user.preferences || {}) };
+        prefs.emailDigest = { ...(prefs.emailDigest || {}), enabled };
+        await user.update({ preferences: prefs });
+
+        res.json({ success: true, emailDigest: prefs.emailDigest });
+    } catch (err) {
+        console.error('[notifications] digest preference error:', err.message);
+        res.status(500).json({ error: 'Failed to update digest preference' });
     }
 });
 

@@ -22,8 +22,12 @@ build/
 # Service account keys & credentials
 *firebase*.json
 *adminsdk*.json
+*google-services*.json
+*client_secret*.json
 !*firebase*.json.example
 !*adminsdk*.json.example
+!*google-services*.json.example
+!*client_secret*.json.example
 
 # Python virtual environment & cache
 venv/
@@ -42,6 +46,7 @@ __pycache__/
 *.pth
 *.onnx
 *.h5
+*.traineddata
 python-extraction-service/ml_training/models/
 
 # User uploads & ephemeral storage (preserving folders via .gitkeep)
@@ -57,6 +62,8 @@ temp_uploads/*
 
 # Personal SMS transaction logs & database artifacts
 server/data/pending_sms.json
+server/data/system_settings.json
+server/data/admin-bootstrap-password.txt
 server/routes/data/
 server/routes/data/*
 *_status.json
@@ -64,6 +71,9 @@ server/routes/data/*
 # Logs & process files
 logs/
 *.log
+*.log.*
+*.log.old
+server.log*
 npm-debug.log*
 server/logs/
 *.pid

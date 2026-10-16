@@ -22,6 +22,7 @@ import { Button } from '../ui/primitives';
 import { cx } from '../ui/cx';
 import { useSmartNotes } from '../../context/personal_expense/SmartNotesContext';
 import { useToast } from '../../context/ToastContext';
+import { evaluateExpression } from '../../utils/mathEval';
 
 const VIEWS = {
     list: { label: 'Notes', subtitle: 'Smart Keep', empty: 'Notes you add appear here', icon: LayoutGrid },
@@ -185,8 +186,7 @@ const SmartNotesPanel = () => {
 
         if (matchCalc && lastChar === '=') {
             try {
-                const sanitized = matchCalc[1].replace(/[^0-9+\-*/(). ]/g, '');
-                const result = new Function('return (' + sanitized + ')')();
+                const result = evaluateExpression(matchCalc[1]);
                 if (result !== undefined && !isNaN(result)) {
                     const newVal = val + ' ' + result;
                     setEditorContent(newVal);

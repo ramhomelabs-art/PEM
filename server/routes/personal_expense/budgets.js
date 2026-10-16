@@ -6,8 +6,16 @@ const { Op } = require('sequelize');
 // Fetch all budgets for a user
 router.get('/user/:userId', async (req, res) => {
     try {
+        const requestedId = parseInt(req.params.userId, 10);
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+
+        // BOLA Prevention: Verify ownership
+        if (req.user.id !== requestedId && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot access another user\'s budgets' });
+        }
+
         const budgets = await Budget.findAll({
-            where: { userId: req.params.userId },
+            where: { userId: requestedId },
             order: [['updatedAt', 'DESC'], ['createdAt', 'DESC']]
         });
 
@@ -33,12 +41,15 @@ router.get('/user/:userId', async (req, res) => {
 // Create (or update) a budget for a category
 router.post('/', async (req, res) => {
     try {
-        const { userId, category, amountLimit, period, startDate } = req.body;
-        if (!userId || !category) {
-            return res.status(400).json({ error: 'userId and category are required' });
+        const { category, amountLimit, period, startDate } = req.body;
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        const targetUserId = (isAdmin && req.body.userId) ? parseInt(req.body.userId, 10) : req.user.id;
+
+        if (!category) {
+            return res.status(400).json({ error: 'Category is required' });
         }
 
-        const existing = await Budget.findOne({ where: { userId, category } });
+        const existing = await Budget.findOne({ where: { userId: targetUserId, category } });
         if (existing) {
             await existing.update({
                 amountLimit,
@@ -49,7 +60,7 @@ router.post('/', async (req, res) => {
         }
 
         const budget = await Budget.create({
-            userId,
+            userId: targetUserId,
             category,
             amountLimit,
             period,
@@ -67,6 +78,12 @@ router.put('/:id', async (req, res) => {
         const { amountLimit, category, period } = req.body;
         const budget = await Budget.findByPk(req.params.id);
         if (!budget) return res.status(404).json({ error: 'Budget not found' });
+
+        // BOLA Prevention: Verify ownership
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (budget.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot modify another user\'s budget' });
+        }
 
         await budget.update({ amountLimit, category, period });
 
@@ -91,6 +108,13 @@ router.delete('/:id', async (req, res) => {
     try {
         const budget = await Budget.findByPk(req.params.id);
         if (!budget) return res.status(404).json({ error: 'Budget not found' });
+
+        // BOLA Prevention: Verify ownership
+        const isAdmin = (req.user.role === 'admin' || req.user.role === 'administrator');
+        if (budget.userId !== req.user.id && !isAdmin) {
+            return res.status(403).json({ error: 'Access denied: Cannot delete another user\'s budget' });
+        }
+
         await budget.destroy();
         res.json({ message: 'Budget deleted' });
     } catch (err) {

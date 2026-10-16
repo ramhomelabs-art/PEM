@@ -336,7 +336,7 @@ const Admin = () => {
                 cancelText="Cancel"
                 type="danger"
                 onConfirm={handleDelete}
-                onClose={() => setConfirmDialog({ isOpen: false, userId: null, username: '' })}
+                onCancel={() => setConfirmDialog({ isOpen: false, userId: null, username: '' })}
             />
 
             {/* Header */}

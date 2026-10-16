@@ -30,6 +30,20 @@ const setupRateLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+// Strict limiter for TOTP/backup-code verification only (6-digit codes must not be
+// brute-forceable within a code window).
+const totpRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    message: {
+        status: 'error',
+        message: 'Too many verification attempts, please try again after 15 minutes',
+        error: 'Too many requests'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // 2. Admin Exemption Check
 const checkMFAExemption = async (req, res, next) => {
     try {
@@ -82,8 +96,11 @@ const validatePushSignature = async (req, res, next) => {
             .update(payload)
             .digest('hex');
 
-        // Constant-time comparison
-        if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(computedSignature))) {
+        // Constant-time comparison. Hash both sides first so differing lengths
+        // (timingSafeEqual throws on length mismatch) are handled safely.
+        const sigHash = crypto.createHash('sha256').update(Buffer.from(String(signature))).digest();
+        const computedHash = crypto.createHash('sha256').update(Buffer.from(computedSignature)).digest();
+        if (!crypto.timingSafeEqual(sigHash, computedHash)) {
             return res.status(401).json({ status: 'error', error: 'Invalid request signature' });
         }
 
@@ -105,6 +122,7 @@ module.exports = {
     requireAdmin,
     mfaRateLimiter,
     setupRateLimiter,
+    totpRateLimiter,
     checkMFAExemption,
     validatePushSignature
 };

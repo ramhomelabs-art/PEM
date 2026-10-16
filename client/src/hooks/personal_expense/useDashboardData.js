@@ -634,7 +634,8 @@ export function useUpcomingObligations(bills, loans, borrow, { days = 30 } = {})
             .map((b) => ({
                 id: `bill-${b.id}`,
                 kind: 'bill',
-                title: b.name,
+                title: b.name || 'Bill',
+                name: b.name || 'Bill',
                 amount: toNumber(b.amount),
                 dueDate: b.dueDate,
                 href: '/bills',
@@ -645,22 +646,37 @@ export function useUpcomingObligations(bills, loans, borrow, { days = 30 } = {})
             .map((l) => ({
                 id: `loan-${l.id}`,
                 kind: 'emi',
-                title: `${l.name} EMI`,
+                title: `${l.name || 'Loan'} EMI`,
+                name: l.name || 'Loan',
+                emiAmount: toNumber(l.emiAmount),
                 amount: toNumber(l.emiAmount),
                 dueDate: l.nextEmiDate,
+                nextEmiDate: l.nextEmiDate,
                 href: '/loans',
             }));
 
         const outstandingBorrow = borrow
             .filter((b) => b.status !== 'settled' && b.dueDate && new Date(b.dueDate) <= horizon)
-            .map((b) => ({
-                id: `borrow-${b.id}`,
-                kind: 'borrow',
-                title: `Borrowed from ${b.personName || b.borrowerName || b.name || 'contact'}`,
-                amount: toNumber(b.amount),
-                dueDate: b.dueDate,
-                href: '/borrow',
-            }));
+            .map((b) => {
+                const person = b.personName || b.borrowerName || b.name || 'Contact';
+                const total = toNumber(b.amount);
+                const paid = toNumber(b.amountPaid || 0);
+                const remaining = total - paid > 0 ? total - paid : total;
+                return {
+                    id: `borrow-${b.id}`,
+                    kind: 'borrow',
+                    type: b.type,
+                    title: b.type === 'lend' ? `Collect from ${person}` : `Debt settling: ${person}`,
+                    person,
+                    personName: person,
+                    name: person,
+                    amount: remaining,
+                    totalAmount: total,
+                    amountPaid: paid,
+                    dueDate: b.dueDate,
+                    href: '/borrow',
+                };
+            });
 
         return [...unpaidBills, ...activeEmis, ...outstandingBorrow].sort(
             (a, b) => new Date(a.dueDate) - new Date(b.dueDate)

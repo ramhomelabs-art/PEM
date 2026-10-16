@@ -89,6 +89,15 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                     paymentMode: editData.paymentMode,
                     otherPaymentMode: editData.otherPaymentMode || ''
                 });
+            } else if (mode === 'add' && editData) {
+                setFormData({
+                    type: editData.type || 'expense',
+                    amount: editData.amount ? editData.amount.toString() : '',
+                    category: editData.category || 'General',
+                    description: editData.description || editData.merchant || '',
+                    paymentMode: editData.paymentMode || 'Cash',
+                    otherPaymentMode: editData.otherPaymentMode || ''
+                });
             } else {
                 setFormData(defaultState);
             }

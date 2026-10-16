@@ -384,7 +384,7 @@ const ShareDropdown = ({ isOpen, onClose }) => {
                                                 variant="primary"
                                                 icon={Eye}
                                                 onClick={() =>
-                                                    window.open(`/shared/${share.id}`, '_blank')
+                                                    window.open(`/shared/${share.id}`, '_blank', 'noopener,noreferrer')
                                                 }
                                             >
                                                 Open

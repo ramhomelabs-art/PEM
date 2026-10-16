@@ -14,18 +14,20 @@ const { Op } = require('sequelize');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/auth');
 
 // QR pairing payload encryption secret. Must match the Android client's build-time
-// PEM_PAIRING_SECRET. The value below is a development fallback only.
-const DEFAULT_PAIRING_SECRET = 'PEM_FINANCE_SECURE_PAIRING_V2_KEY_2026';
-const CONFIGURED_PAIRING_SECRET = process.env.PEM_QR_PAIRING_SECRET;
-if (!CONFIGURED_PAIRING_SECRET) {
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error('[SECURITY] PEM_QR_PAIRING_SECRET must be set in production (QR pairing payload encryption).');
-    }
-    console.warn('⚠️ [SECURITY] Using development PEM_QR_PAIRING_SECRET fallback. Set it before deploying.');
+// PEM_PAIRING_SECRET. No fallback is allowed: a missing secret disables QR pairing.
+const PAIRING_SECRET = process.env.PEM_QR_PAIRING_SECRET;
+if (!PAIRING_SECRET) {
+    throw new Error('[SECURITY] PEM_QR_PAIRING_SECRET is not set. Configure it (must match the Android client) before starting the server.');
 }
-const PAIRING_SECRET = CONFIGURED_PAIRING_SECRET || DEFAULT_PAIRING_SECRET;
 
 const isValidUUID = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+// Constant-time string comparison (hashes both sides so length/timing leaks are avoided).
+const safeEqualStr = (a, b) => {
+    const ha = crypto.createHash('sha256').update(String(a || '')).digest();
+    const hb = crypto.createHash('sha256').update(String(b || '')).digest();
+    return crypto.timingSafeEqual(ha, hb);
+};
 
 // Serializes read-modify-write operations on user.preferences per user. Without this,
 // concurrent QR generations both read stale preferences and one token's write is lost,
@@ -189,27 +191,21 @@ class MFAService {
         const primaryPending = user.preferences?.pendingMfaBinding;
         const pendingList = Array.isArray(user.preferences?.pendingMfaTokens) ? user.preferences.pendingMfaTokens : [];
 
-        console.log(`[MFA Bind] User ${userId} attempting device bind. Submitted token prefix: "${submittedToken.substring(0, 8)}", Primary stored: "${(primaryPending?.token || '').substring(0, 8)}", Stored pool count: ${pendingList.length}`);
+        console.log(`[MFA Bind] User ${userId} attempting device bind (pending pool: ${pendingList.length}${primaryPending ? ' +1 primary' : ''})`);
 
         let matchedBinding = null;
-        if (primaryPending && (primaryPending.token || '').trim().toLowerCase() === submittedToken.toLowerCase()) {
+        if (primaryPending && safeEqualStr((primaryPending.token || '').trim().toLowerCase(), submittedToken.toLowerCase())) {
             matchedBinding = primaryPending;
         } else {
-            matchedBinding = pendingList.find(t => t && (t.token || '').trim().toLowerCase() === submittedToken.toLowerCase());
+            matchedBinding = pendingList.find(t => t && safeEqualStr((t.token || '').trim().toLowerCase(), submittedToken.toLowerCase()));
         }
 
         if (!matchedBinding) {
-            // Also check emergency fallback against existing user credentials (smsApiKey, encryptionKey)
-            if (user.smsApiKey && user.smsApiKey.toLowerCase() === submittedToken.toLowerCase()) {
-                console.log(`[MFA Bind] Emergency fallback matched user.smsApiKey for User ${userId}`);
-                matchedBinding = { serverUrl: null, expiresAt: new Date(Date.now() + 60000).toISOString() };
-            } else if (user.encryptionKey && user.encryptionKey.toLowerCase() === submittedToken.toLowerCase()) {
-                console.log(`[MFA Bind] Emergency fallback matched user.encryptionKey for User ${userId}`);
-                matchedBinding = { serverUrl: null, expiresAt: new Date(Date.now() + 60000).toISOString() };
-            } else {
-                console.error(`[MFA Bind] Token mismatch for User ${userId}. Submitted: "${submittedToken}", Stored Primary: "${primaryPending?.token}"`);
-                throw new Error('Invalid binding token');
-            }
+            // Only a QR-generated (authenticated) binding token is accepted.
+            // Accepting smsApiKey/encryptionKey here would let anyone holding a
+            // login-returned credential enroll a device and steal the TOTP secret.
+            console.error(`[MFA Bind] Token mismatch for User ${userId}`);
+            throw new Error('Invalid binding token');
         }
 
         // Check if token has expired
@@ -512,6 +508,11 @@ class MFAService {
         }
 
         if (pushRequest.status === 'approved') {
+            // Token is issued only ONCE. Mark the request consumed so a repeated
+            // poll (or anyone who learns the requestId) cannot harvest fresh logins.
+            if (pushRequest.metadata && pushRequest.metadata.tokenIssued) {
+                return { status: 'expired' };
+            }
             const user = await User.findByPk(pushRequest.userId);
             if (!user) {
                 return { status: 'denied', reason: 'User not found' };
@@ -524,6 +525,13 @@ class MFAService {
                 JWT_SECRET,
                 { expiresIn: JWT_EXPIRES_IN }
             );
+
+            await pushRequest.update({
+                respondedAt: new Date(),
+                metadata: { ...(pushRequest.metadata || {}), tokenIssued: true }
+            });
+
+            await this.logMFAEvent(pushRequest.userId, 'login_success', pushRequest.deviceId, pushRequest.metadata?.ipAddress);
 
             return {
                 status: 'approved',
@@ -1180,11 +1188,23 @@ class MFAService {
             throw new Error('Invalid credentials');
         }
 
+        // Enforce the shared lockout before checking the password.
+        const loginGuard = require('../utils/loginGuard');
+        if (loginGuard.isLocked(user)) {
+            const err = new Error('Account temporarily locked after repeated failed attempts. Try again later or reset your password.');
+            err.statusCode = 429;
+            throw err;
+        }
+
         // Verify password
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
+            await loginGuard.registerFailure(user);
             throw new Error('Invalid credentials');
         }
+
+        // Successful credential check — clear any failed-attempt / lockout state.
+        await loginGuard.clearFailures(user);
 
         // Check if user is active
         if (user.status !== 'active') {

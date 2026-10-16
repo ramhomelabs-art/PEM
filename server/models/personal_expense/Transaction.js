@@ -12,7 +12,7 @@ module.exports = (sequelize) => {
             allowNull: false
         },
         amount: {
-            type: DataTypes.FLOAT,
+            type: DataTypes.DECIMAL(15, 2),
             allowNull: false
         },
         category: {
@@ -57,6 +57,13 @@ module.exports = (sequelize) => {
         }
     }, {
         tableName: 'transactions',
-        freezeTableName: true
+        freezeTableName: true,
+        indexes: [
+            { fields: ['userId'] },
+            { fields: ['userId', 'date'] },
+            { fields: ['userId', 'category'] },
+            { fields: ['loanId'] },
+            { fields: ['billId'] }
+        ]
     });
 };

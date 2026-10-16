@@ -171,24 +171,24 @@ const Transactions = () => {
 
         const tDate = new Date(t.date);
         const now = new Date();
-        const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         if (timeFilter === 'day') {
             return tDate >= startOfDay;
         }
 
         if (timeFilter === 'week') {
-            const lastWeek = new Date(now.setDate(now.getDate() - 7));
+            const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             return tDate >= lastWeek;
         }
 
         if (timeFilter === 'month') {
-            const lastMonth = new Date(now.setMonth(now.getMonth() - 1));
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
             return tDate >= lastMonth;
         }
 
         if (timeFilter === 'year') {
-            const lastYear = new Date(now.setFullYear(now.getFullYear() - 1));
+            const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
             return tDate >= lastYear;
         }
 
@@ -549,7 +549,7 @@ const Transactions = () => {
                                                 style={{ color: isHold ? '#f59e0b' : isIncome ? '#10b981' : '#f43f5e' }}
                                             >
                                                 {isIncome ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
-                                                {!isIncome && '-'} {formatCurrency(t.amount)}
+                                                {isIncome ? '+' : '-'} {formatCurrency(Math.abs(Number(t.amount) || 0))}
                                             </div>
                                             {isHold && (
                                                 <span className="text-[10px] font-bold text-amber-400 block">

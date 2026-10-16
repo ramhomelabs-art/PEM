@@ -6,7 +6,7 @@
 const EXPENSE_CATEGORIES = [
     {
         name: 'Food',
-        regex: /\b(zomato|swiggy|eatclub|box8|fasos|behrouz|freshmenu|eatsure|dominos|pizza\s*hut|kfc|mcdonalds|burger\s*king|subway|starbucks|chaayos|third\s*wave|ccd|barista|restaurant|cafe|coffee|dhaba|biryani|tiffin|mess|kitchen|food)\b/i
+        regex: /\b(zomato|swiggy|eatclub|box8|fasos|behrouz|freshmenu|eatsure|dominos?|domino'?s|pizza(\s*hut)?|kfc|mcdonalds?|mcdonald'?s|burger\s*king|subway|starbucks|chaayos|third\s*wave|ccd|barista|restaurant|cafe|coffee|dhaba|biryani|tiffin|mess|kitchen|food|barbeque|bbq|buffet|bistro|dining|dine|bakery|sweets)\b/i
     },
     {
         name: 'Travel',
@@ -22,7 +22,7 @@ const EXPENSE_CATEGORIES = [
     },
     {
         name: 'Utility',
-        regex: /\b(bescom|tneb|mahadiscom|mseb|adani\s*electricity|tata\s*power|torrent\s*power|bwssb|jal\s*board|indraprastha\s*gas|mahanagar\s*gas|gail|jio\s*fiber|airtel\s*fiber|act\s*fibernet|electricity|power|water|gas|utility|maintenance|bill)\b/i
+        regex: /\b(bescom|tneb|mahadiscom|mseb|adani\s*electricity|tata\s*power|torrent\s*power|bwssb|jal\s*board|indraprastha\s*gas|mahanagar\s*gas|gail|jio\s*fiber|airtel\s*fiber|act\s*fibernet|electricity|power|water|gas|utility|maintenance|utility\s*bill|phone\s*bill|mobile\s*bill|broadband\s*bill)\b/i
     },
     {
         name: 'Subscription',

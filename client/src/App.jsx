@@ -11,10 +11,13 @@ import { ToastProvider } from './context/ToastContext';
 import Layout from './components/personal_expense/Layout';
 import CreditCardLayout from './components/credit_card/CreditCardLayout';
 import SmartNotesPanel from './components/personal_expense/SmartNotesPanel';
+import SessionTimeoutManager from './components/personal_expense/SessionTimeoutManager';
 
 // Eager load core authentication pages
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ForgotUsername from './pages/ForgotUsername';
 import MfaSetup from './pages/personal_expense/MfaSetup';
 import MfaVerify from './pages/personal_expense/MfaVerify';
 import CreditCardUnlock from './pages/credit_card/CreditCardUnlock';
@@ -74,6 +77,7 @@ function App() {
                 <SmartNotesProvider>
                   <Router>
                     <SmartNotesPanel />
+                    <SessionTimeoutManager />
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/login" element={<Login />} />
@@ -82,6 +86,8 @@ function App() {
                         <Route path="/mfa-verify" element={<MfaVerify />} />
                         <Route path="/mfa/verify" element={<MfaVerify />} />
                         <Route path="/signup" element={<Signup />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/forgot-username" element={<ForgotUsername />} />
 
                         <Route
                           path="/"

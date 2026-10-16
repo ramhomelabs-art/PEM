@@ -71,6 +71,16 @@ router.post('/resource', async (req, res) => {
             return res.status(403).json({ error: 'Can only share with friends' });
         }
 
+        // If sharing a specific resource, verify the caller owns it.
+        if (resourceId && ['loan', 'credit_card', 'investment'].includes(resourceType)) {
+            const modelMap = { loan: Loan, credit_card: CreditCard, investment: Investment };
+            const Model = modelMap[resourceType];
+            const owned = await Model.findOne({ where: { id: resourceId, userId } });
+            if (!owned) {
+                return res.status(403).json({ error: 'You can only share resources you own' });
+            }
+        }
+
         // Check if already shared
         const existing = await SharedResource.findOne({
             where: {
@@ -241,7 +251,7 @@ router.get('/view/:shareId', async (req, res) => {
             }));
         } else if (share.resource_type === 'loan') {
             if (share.resource_id) {
-                const loan = await Loan.findByPk(share.resource_id);
+                const loan = await Loan.findOne({ where: { id: share.resource_id, userId: share.owner_id } });
                 if (loan) {
                     content = loan.toJSON();
                     content.amountPaid = (content.totalAmount || 0) - (content.remainingAmount || 0);
@@ -261,7 +271,7 @@ router.get('/view/:shareId', async (req, res) => {
             }
         } else if (share.resource_type === 'credit_card') {
             if (share.resource_id) {
-                const card = await CreditCard.findByPk(share.resource_id);
+                const card = await CreditCard.findOne({ where: { id: share.resource_id, userId: share.owner_id } });
                 if (card) {
                     content = card.toJSON();
                     content.currentBalance = content.usedAmount;
@@ -283,7 +293,7 @@ router.get('/view/:shareId', async (req, res) => {
             }
         } else if (share.resource_type === 'investment') {
             if (share.resource_id) {
-                const investment = await Investment.findByPk(share.resource_id);
+                const investment = await Investment.findOne({ where: { id: share.resource_id, userId: share.owner_id } });
                 if (investment) {
                     content = investment.toJSON();
                     content.quantity = content.unitsHeld;

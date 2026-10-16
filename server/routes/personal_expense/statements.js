@@ -108,4 +108,76 @@ router.post('/parse', upload.single('statement'), async (req, res) => {
     }
 });
 
+// ------------------------------------------------------------------
+// RAW TEXT PARSE ENDPOINT (Proxies to Python AI Service)
+// ------------------------------------------------------------------
+router.post('/parse-text', async (req, res) => {
+    try {
+        const text = typeof req.body?.text === 'string' ? req.body.text : '';
+        if (!text.trim()) {
+            return res.status(400).json({ error: 'No text provided' });
+        }
+        if (text.length > 100000) {
+            return res.status(413).json({ error: 'Text payload too large' });
+        }
+
+        let pythonResponse;
+        try {
+            pythonResponse = await axios.post(
+                `${PYTHON_SERVICE_URL}/api/extract/text`,
+                { text, mode: req.body.mode || 'manual' },
+                { timeout: 300000 }
+            );
+        } catch (pyError) {
+            console.error('Python Service Error:', pyError.message);
+            if (pyError.response) {
+                return res.status(pyError.response.status).json(pyError.response.data);
+            }
+            throw new Error('Failed to connect to AI Extraction Service');
+        }
+
+        const data = pythonResponse.data || {};
+
+        // Python may return a "failed" status when no pattern matched.
+        if (data.status === 'failed' || (!data.amount && !data.merchant)) {
+            return res.json({
+                transactions: [],
+                rawText: text,
+                meta: { method: 'python_ai_text', status: data.status || 'no_match' }
+            });
+        }
+
+        const transaction = {
+            id: Date.now() + Math.random(),
+            date: data.date || new Date().toISOString().slice(0, 10),
+            description: data.description || data.raw_message || text.slice(0, 100),
+            merchant: data.merchant || 'Unknown Merchant',
+            amount: data.amount || 0,
+            type: data.type || 'expense',
+            category: data.category || 'General',
+            status: 'Completed',
+            paymentMethod: data.paymentMethod,
+            source: 'AI_PYTHON_TEXT',
+            confidence: data.confidence
+        };
+
+        res.json({
+            transactions: [transaction],
+            rawText: text,
+            meta: {
+                method: 'python_ai_text',
+                confidence: data.confidence,
+                extractor: data.extractor
+            }
+        });
+
+    } catch (error) {
+        console.error('Proxy Error:', error);
+        res.status(500).json({
+            error: 'AI Extraction Failed',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router;

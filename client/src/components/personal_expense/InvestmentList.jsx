@@ -13,7 +13,7 @@ const CATEGORY_TONE = {
 
 const InvestmentList = ({ investments, onSelect, onAnalyze, onDelete }) => {
     const { user } = useAuth();
-    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'USD');
+    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'INR');
 
     const iconFor = (cat) => {
         switch (cat) {

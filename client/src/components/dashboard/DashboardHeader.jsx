@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     Bell,
     FileSpreadsheet,
@@ -40,13 +40,13 @@ function IconAction({ icon: Icon, label, onClick, badge, className }) {
             title={label}
             aria-label={label}
             className={cx(
-                'relative grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted transition-colors hover:bg-raised hover:text-ink',
+                'relative grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted transition-all hover:bg-raised hover:text-ink active:scale-95',
                 className
             )}
         >
             <Icon size={16} aria-hidden="true" />
             {badge > 0 ? (
-                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-pill bg-neg px-1 text-xs font-bold text-white">
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-pill bg-neg px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-bg animate-pulse">
                     {badge > 99 ? '99+' : badge}
                 </span>
             ) : null}
@@ -56,13 +56,25 @@ function IconAction({ icon: Icon, label, onClick, badge, className }) {
 
 function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange }) {
     const [showCustom, setShowCustom] = useState(false);
+    const customRef = useRef(null);
+
+    useEffect(() => {
+        if (!showCustom) return;
+        const handleOutside = (e) => {
+            if (customRef.current && !customRef.current.contains(e.target)) {
+                setShowCustom(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, [showCustom]);
 
     return (
-        <div className="relative min-w-0 max-w-full">
+        <div ref={customRef} className="relative min-w-0 max-w-full">
             <div
                 role="group"
                 aria-label="Date range"
-                className="no-scrollbar inline-flex max-w-full items-center overflow-x-auto rounded-control border border-line bg-sunken p-0.5"
+                className="no-scrollbar inline-flex max-w-full items-center overflow-x-auto rounded-control border border-line bg-sunken/80 p-0.5 backdrop-blur-sm"
             >
                 {RANGE_PRESETS.map((p) => (
                     <button
@@ -71,7 +83,7 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
                         onClick={() => onRangeChange(p.id)}
                         aria-pressed={range === p.id}
                         className={cx(
-                            'rounded-[8px] px-2.5 py-1 text-xs font-semibold transition',
+                            'whitespace-nowrap rounded-[8px] px-2.5 py-1 text-xs font-semibold transition-all',
                             range === p.id
                                 ? 'bg-surface text-ink shadow-card'
                                 : 'text-ink-muted hover:text-ink'
@@ -85,7 +97,7 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
                     onClick={() => setShowCustom((s) => !s)}
                     aria-expanded={showCustom}
                     className={cx(
-                        'rounded-[8px] px-2.5 py-1 text-xs font-semibold transition',
+                        'whitespace-nowrap rounded-[8px] px-2.5 py-1 text-xs font-semibold transition-all',
                         range === 'custom'
                             ? 'bg-surface text-ink shadow-card'
                             : 'text-ink-muted hover:text-ink'
@@ -96,10 +108,10 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
             </div>
 
             {showCustom ? (
-                <div className="absolute right-0 z-40 mt-2 w-64 rounded-card border border-line bg-surface p-3 shadow-raised">
-                    <p className="mb-2 text-xs font-bold text-ink">Custom range</p>
+                <div className="absolute right-0 z-50 mt-2 w-64 rounded-card border border-line bg-surface/95 p-3.5 shadow-raised backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                    <p className="mb-2.5 text-xs font-bold text-ink">Custom Date Range</p>
                     <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs text-ink-muted">
+                        <label className="text-xs text-ink-muted font-medium">
                             From
                             <input
                                 type="date"
@@ -107,10 +119,10 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
                                 onChange={(e) =>
                                     onCustomRangeChange({ ...customRange, from: e.target.value })
                                 }
-                                className="mt-1 w-full rounded-control border border-line bg-sunken px-2 py-1.5 text-xs text-ink"
+                                className="mt-1 w-full rounded-control border border-line bg-sunken px-2 py-1.5 text-xs text-ink focus:border-brand focus:outline-none"
                             />
                         </label>
-                        <label className="text-xs text-ink-muted">
+                        <label className="text-xs text-ink-muted font-medium">
                             To
                             <input
                                 type="date"
@@ -118,7 +130,7 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
                                 onChange={(e) =>
                                     onCustomRangeChange({ ...customRange, to: e.target.value })
                                 }
-                                className="mt-1 w-full rounded-control border border-line bg-sunken px-2 py-1.5 text-xs text-ink"
+                                className="mt-1 w-full rounded-control border border-line bg-sunken px-2 py-1.5 text-xs text-ink focus:border-brand focus:outline-none"
                             />
                         </label>
                     </div>
@@ -140,37 +152,72 @@ function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange })
 }
 
 function MoreMenu({ onOpenNotes, onOpenContacts, onOpenShare, onExportCsv, onExportPdf }) {
+    const [open, setOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setOpen(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [open]);
+
     const item =
-        'flex w-full items-center gap-2 rounded-control px-2.5 py-2 text-left text-xs font-semibold text-ink hover:bg-raised';
+        'flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-xs font-semibold text-ink transition-colors hover:bg-raised hover:text-brand';
 
     return (
-        <details className="relative">
-            <summary
-                className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-control border border-line text-ink-muted transition-colors hover:bg-raised hover:text-ink [&::-webkit-details-marker]:hidden"
-                title="More actions"
-                aria-label="More actions"
+        <div ref={menuRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                className={cx(
+                    'grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted transition-all hover:bg-raised hover:text-ink active:scale-95',
+                    open && 'border-brand/40 bg-raised text-ink ring-2 ring-brand/10'
+                )}
+                title="Tools & Export"
+                aria-label="Tools and Export"
+                aria-expanded={open}
             >
                 <MoreHorizontal size={16} aria-hidden="true" />
-            </summary>
-            <div className="absolute right-0 z-40 mt-2 w-48 rounded-card border border-line bg-surface p-1 shadow-raised">
-                <button type="button" onClick={onOpenNotes} className={item}>
-                    <StickyNote size={15} aria-hidden="true" /> Smart notes
-                </button>
-                <button type="button" onClick={onOpenContacts} className={item}>
-                    <Users size={15} aria-hidden="true" /> Contacts
-                </button>
-                <button type="button" onClick={onOpenShare} className={item}>
-                    <Share2 size={15} aria-hidden="true" /> Share
-                </button>
-                <div className="my-1 border-t border-line" />
-                <button type="button" onClick={onExportCsv} className={item}>
-                    <FileSpreadsheet size={15} aria-hidden="true" /> Export CSV
-                </button>
-                <button type="button" onClick={onExportPdf} className={item}>
-                    <FileText size={15} aria-hidden="true" /> Export PDF
-                </button>
-            </div>
-        </details>
+            </button>
+            {open && (
+                <div className="absolute right-0 z-50 mt-2 w-52 rounded-card border border-line bg-surface/95 p-1.5 shadow-raised backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-faint">
+                        Quick Hub
+                    </div>
+                    <button type="button" onClick={() => { setOpen(false); onOpenNotes(); }} className={item}>
+                        <StickyNote size={15} aria-hidden="true" className="text-amber-400" /> Smart Notes
+                    </button>
+                    <button type="button" onClick={() => { setOpen(false); onOpenContacts(); }} className={item}>
+                        <Users size={15} aria-hidden="true" className="text-sky-400" /> Contacts & Friends
+                    </button>
+                    <button type="button" onClick={() => { setOpen(false); onOpenShare(); }} className={item}>
+                        <Share2 size={15} aria-hidden="true" className="text-emerald-400" /> Share Access
+                    </button>
+                    <div className="my-1.5 border-t border-line" />
+                    <div className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-faint">
+                        Reports
+                    </div>
+                    <button type="button" onClick={() => { setOpen(false); onExportCsv(); }} className={item}>
+                        <FileSpreadsheet size={15} aria-hidden="true" className="text-teal-400" /> Export CSV Data
+                    </button>
+                    <button type="button" onClick={() => { setOpen(false); onExportPdf(); }} className={item}>
+                        <FileText size={15} aria-hidden="true" className="text-rose-400" /> Download PDF Report
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -205,80 +252,93 @@ export function DashboardHeader({
     const { isDark, toggleTheme } = useTheme();
 
     return (
-        <header className="no-print sticky top-0 z-20 border-b border-line bg-bg backdrop-blur-xl">
-            <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-2 gap-y-2 px-4 py-3 sm:px-6">
-                <div className="min-w-[140px] flex-1">
-                    <h1 className="truncate text-base font-extrabold tracking-tight text-ink">
-                        {greetingFor()}, {firstNameOf(user)}
-                    </h1>
-                    <p className="truncate text-xs text-ink-faint">
-                        {new Date().toLocaleDateString(undefined, {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                        })}
-                    </p>
+        <header className="no-print sticky top-0 z-20 border-b border-line/70 bg-bg/80 backdrop-blur-xl transition-colors duration-200">
+            <div className="mx-auto flex max-w-[1600px] flex-col gap-2.5 px-4 py-2.5 sm:px-6 md:flex-row md:items-center md:justify-between">
+                {/* Zone 1: Greeting + Search */}
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                        <h1 className="truncate text-base font-extrabold tracking-tight text-ink flex items-center gap-2">
+                            <span>{greetingFor()}, {firstNameOf(user)}</span>
+                        </h1>
+                        <p className="truncate text-xs font-medium text-ink-faint">
+                            {new Date().toLocaleDateString(undefined, {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                            })}
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onSearch}
+                        className="group hidden sm:inline-flex h-9 items-center gap-2 rounded-control border border-line bg-sunken/60 px-3 text-ink-muted transition-all hover:border-line-strong hover:bg-sunken hover:text-ink active:scale-95"
+                        aria-label="Global search"
+                    >
+                        <Search size={14} aria-hidden="true" className="text-ink-faint group-hover:text-ink" />
+                        <span className="text-xs">Search…</span>
+                        <kbd className="ml-1 rounded border border-line bg-surface/80 px-1.5 py-0.5 text-[10px] font-semibold text-ink-faint">
+                            Ctrl K
+                        </kbd>
+                    </button>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={onSearch}
-                    className="group inline-flex h-9 items-center gap-2 rounded-control border border-line bg-sunken px-3 text-ink-muted transition-colors hover:text-ink"
-                    aria-label="Global search"
-                >
-                    <Search size={15} aria-hidden="true" />
-                    <span className="hidden text-xs md:inline">Search…</span>
-                    <kbd className="ml-1 hidden rounded border border-line px-1.5 py-0.5 text-xs font-semibold text-ink-faint md:inline">
-                        Ctrl K
-                    </kbd>
-                </button>
+                {/* Zone 2: Filters, Weather, Actions */}
+                <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                    <div className="no-scrollbar overflow-x-auto py-0.5 max-w-full">
+                        <RangeFilter
+                            range={range}
+                            onRangeChange={onRangeChange}
+                            customRange={customRange}
+                            onCustomRangeChange={onCustomRangeChange}
+                        />
+                    </div>
 
-                <RangeFilter
-                    range={range}
-                    onRangeChange={onRangeChange}
-                    customRange={customRange}
-                    onCustomRangeChange={onCustomRangeChange}
-                />
+                    <div className="flex items-center gap-1.5">
+                        <WeatherChip location={weatherLocation} onClick={onOpenWeather} />
 
-                <WeatherChip location={weatherLocation} onClick={onOpenWeather} />
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                            aria-label="Toggle colour theme"
+                            className="grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted transition-all hover:bg-raised hover:text-ink active:scale-95"
+                        >
+                            {isDark ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+                        </button>
 
-                <button
-                    type="button"
-                    onClick={toggleTheme}
-                    title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-                    aria-label="Toggle colour theme"
-                    className="grid h-9 w-9 place-items-center rounded-control border border-line text-ink-muted transition-colors hover:bg-raised hover:text-ink"
-                >
-                    {isDark ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-                </button>
+                        <IconAction
+                            icon={MessageCircle}
+                            label="Messages"
+                            onClick={onOpenMessages}
+                            badge={unreadCount}
+                        />
 
-                <MoreMenu
-                    onOpenNotes={onOpenNotes}
-                    onOpenContacts={onOpenContacts}
-                    onOpenShare={onOpenShare}
-                    onExportCsv={onExportCsv}
-                    onExportPdf={onExportPdf}
-                />
-                <IconAction
-                    icon={MessageCircle}
-                    label="Messages"
-                    onClick={onOpenMessages}
-                    badge={unreadCount}
-                />
-                <div className="relative">
-                    <IconAction
-                        icon={Bell}
-                        label="Notifications"
-                        onClick={onOpenNotifications}
-                        badge={alertCount}
-                    />
-                    {notificationSlot}
+                        <div className="relative">
+                            <IconAction
+                                icon={Bell}
+                                label="Notifications"
+                                onClick={onOpenNotifications}
+                                badge={alertCount}
+                            />
+                            {notificationSlot}
+                        </div>
+
+                        <MoreMenu
+                            onOpenNotes={onOpenNotes}
+                            onOpenContacts={onOpenContacts}
+                            onOpenShare={onOpenShare}
+                            onExportCsv={onExportCsv}
+                            onExportPdf={onExportPdf}
+                        />
+
+                        <Button variant="primary" icon={Plus} onClick={onAdd} className="shadow-sm active:scale-95">
+                            <span className="hidden sm:inline">Add Entry</span>
+                            <span className="sm:hidden">Add</span>
+                        </Button>
+                    </div>
                 </div>
-
-                <Button variant="primary" icon={Plus} onClick={onAdd} className="ml-1">
-                    <span className="hidden sm:inline">Add entry</span>
-                    <span className="sm:hidden">Add</span>
-                </Button>
             </div>
         </header>
     );

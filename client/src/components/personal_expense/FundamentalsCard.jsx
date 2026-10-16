@@ -11,7 +11,7 @@ const FundamentalsCard = ({ data, isDarkMode, currencyCode }) => {
         );
     }
 
-    const symbol = symbolMap[currencyCode || 'USD'] || '$';
+    const symbol = symbolMap[currencyCode || 'INR'] || '₹';
 
     const formatNumber = (num) => {
         if (!num) return 'N/A';

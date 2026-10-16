@@ -547,7 +547,7 @@ router.get('/summary', authenticate, async (req, res) => {
             attributes: [
                 'id', 'bankName', 'cardName', 'cardType', 'expiryMonth', 'expiryYear',
                 'creditLimit', 'usedAmount', 'minPayment', 'totalDue', 'billingDate',
-                'dueDate', 'rewardPoints', 'cashback', 'annualFee', 'joiningFee',
+                'dueDate', 'rewardPoints', 'rewardRate', 'apr', 'interestFreeDays', 'cashback', 'annualFee', 'joiningFee',
                 'benefits', 'color', 'isActive', 'cardNumber'
             ]
         });
@@ -1555,8 +1555,8 @@ router.post('/gmail/sync', authenticate, async (req, res) => {
     }
 });
 
-// 5. Disconnect Gmail
-router.post('/gmail/disconnect', authenticate, async (req, res) => {
+// 5. Disconnect Gmail (supports both POST and DELETE)
+const handleGmailDisconnect = async (req, res) => {
     try {
         const result = await gmailService.disconnect(req.user.id);
         res.json(result);
@@ -1564,12 +1564,22 @@ router.post('/gmail/disconnect', authenticate, async (req, res) => {
         console.error('[Gmail Disconnect Error]', e);
         res.status(500).json({ error: e.message });
     }
-});
+};
+router.post('/gmail/disconnect', authenticate, handleGmailDisconnect);
+router.delete('/gmail/disconnect', authenticate, handleGmailDisconnect);
 
 // 6. 1-Click Apply Statement to Card
 router.post('/gmail/apply-statement', authenticate, async (req, res) => {
     try {
-        const { cardId, totalDue, minDue, dueDate, billDate, statementDetails } = req.body;
+        let { cardId, totalDue, minDue, dueDate, billDate, statementDetails, statement } = req.body;
+        if (statement && typeof statement === 'object') {
+            totalDue = totalDue || statement.totalDue;
+            minDue = minDue || statement.minDue;
+            dueDate = dueDate || statement.dueDate;
+            billDate = billDate || statement.billDate || statement.statementDate;
+            statementDetails = statementDetails || statement;
+        }
+
         if (!cardId || !totalDue) {
             return res.status(400).json({ error: 'cardId and totalDue are required' });
         }

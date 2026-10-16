@@ -13,7 +13,7 @@ const STATUS_TONE = {
 
 const InvestmentGoalsWidget = ({ goals, onAdd, onSelect, onDelete }) => {
     const { user } = useAuth();
-    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'USD');
+    const formatCurrency = (val) => formatCurrencyUtil(val, user?.currency || 'INR');
 
     return (
         <Panel>

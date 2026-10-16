@@ -289,23 +289,20 @@ const Layout = ({ children }) => {
                 )}
                 style={{ backgroundColor: theme.sidebar }}
             >
-                {/* Floating Edge Collapse / Expand Toggle Button */}
+                {/* Sleek Edge Collapse / Expand Toggle Button */}
                 <button
                     type="button"
                     onClick={toggleSidebar}
                     aria-label={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
                     title={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
                     className={cx(
-                        'absolute -right-4 top-6 z-50 hidden md:flex h-8 w-8 items-center justify-center rounded-full border-2 ring-4 ring-bg shadow-xl transition-all duration-200 cursor-pointer',
-                        collapsed
-                            ? 'border-brand bg-raised text-brand hover:scale-110 hover:bg-brand hover:text-slate-950 shadow-brand/30 active:scale-95'
-                            : 'border-brand/60 bg-raised text-brand hover:scale-110 hover:border-brand hover:bg-brand hover:text-slate-950 shadow-black/50 active:scale-95'
+                        'absolute -right-3.5 top-7 z-30 hidden md:flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface text-ink-muted ring-4 ring-bg shadow-md transition-all duration-200 cursor-pointer hover:border-brand hover:bg-brand hover:text-slate-950 hover:scale-105 active:scale-95'
                     )}
                 >
                     {collapsed ? (
-                        <ChevronRight size={16} className="stroke-[2.8]" aria-hidden="true" />
+                        <ChevronRight size={14} className="stroke-[2.5]" aria-hidden="true" />
                     ) : (
-                        <ChevronLeft size={16} className="stroke-[2.8]" aria-hidden="true" />
+                        <ChevronLeft size={14} className="stroke-[2.5]" aria-hidden="true" />
                     )}
                 </button>
 

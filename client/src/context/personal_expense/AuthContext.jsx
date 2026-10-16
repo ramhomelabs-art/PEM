@@ -1,7 +1,8 @@
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 import { API_URL } from '../../config';
+import { clearActivity, consumeLogoutReason, recordActivity, setLogoutReason } from '../../utils/session';
 
 const AuthContext = createContext();
 
@@ -11,6 +12,31 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Central logout. `reason` powers the message shown on the login screen;
+    // `notifyServer` invalidates the token server-side (covers idle + manual logout).
+    const logout = useCallback((options = {}) => {
+        const { reason = 'manual', notifyServer = true } = options;
+        const token = localStorage.getItem('token');
+
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        clearActivity();
+
+        if (reason === 'idle' || reason === 'expired') {
+            setLogoutReason(reason);
+        }
+
+        setUser(null);
+
+        if (notifyServer && token) {
+            fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                keepalive: true,
+            }).catch(() => { /* best-effort */ });
+        }
+    }, []);
+
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -18,14 +44,10 @@ export const AuthProvider = ({ children }) => {
                 const storedUser = localStorage.getItem('user');
 
                 if (token) {
-                    console.log("AuthContext: TOKEN FOUND, INITIALIZING...");
-
                     // Set optimistic user data ONLY for non-critical fields
                     if (storedUser && storedUser !== "undefined") {
                         try {
                             const parsed = JSON.parse(storedUser);
-                            console.log("AuthContext: OPTIMISTIC USER SET (basic info only)", parsed.username);
-                            // Set user with cached info, updating from server shortly
                             setUser({
                                 ...parsed,
                                 currency: parsed.currency || 'INR',
@@ -39,30 +61,27 @@ export const AuthProvider = ({ children }) => {
                     }
 
                     try {
-                        // Verify & Refresh from Server - ALWAYS use server data for critical fields
                         const res = await fetch(`${API_URL}/auth/me`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
 
                         if (res.ok) {
                             const freshData = await res.json();
-                            console.log("AuthContext: FRESH DATA FROM SERVER", freshData.username, "currency:", freshData.currency);
-                            setUser(freshData); // Always use fresh server data
+                            setUser(freshData);
                             localStorage.setItem('user', JSON.stringify(freshData));
+                            recordActivity();
                         } else if (res.status === 401 || res.status === 403) {
-                            throw new Error("Token Invalid");
+                            // Expired signature or idle-timeout: require a fresh login.
+                            setLogoutReason('expired');
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('user');
+                            clearActivity();
+                            setUser(null);
                         } else {
                             console.warn("Server validation failed but session preserved:", res.status);
                         }
                     } catch (error) {
-                        if (error.message === "Token Invalid") {
-                            console.error("Session expired:", error);
-                            localStorage.removeItem('token');
-                            localStorage.removeItem('user');
-                            setUser(null);
-                        } else {
-                            console.error("Network error validating session (offline mode):", error);
-                        }
+                        console.error("Network error validating session (offline mode):", error);
                     }
                 }
             } catch (err) {
@@ -75,28 +94,43 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, []);
 
-    const login = (userData, token) => {
-        console.log("AuthContext: LOGIN CALLED", userData.username);
+    // Keep tabs consistent: if the token is cleared in another tab, sign out here too.
+    useEffect(() => {
+        const onStorage = (e) => {
+            if (e.key === 'token' && !e.newValue) {
+                clearActivity();
+                setUser(null);
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
+
+    // Global signal emitted when the server rejects a session as idle/expired.
+    useEffect(() => {
+        const onExpired = () => logout({ reason: 'expired', notifyServer: false });
+        window.addEventListener('pem:session-expired', onExpired);
+        return () => window.removeEventListener('pem:session-expired', onExpired);
+    }, [logout]);
+
+    const login = useCallback((userData, token) => {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
+        consumeLogoutReason(); // discard any stale sign-out banner
+        recordActivity();
         setUser(userData);
-    };
+    }, []);
 
-    const updateUser = (updatedData) => {
-        const newUser = { ...user, ...updatedData };
-        // Deep merge preferences if they exist in both
-        if (user.preferences && updatedData.preferences) {
-            newUser.preferences = { ...user.preferences, ...updatedData.preferences };
-        }
-        localStorage.setItem('user', JSON.stringify(newUser));
-        setUser(newUser);
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-    };
+    const updateUser = useCallback((updatedData) => {
+        setUser((prev) => {
+            const newUser = { ...prev, ...updatedData };
+            if (prev?.preferences && updatedData?.preferences) {
+                newUser.preferences = { ...prev.preferences, ...updatedData.preferences };
+            }
+            localStorage.setItem('user', JSON.stringify(newUser));
+            return newUser;
+        });
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
