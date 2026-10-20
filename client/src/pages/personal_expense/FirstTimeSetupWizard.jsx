@@ -106,6 +106,11 @@ export default function FirstTimeSetupWizard() {
         const fetchStatus = async () => {
             try {
                 const res = await axios.get(`${API_URL}/server/setup-status`);
+                // If setup is already finished, immediately lock down and redirect
+                if (res.data?.setupCompleted === true || (res.data?.isInitialized === true && res.data?.adminExists === true)) {
+                    navigate(authUser ? '/' : '/login', { replace: true });
+                    return;
+                }
                 if (res.data?.adminExists && res.data?.adminUser) {
                     setAccountForm(prev => ({
                         ...prev,
@@ -315,15 +320,22 @@ export default function FirstTimeSetupWizard() {
         }
     }, [currentStep, fetchHealthDiagnostics]);
 
-    const handleEnterDashboard = () => {
+    const handleEnterDashboard = async () => {
         const token = sessionToken || localStorage.getItem('token');
+        try {
+            await axios.post(`${API_URL}/server/complete-setup`, {}, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+        } catch (e) {
+            console.warn('Could not mark setup complete:', e);
+        }
         if (token) {
             localStorage.setItem('token', token);
         }
         if (createdUser) {
             localStorage.setItem('user', JSON.stringify(createdUser));
         }
-        window.location.href = '/dashboard';
+        window.location.href = '/';
     };
 
     return (

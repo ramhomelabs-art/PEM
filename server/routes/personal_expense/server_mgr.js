@@ -24,8 +24,17 @@ router.get('/ping', (req, res) => res.json({ message: 'PONG from server_mgr' }))
 // but admin PII is only returned to an authenticated admin caller.
 router.get('/setup-status', async (req, res) => {
     try {
+        const bootstrapFile = path.join(__dirname, '../../data/admin-bootstrap-password.txt');
+        const hasBootstrapDummy = fs.existsSync(bootstrapFile);
+
+        const { isSetupCompleted } = require('../../utils/settings');
+        const setupCompleted = isSetupCompleted();
+
         const admin = await User.findOne({ where: { role: 'admin' } });
         const totalUsers = await User.count().catch(() => 0);
+
+        // System is initialized ONLY when setup is marked complete or admin was explicitly configured
+        const isInitialized = setupCompleted || (!!admin && !hasBootstrapDummy && !!process.env.ADMIN_PASSWORD);
 
         let isAdminCaller = false;
         const authHeader = req.headers['authorization'];
@@ -41,8 +50,9 @@ router.get('/setup-status', async (req, res) => {
         }
 
         res.json({
-            isInitialized: !!admin,
-            adminExists: !!admin,
+            isInitialized,
+            setupCompleted: isInitialized,
+            adminExists: !!admin && !hasBootstrapDummy,
             adminUser: (admin && isAdminCaller) ? {
                 username: admin.username,
                 email: admin.email,
@@ -57,6 +67,21 @@ router.get('/setup-status', async (req, res) => {
     }
 });
 
+// --- COMPLETE SETUP (Marks setup as permanently finished and locked) ---
+router.post('/complete-setup', async (req, res) => {
+    try {
+        const { markSetupCompleted } = require('../../utils/settings');
+        markSetupCompleted(true);
+        const bootstrapFile = path.join(__dirname, '../../data/admin-bootstrap-password.txt');
+        if (fs.existsSync(bootstrapFile)) {
+            try { fs.unlinkSync(bootstrapFile); } catch {}
+        }
+        res.json({ success: true, message: 'Setup finalized and locked successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- INITIAL SETUP & SERVER MANAGEMENT ROOT ACCOUNT CREATION (WITHOUT MFA) ---
 router.post('/initial-setup', async (req, res) => {
     try {
@@ -68,17 +93,20 @@ router.post('/initial-setup', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters long' });
         }
 
-        // Bootstrap is only permitted on a truly empty database (zero users).
-        // If ANY user exists, admin credentials are required — otherwise deleting
-        // the last admin would let an unauthenticated attacker mint a new root admin.
+        const bootstrapFile = path.join(__dirname, '../../data/admin-bootstrap-password.txt');
+        const hasBootstrapDummy = fs.existsSync(bootstrapFile);
+        const { isSetupCompleted, markSetupCompleted } = require('../../utils/settings');
+        const setupCompleted = isSetupCompleted();
+
         const userCount = await User.count();
         const existingAdmin = await User.findOne({ where: { role: 'admin' } });
 
-        if (userCount > 0) {
+        // If setup is already finished and not recovering from a dummy bootstrap:
+        if (setupCompleted && !hasBootstrapDummy && userCount > 0) {
             const authHeader = req.headers['authorization'];
             const token = authHeader && authHeader.split(' ')[1];
             if (!token) {
-                return res.status(403).json({ error: 'Server is already initialized. Please log in with existing admin credentials to modify the server management account.' });
+                return res.status(403).json({ error: 'Setup is already completed and locked. Please log in with existing admin credentials to modify the server management account.' });
             }
             const jwt = require('jsonwebtoken');
             const { JWT_SECRET } = require('../../config/auth');
@@ -90,9 +118,6 @@ router.post('/initial-setup', async (req, res) => {
             } catch (tokErr) {
                 return res.status(403).json({ error: 'Invalid or expired authentication token' });
             }
-        } else if (existingAdmin) {
-            // Defensive: no users counted but an admin row somehow exists.
-            return res.status(409).json({ error: 'Server already has an administrator. Please sign in as admin.' });
         }
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
@@ -154,6 +179,12 @@ router.post('/initial-setup', async (req, res) => {
         } catch (mfaErr) {
             console.warn('[Server Mgr] Could not prune old MFA records:', mfaErr.message);
         }
+
+        // Clean up bootstrap file if it existed
+        if (fs.existsSync(bootstrapFile)) {
+            try { fs.unlinkSync(bootstrapFile); } catch {}
+        }
+        markSetupCompleted(true);
 
         // Generate immediate JWT token for seamless continuation in setup wizard
         const jwt = require('jsonwebtoken');

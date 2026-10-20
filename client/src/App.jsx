@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/personal_expense/AuthContext';
 import { ThemeProvider } from './context/personal_expense/ThemeContext';
 import { CreditCardProvider } from './context/credit_card/CreditCardContext';
@@ -7,6 +7,7 @@ import { CardSessionProvider } from './context/credit_card/CardSessionContext';
 import { CategoryProvider } from './context/CategoryContext';
 import { SmartNotesProvider } from './context/personal_expense/SmartNotesContext';
 import { ToastProvider } from './context/ToastContext';
+import { API_URL } from './config';
 
 import Layout from './components/personal_expense/Layout';
 import CreditCardLayout from './components/credit_card/CreditCardLayout';
@@ -51,13 +52,6 @@ const MonthlyBills = lazy(() => import('./pages/credit_card/MonthlyBills'));
 const CreditCardAutoStatement = lazy(() => import('./pages/credit_card/CreditCardAutoStatement'));
 const CreditCardRewards = lazy(() => import('./pages/credit_card/CreditCardRewards'));
 
-const PrivateRoute = ({ children, role }) => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
-  return children;
-};
-
 const PageLoader = () => (
   <div className="flex h-screen w-full items-center justify-center bg-sunken text-ink-muted">
     <div className="flex flex-col items-center gap-3">
@@ -66,6 +60,74 @@ const PageLoader = () => (
     </div>
   </div>
 );
+
+// Private Route Guard: requires authenticated user, redirects to /setup if uninitialized
+const PrivateRoute = ({ children, role }) => {
+  const { user } = useAuth();
+  const [checkingSetup, setCheckingSetup] = useState(!user);
+  const [needsSetup, setNeedsSetup] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setCheckingSetup(false);
+      return;
+    }
+    let isMounted = true;
+    fetch(`${API_URL}/server/setup-status`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        if (data && (data.setupCompleted === false || data.isInitialized === false || data.adminExists === false)) {
+          setNeedsSetup(true);
+        }
+        setCheckingSetup(false);
+      })
+      .catch(() => {
+        if (isMounted) setCheckingSetup(false);
+      });
+    return () => { isMounted = false; };
+  }, [user]);
+
+  if (checkingSetup) return <PageLoader />;
+  if (!user) {
+    if (needsSetup) return <Navigate to="/setup" replace />;
+    return <Navigate to="/login" replace />;
+  }
+  if (role && user.role !== role) return <Navigate to="/" replace />;
+  return children;
+};
+
+// Setup Route Guard: only accessible when setup is NOT completed; locks down once completed
+const SetupRoute = ({ children }) => {
+  const [checking, setChecking] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`${API_URL}/server/setup-status`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        // If setup is marked complete or already initialized with an admin account, lock the setup page
+        if (data && (data.setupCompleted === true || data.isInitialized === true)) {
+          setIsLocked(true);
+          navigate(user ? '/' : '/login', { replace: true });
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setChecking(false);
+      });
+    return () => { isMounted = false; };
+  }, [user, navigate]);
+
+  if (checking) return <PageLoader />;
+  if (isLocked) return <Navigate to={user ? '/' : '/login'} replace />;
+  return children;
+};
 
 function App() {
   return (
@@ -82,6 +144,7 @@ function App() {
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/login" element={<Login />} />
+                        <Route path="/dashboard" element={<Navigate to="/" replace />} />
                         <Route path="/mfa-setup" element={<MfaSetup />} />
                         <Route path="/mfa/setup" element={<MfaSetup />} />
                         <Route path="/mfa-verify" element={<MfaVerify />} />
@@ -128,12 +191,20 @@ function App() {
 
                         <Route
                           path="/server-setup"
-                          element={<FirstTimeSetupWizard />}
+                          element={
+                            <SetupRoute>
+                              <FirstTimeSetupWizard />
+                            </SetupRoute>
+                          }
                         />
 
                         <Route
                           path="/setup"
-                          element={<FirstTimeSetupWizard />}
+                          element={
+                            <SetupRoute>
+                              <FirstTimeSetupWizard />
+                            </SetupRoute>
+                          }
                         />
 
                         <Route

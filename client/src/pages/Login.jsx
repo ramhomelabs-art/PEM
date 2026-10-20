@@ -46,12 +46,13 @@ const Login = () => {
         fetch(`${API_URL}/server/setup-status`)
             .then(res => res.json())
             .then(data => {
-                if (data && data.adminExists === false) {
+                if (data && (data.setupCompleted === false || data.isInitialized === false || data.adminExists === false)) {
                     setNeedsSetup(true);
+                    navigate('/setup', { replace: true });
                 }
             })
             .catch(() => {});
-    }, []);
+    }, [navigate]);
 
     const handleRememberMeChange = (e) => {
         const checked = e.target.checked;

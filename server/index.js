@@ -320,54 +320,55 @@ const initializeDatabase = async () => {
         await sequelize.sync(); // Sync without alter to avoid key limit errors
         console.log(`Database & tables synced (${process.env.NODE_ENV || 'development'} mode).`);
 
-        // Seed Admin (email/password configurable; no hardcoded default password)
+        // Seed Admin ONLY if explicit ADMIN_PASSWORD is provided in environment
         const adminKey = require('crypto').randomBytes(16).toString('hex');
-        const adminEmail = process.env.ADMIN_EMAIL || 'rampaiyyan@gmail.com';
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
         const providedPassword = process.env.ADMIN_PASSWORD;
-        const existingAdmin = await User.findOne({ where: { email: adminEmail } });
+        const bootstrapFile = path.join(__dirname, 'data', 'admin-bootstrap-password.txt');
+        const { isSetupCompleted, markSetupCompleted } = require('./utils/settings');
 
-        if (!existingAdmin) {
-            const bcrypt = require('bcryptjs');
-            const adminPassword = providedPassword || require('crypto').randomBytes(12).toString('base64url');
-            const hashedPassword = await bcrypt.hash(adminPassword, 10);
-            await User.create({
-                email: adminEmail,
-                username: process.env.ADMIN_USERNAME || 'admin',
-                fullName: 'Ram Paiyyan',
-                password: hashedPassword,
-                role: 'admin',
-                status: 'active',
-                mfaExempt: true,
-                country: 'India',
-                currency: 'INR',
-                timezone: 'IST (UTC+5:30)',
-                mobile: '+91 98765 43210',
-                dob: '1995-12-23',
-                smsApiKey: adminKey
-            });
-            if (providedPassword) {
-                console.log(`Admin account auto-seeded: ${adminEmail}`);
+        if (providedPassword && providedPassword.trim() !== '') {
+            const existingAdmin = await User.findOne({ where: { email: adminEmail } });
+            if (!existingAdmin) {
+                const bcrypt = require('bcryptjs');
+                const hashedPassword = await bcrypt.hash(providedPassword.trim(), 10);
+                await User.create({
+                    email: adminEmail,
+                    username: process.env.ADMIN_USERNAME || 'admin',
+                    fullName: 'Server Administrator',
+                    password: hashedPassword,
+                    role: 'admin',
+                    status: 'active',
+                    mfaExempt: true,
+                    country: 'India',
+                    currency: 'INR',
+                    timezone: 'IST (UTC+5:30)',
+                    mobile: '+91 98765 43210',
+                    dob: '1995-12-23',
+                    smsApiKey: adminKey
+                });
+                markSetupCompleted(true);
+                console.log(`Admin account auto-seeded with provided ADMIN_PASSWORD: ${adminEmail}`);
             } else {
-                // Never print the generated password to the console (it can leak via
-                // aggregated logs). Persist it to a gitignored file for the operator.
-                const bootstrapFile = path.join(__dirname, 'data', 'admin-bootstrap-password.txt');
-                try {
-                    fs.mkdirSync(path.dirname(bootstrapFile), { recursive: true });
-                    fs.writeFileSync(bootstrapFile,
-                        `Admin: ${adminEmail}\nTemp password: ${adminPassword}\nChange it after first login.\n`,
-                        { mode: 0o600 });
-                    try { fs.chmodSync(bootstrapFile, 0o600); } catch { /* Windows may not support chmod */ }
-                    console.log(`Admin account auto-seeded: ${adminEmail} | Temporary password written to ${bootstrapFile} (not shown in logs).`);
-                } catch (wErr) {
-                    console.log(`Admin account auto-seeded: ${adminEmail} | Warning: could not persist temp password (${wErr.message}). Set ADMIN_PASSWORD to control it.`);
+                markSetupCompleted(true);
+                if (!existingAdmin.smsApiKey) {
+                    await existingAdmin.update({ smsApiKey: adminKey });
                 }
+                console.log(`Admin account already exists: ${adminEmail}`);
             }
         } else {
-            if (!existingAdmin.smsApiKey) {
-                await existingAdmin.update({ smsApiKey: adminKey });
-                console.log('Admin account updated: Added missing smsApiKey');
+            // No ADMIN_PASSWORD provided: server operates in Setup Wizard mode
+            // Prune any legacy bootstrap dummy admin that was auto-created with unknown temp password
+            if (fs.existsSync(bootstrapFile)) {
+                try {
+                    await User.destroy({ where: { email: adminEmail } });
+                    fs.unlinkSync(bootstrapFile);
+                    console.log(`[Setup] Cleaned up temporary bootstrap admin (${adminEmail}) to allow Setup Wizard at /setup.`);
+                } catch (bErr) {
+                    console.warn('[Setup] Could not prune bootstrap admin:', bErr.message);
+                }
             } else {
-                console.log(`Admin account already exists: ${adminEmail}`);
+                console.log('[Setup] No ADMIN_PASSWORD provided. Initial Setup Wizard active at /setup.');
             }
         }
 

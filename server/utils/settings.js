@@ -10,6 +10,7 @@ if (!fs.existsSync(path.dirname(SETTINGS_FILE))) {
 
 // Default Settings
 const DEFAULT_SETTINGS = {
+    setupCompleted: false,
     signupLocked: false,
     // Account-recovery email delivery (configured from the admin Profile UI).
     // `smtpPassEnc` is stored encrypted via utils/secretBox and never returned.
@@ -51,6 +52,15 @@ const saveSettings = (newSettings) => {
     }
 };
 
+const isSetupCompleted = () => {
+    const s = getSettings();
+    return Boolean(s.setupCompleted);
+};
+
+const markSetupCompleted = (completed = true) => {
+    return saveSettings({ setupCompleted: Boolean(completed) });
+};
+
 // Merge the stored mail config over the defaults so callers always get a full shape.
 const getMailSettings = () => {
     const s = getSettings();
@@ -63,5 +73,13 @@ const saveMailSettings = (partial) => {
     return saveSettings({ mail: merged }).mail;
 };
 
-module.exports = { getSettings, saveSettings, getMailSettings, saveMailSettings, DEFAULT_SETTINGS };
+module.exports = {
+    getSettings,
+    saveSettings,
+    isSetupCompleted,
+    markSetupCompleted,
+    getMailSettings,
+    saveMailSettings,
+    DEFAULT_SETTINGS
+};
 
