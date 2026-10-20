@@ -142,7 +142,18 @@ const CreditCardLayout = () => {
                         </div>
                     </div>
 
-                    <div className="mt-5">{lockButton}</div>
+                    <div className="mt-5 flex items-center gap-2">
+                        <div className="flex-1">{lockButton}</div>
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                            aria-label="Toggle colour theme"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-line bg-raised text-ink-muted shadow-sm transition hover:border-line-strong hover:text-ink"
+                        >
+                            {isDark ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-indigo-500" />}
+                        </button>
+                    </div>
                 </div>
 
                 <NavItems pathname={location.pathname} onNavigate={go} />

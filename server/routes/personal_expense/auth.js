@@ -257,9 +257,19 @@ router.post('/login', async (req, res) => {
             const mfaService = require('../../services/mfaService');
             const mfaInit = await mfaService.initiateLogin(user.id, req.ip, req.headers['user-agent']);
 
+            // Short-lived ticket proving the password factor already passed. The
+            // TOTP/backup-code endpoint requires this so a bare 6-digit code can't
+            // be used as a passwordless login. Must match routes/mfa/index.js.
+            const mfaChallenge = jwt.sign(
+                { id: user.id, username: user.username, role: user.role, purpose: 'mfa_challenge' },
+                JWT_SECRET,
+                { expiresIn: '10m' }
+            );
+
             return res.json({
                 success: true,
                 ...mfaInit,
+                mfaChallenge,
                 userId: user.id,
                 username: user.username
             });
@@ -274,6 +284,12 @@ router.post('/login', async (req, res) => {
 
 
         const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        // Fire-and-forget security alert: never blocks sign-in if SMTP is down.
+        require('../../services/loginAlertService')
+            .notifyLogin(req, user, { method: 'password' })
+            .catch(() => {});
+
         res.json({
             message: 'Login successful',
             token,
@@ -583,12 +599,7 @@ router.post('/recovery/email-config/test', authenticateToken, requireAdmin, asyn
         const to = (req.body?.to || user?.email || '').trim();
         if (!to) return res.status(400).json({ error: 'No recipient address available' });
 
-        const result = await mailer.sendMail({
-            to,
-            subject: 'PEM Pro — Recovery email test',
-            text: 'This is a test email confirming your PEM Pro recovery email configuration works.',
-            html: '<p>This is a test email confirming your PEM Pro recovery email configuration works.</p>'
-        });
+        const result = await mailer.sendTestEmail(to);
 
         if (result.delivered) {
             return res.json({ success: true, delivered: true, message: `Test email sent to ${to}.` });

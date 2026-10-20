@@ -427,7 +427,7 @@ const Loans = () => {
                 />
                 <StatTile label="Monthly EMI" value={money(monthlyEmi)} tone="warn" icon={Wallet} />
                 <StatTile label="Active loans" value={activeLoans.length} tone="info" icon={Landmark} />
-                <StatTile label="Total borrowed" value={money(totalBorrowed)} tone="violet" icon={Building2} />
+                <StatTile label="Total borrowed" value={money(totalBorrowed)} tone="brand" icon={Building2} />
             </div>
 
             {loading ? (

@@ -14,7 +14,10 @@ const SESSION_FORBIDDEN_PURPOSES = ['password_reset', 'recovery_check', 'mfa_cha
 
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    let token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    if (!token && req.query && typeof req.query.token === 'string') {
+        token = req.query.token;
+    }
 
     if (!token) return res.status(401).json({ error: 'Access Denied: No Token Provided' });
 

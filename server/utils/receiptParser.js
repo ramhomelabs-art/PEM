@@ -1,5 +1,21 @@
 const { categorize } = require('./smsParser');
 
+function isSupportedImage(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length < 12) return false;
+    // JPEG: FF D8 FF
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true;
+    // WebP: RIFF ... WEBP
+    if (buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WEBP') return true;
+    // BMP: BM
+    if (buf[0] === 0x42 && buf[1] === 0x4D) return true;
+    // TIFF: II*. or MM.*
+    if ((buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2A && buf[3] === 0x00) ||
+        (buf[0] === 0x4D && buf[1] === 0x4D && buf[2] === 0x00 && buf[3] === 0x2A)) return true;
+    return false;
+}
+
 /**
  * Extracts raw text from an image or PDF buffer.
  * Supports tesseract.js for image OCR and pdf-parse for PDF text extraction.
@@ -34,10 +50,20 @@ async function extractTextFromFile({ buffer, mimetype = '', originalname = '' })
         }
     }
 
-    // 2. Image OCR via Tesseract.js
+    // 2. Image OCR via Tesseract.js (verify image header before parsing to avoid worker crash)
+    if (!isSupportedImage(buffer)) {
+        return '';
+    }
+
     try {
         const Tesseract = require('tesseract.js');
-        const res = await Tesseract.recognize(buffer, 'eng');
+        const worker = await Tesseract.createWorker('eng', 1, {
+            errorHandler: (err) => {
+                console.warn('[ReceiptParser] Worker error caught:', err?.message || err);
+            }
+        });
+        const res = await worker.recognize(buffer);
+        await worker.terminate().catch(() => {});
         return res?.data?.text || '';
     } catch (ocrErr) {
         console.warn('[ReceiptParser] Tesseract OCR extraction warning:', ocrErr.message);

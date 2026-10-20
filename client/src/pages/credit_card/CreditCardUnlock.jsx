@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CreditCard, ArrowLeft, Eye, EyeOff, Lock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { CreditCard, ArrowLeft, Eye, EyeOff, Lock, ShieldCheck, AlertCircle, Sun, Moon } from 'lucide-react';
 import { useCardSession } from '../../context/credit_card/CardSessionContext';
+import { useTheme } from '../../context/personal_expense/ThemeContext';
 import { Button } from '../../components/ui/primitives';
 import { cx } from '../../components/ui/cx';
 
 const CreditCardUnlock = () => {
     const navigate = useNavigate();
     const { unlock } = useCardSession();
+    const { isDark, toggleTheme } = useTheme();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -28,20 +30,51 @@ const CreditCardUnlock = () => {
     };
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="absolute left-6 top-6 inline-flex items-center gap-2 text-sm font-bold text-ink-muted transition hover:text-ink"
-            >
-                <ArrowLeft size={18} aria-hidden="true" /> Back to Dashboard
-            </button>
+        <div className="relative flex min-h-screen items-center justify-center bg-bg px-4 py-12 transition-colors duration-200">
+            {/* Top Navigation Bar with Theme Switcher */}
+            <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4 border-b border-line bg-surface/80 backdrop-blur-md">
+                <button
+                    type="button"
+                    onClick={() => navigate('/')}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-ink-muted transition hover:text-ink"
+                >
+                    <ArrowLeft size={16} aria-hidden="true" /> Back to Dashboard
+                </button>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={toggleTheme}
+                        title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                        aria-label="Toggle colour theme"
+                        className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-1.5 text-xs font-bold text-ink-muted shadow-sm transition hover:bg-raised hover:text-ink"
+                    >
+                        {isDark ? (
+                            <>
+                                <Sun size={15} className="text-amber-400" aria-hidden="true" />
+                                <span>Light Mode</span>
+                            </>
+                        ) : (
+                            <>
+                                <Moon size={15} className="text-indigo-500" aria-hidden="true" />
+                                <span>Dark Mode</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Ambient Background Glow */}
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,var(--pem-accent-soft),transparent_60%)] opacity-70"
+            />
 
             <motion.div
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="w-full max-w-md rounded-card border border-line bg-surface p-8 shadow-raised"
+                className="relative z-10 w-full max-w-md rounded-card border border-line bg-surface p-8 shadow-card md:shadow-raised transition-colors duration-200"
             >
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-[18px] bg-brand-soft text-brand">
                     <CreditCard size={30} aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { API_URL, BASE_URL } from '../../config';
 import { useAuth } from '../../context/personal_expense/AuthContext';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
@@ -10,15 +10,125 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import { symbolFor } from '../../utils/currency';
+
+const formatMoney = (val, currency) => {
+    const symbol = symbolFor(currency || 'INR');
+    return `${symbol}${Number(val).toLocaleString()}`;
+};
+
+// Payment history modal. Lives at module scope (never defined inside a render
+// function) and is memoized so unrelated Archive re-renders cannot remount it.
+// It owns its own loading state and an id-keyed cache, so opening/closing never
+// re-renders the list behind it and a fetch never blocks the close.
+const PaymentHistoryModal = memo(function PaymentHistoryModal({ isOpen, record, theme, currency, onClose }) {
+    const [payments, setPayments] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const cacheRef = useRef(new Map());
+    const reqIdRef = useRef(0);
+
+    useEffect(() => {
+        if (!isOpen || !record) return undefined;
+
+        const cached = cacheRef.current.get(record.id);
+        if (cached) {
+            setPayments(cached);
+            setLoading(false);
+            return undefined;
+        }
+
+        const reqId = ++reqIdRef.current;
+        let cancelled = false;
+        setLoading(true);
+        setPayments(null);
+
+        (async () => {
+            let list = [];
+            try {
+                const res = await fetch(`${API_URL}/borrow/${record.id}/payments`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const data = res.ok ? await res.json() : [];
+                list = Array.isArray(data) ? data : [];
+            } catch {
+                console.error("History fetch failed");
+            }
+            if (cancelled || reqId !== reqIdRef.current) return;
+            cacheRef.current.set(record.id, list);
+            setPayments(list);
+            setLoading(false);
+        })();
+
+        return () => { cancelled = true; };
+    }, [isOpen, record]);
+
+    return (
+        <AnimatePresence>
+            {isOpen && record && (
+                <div key="history-modal" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        onClick={onClose}
+                        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.8)' }}
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20, willChange: 'opacity, transform' }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                            <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text }}>Payment History &amp; Notes</h2>
+                            <button type="button" aria-label="Close payment history" onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer' }}>
+                                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px', overflowY: 'auto' }}>
+                            {loading ? (
+                                [0, 1, 2].map(i => (
+                                    <div key={i} style={{ padding: '15px', backgroundColor: theme.inputBg, borderRadius: '16px', opacity: 1 - i * 0.25 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <span className="pem-skeleton" style={{ height: '14px', width: '35%', borderRadius: '7px' }} />
+                                            <span className="pem-skeleton" style={{ height: '14px', width: '22%', borderRadius: '7px' }} />
+                                        </div>
+                                        <span className="pem-skeleton" style={{ display: 'block', height: '12px', width: '70%', borderRadius: '6px' }} />
+                                    </div>
+                                ))
+                            ) : (
+                                payments?.length > 0 ? (
+                                    payments.map((p, i) => (
+                                        <div key={i} style={{ padding: '15px', backgroundColor: theme.inputBg, borderRadius: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span style={{ fontWeight: 'bold', color: '#10b981' }}>{formatMoney(p.amount, currency)}</span>
+                                                <span style={{ fontSize: '12px', color: theme.textSecondary }}>{new Date(p.paymentDate).toLocaleDateString()}</span>
+                                            </div>
+                                            {p.notes && <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary }}>&quot;{p.notes}&quot;</p>}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p style={{ color: theme.textSecondary, textAlign: 'center' }}>No recorded payments found.</p>
+                                )
+                            )}
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+    );
+});
 
 const Archive = () => {
     const { user } = useAuth();
     const { theme } = useTheme();
     const [archivedLoans, setArchivedLoans] = useState([]);
     const [settledBorrows, setSettledBorrows] = useState([]);
-    const [historyModalOpen, setHistoryModalOpen] = useState(false);
-    const [selectedHistory, setSelectedHistory] = useState(null);
-    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyRecord, setHistoryRecord] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [timeFilter, setTimeFilter] = useState('all');
@@ -141,7 +251,7 @@ const Archive = () => {
     const exportToPDF = () => {
         setIsExporting(true);
         const doc = new jsPDF();
-        const symbol = user?.currency === 'INR' ? 'Rs.' : '$';
+        const symbol = symbolFor(user?.currency || 'INR');
 
         doc.setFontSize(22);
         doc.setTextColor(16, 185, 129);
@@ -208,27 +318,10 @@ const Archive = () => {
         setIsExporting(false);
     };
 
-    const fetchHistory = async (record) => {
-        setHistoryLoading(true);
-        setSelectedHistory(record);
-        setHistoryModalOpen(true);
-        try {
-            const res = await fetch(`${API_URL}/borrow/${record.id}/payments`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setSelectedHistory(prev => ({ ...prev, payments: data }));
-            }
-        } catch {
-            console.error("History fetch failed");
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
+    const closeHistory = useCallback(() => setHistoryRecord(null), []);
 
     const formatCurrency = (val) => {
-        const symbol = user?.currency === 'INR' ? '₹' : '$';
+        const symbol = symbolFor(user?.currency || 'INR');
         return `${symbol}${Number(val).toLocaleString()}`;
     };
 
@@ -395,7 +488,7 @@ const Archive = () => {
                                                 Date: {new Date(record.date).toLocaleDateString()}
                                             </div>
                                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                                <button onClick={() => fetchHistory(record)} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); setHistoryRecord(record); }} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                     <ReceiptText size={14} /> View History
                                                 </button>
                                                 <button onClick={() => setConfirmDialog({ isOpen: true, type: 'borrow', id: record.id })} style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', padding: '5px', borderRadius: '8px', backgroundColor: 'rgba(244,63,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete Archive">
@@ -411,39 +504,13 @@ const Archive = () => {
                 )}
             </div>
 
-            <AnimatePresence>
-                {historyModalOpen && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryModalOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(12px)' }} />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                                <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text }}>Payment History & Notes</h2>
-                                <button onClick={() => setHistoryModalOpen(false)} style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer' }}><Plus size={24} style={{ transform: 'rotate(45deg)' }} /></button>
-                            </div>
-
-                            {historyLoading ? (
-                                <p style={{ color: theme.textSecondary }}>Loading...</p>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '400px', overflowY: 'auto' }}>
-                                    {selectedHistory?.payments?.length > 0 ? (
-                                        selectedHistory.payments.map((p, i) => (
-                                            <div key={i} style={{ padding: '15px', backgroundColor: theme.inputBg, borderRadius: '16px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                                    <span style={{ fontWeight: 'bold', color: '#10b981' }}>{formatCurrency(p.amount)}</span>
-                                                    <span style={{ fontSize: '12px', color: theme.textSecondary }}>{new Date(p.paymentDate).toLocaleDateString()}</span>
-                                                </div>
-                                                {p.notes && <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary }}>&quot;{p.notes}&quot;</p>}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p style={{ color: theme.textSecondary, textAlign: 'center' }}>No recorded payments found.</p>
-                                    )}
-                                </div>
-                            )}
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <PaymentHistoryModal
+                isOpen={!!historyRecord}
+                record={historyRecord}
+                theme={theme}
+                currency={user?.currency}
+                onClose={closeHistory}
+            />
         </div>
     );
 };

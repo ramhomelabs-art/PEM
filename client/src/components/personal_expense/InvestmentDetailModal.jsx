@@ -8,7 +8,7 @@ import TechnicalIndicatorsWidget from './TechnicalIndicatorsWidget';
 import CompanyNewsWidget from './CompanyNewsWidget';
 import { useTheme } from '../../context/personal_expense/ThemeContext';
 import { useAuth } from '../../context/personal_expense/AuthContext';
-import { formatCurrency as formatCurrencyUtil, symbolMap } from '../../utils/currency';
+import { formatCurrency as formatCurrencyUtil, symbolMap, symbolFor } from '../../utils/currency';
 import CurrencyIcon from '../ui/CurrencyIcon';
 
 
@@ -383,7 +383,7 @@ const InvestmentDetailModal = ({ investment, isOpen, onClose, onUpdate, initialT
                                             contentStyle={{ backgroundColor: 'var(--pem-surface-raised)', border: 'none', borderRadius: '8px' }}
                                             itemStyle={{ color: '#10b981' }}
                                             labelFormatter={(l) => new Date(l).toLocaleDateString()}
-                                            formatter={(value) => [`${symbolMap[user?.currency] || '$'}${value}`, 'Value']}
+                                            formatter={(value) => [`${symbolFor(user?.currency || 'INR')}${value}`, 'Value']}
                                         />
                                         <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorValue)" strokeWidth={3} />
                                     </AreaChart>
@@ -505,13 +505,13 @@ const InvestmentDetailModal = ({ investment, isOpen, onClose, onUpdate, initialT
                                                 <YAxis
                                                     domain={['auto', 'auto']}
                                                     tick={{ fill: '#64748b', fontSize: 10 }}
-                                                    tickFormatter={(v) => `${symbolMap[user?.currency] || '$'}${v}`}
+                                                    tickFormatter={(v) => `${symbolFor(user?.currency || 'INR')}${v}`}
                                                 />
                                                 <Tooltip
                                                     contentStyle={{ backgroundColor: 'var(--pem-surface-raised)', border: 'none', borderRadius: '8px' }}
                                                     itemStyle={{ color: '#c4b5fd' }}
                                                     labelFormatter={(l) => new Date(l).toLocaleDateString()}
-                                                    formatter={(value) => [`${symbolMap[user?.currency] || '$'}${Number(value).toFixed(2)}`, 'Market Price']}
+                                                    formatter={(value) => [`${symbolFor(user?.currency || 'INR')}${Number(value).toFixed(2)}`, 'Market Price']}
                                                 />
                                                 <Area type="monotone" dataKey="close" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorMarket)" strokeWidth={2} />
                                             </AreaChart>
@@ -570,7 +570,7 @@ const InvestmentDetailModal = ({ investment, isOpen, onClose, onUpdate, initialT
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '8px' }}>AMOUNT ({symbolMap[user?.currency] || '$'})</label>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '8px' }}>AMOUNT ({symbolFor(user?.currency || 'INR')})</label>
                                     <input type="number" required value={txnForm.amount} onChange={e => setTxnForm({ ...txnForm, amount: e.target.value })} style={{ width: '100%', padding: '12px', backgroundColor: 'var(--pem-surface-raised)', border: '1px solid var(--pem-border)', borderRadius: '12px', color: 'var(--pem-text)', fontWeight: 'bold' }} />
                                 </div>
                                 <div>

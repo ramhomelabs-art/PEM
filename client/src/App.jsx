@@ -37,6 +37,7 @@ const Budgets = lazy(() => import('./pages/personal_expense/Budgets'));
 const Automation = lazy(() => import('./pages/personal_expense/Automation'));
 const InvestmentDashboard = lazy(() => import('./pages/investment/InvestmentDashboard'));
 const ServerManager = lazy(() => import('./pages/personal_expense/ServerManager'));
+const FirstTimeSetupWizard = lazy(() => import('./pages/personal_expense/FirstTimeSetupWizard'));
 const MfaManager = lazy(() => import('./pages/personal_expense/MfaManager'));
 const SharedView = lazy(() => import('./pages/personal_expense/SharedView'));
 
@@ -127,7 +128,12 @@ function App() {
 
                         <Route
                           path="/server-setup"
-                          element={<ServerManager initialSetupMode={true} />}
+                          element={<FirstTimeSetupWizard />}
+                        />
+
+                        <Route
+                          path="/setup"
+                          element={<FirstTimeSetupWizard />}
                         />
 
                         <Route

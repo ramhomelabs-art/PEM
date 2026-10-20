@@ -51,9 +51,14 @@ app.use(hpp());    // HTTP Parameter Pollution protection
 // Rate Limiting (Applied globally, stricter on auth/sms)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // increased limit for dev
+    max: process.env.API_RATE_LIMIT ? parseInt(process.env.API_RATE_LIMIT, 10) : 10000,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        // Skip general rate-limiting for local loopback (dev / self-hosted single tenant)
+        const ip = req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || '';
+        return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
+    },
     message: { error: "Too many requests, please try again later." }
 });
 
@@ -256,6 +261,10 @@ const initializeDatabase = async () => {
             await safeRun("ALTER TABLE credit_cards ADD COLUMN interestFreeDays INTEGER NOT NULL DEFAULT 45;");
             await safeRun("ALTER TABLE goals ADD COLUMN color VARCHAR(50) DEFAULT '#3b82f6';");
             await safeRun("ALTER TABLE goals ADD COLUMN icon VARCHAR(50) DEFAULT 'Target';");
+
+            // Banks Table Migrations (passbook-scan details)
+            await safeRun("ALTER TABLE banks ADD COLUMN accountHolderName VARCHAR(255);");
+            await safeRun("ALTER TABLE banks ADD COLUMN micrCode VARCHAR(255);");
         } else {
             // PostgreSQL: uses IF NOT EXISTS so the migration is idempotent.
             await safeRun('ALTER TABLE users ADD COLUMN IF NOT EXISTS "failedLoginAttempts" INTEGER DEFAULT 0;');
@@ -273,10 +282,33 @@ const initializeDatabase = async () => {
             await safeRun('ALTER TABLE credit_cards ADD COLUMN IF NOT EXISTS "interestFreeDays" INTEGER NOT NULL DEFAULT 45;');
             await safeRun('ALTER TABLE goals ADD COLUMN IF NOT EXISTS "color" VARCHAR(50) DEFAULT \'#3b82f6\';');
             await safeRun('ALTER TABLE goals ADD COLUMN IF NOT EXISTS "icon" VARCHAR(50) DEFAULT \'Target\';');
+            // Banks Table Migrations (passbook-scan details)
+            await safeRun('ALTER TABLE banks ADD COLUMN IF NOT EXISTS "accountHolderName" VARCHAR(255);');
+            await safeRun('ALTER TABLE banks ADD COLUMN IF NOT EXISTS "micrCode" VARCHAR(255);');
             await safeRun('UPDATE legacy_investments SET "goalId" = NULL WHERE "goalId" IS NOT NULL AND "goalId" NOT IN (SELECT id FROM goals);');
             await safeRun('ALTER TABLE legacy_investments DROP CONSTRAINT IF EXISTS "investments_goalId_fkey";');
             await safeRun('ALTER TABLE legacy_investments DROP CONSTRAINT IF EXISTS "investments_goalid_fkey";');
             await safeRun('ALTER TABLE legacy_investments ADD CONSTRAINT "investments_goalId_fkey" FOREIGN KEY ("goalId") REFERENCES goals(id) ON UPDATE CASCADE ON DELETE SET NULL;');
+
+            // Cards: allow standalone cards (bankId nullable), preserve bankName, enforce FKs
+            await safeRun('ALTER TABLE cards ALTER COLUMN "bankId" DROP NOT NULL;');
+            await safeRun('ALTER TABLE cards ADD COLUMN IF NOT EXISTS "bankName" VARCHAR(255);');
+            await safeRun('UPDATE cards SET "bankId" = NULL WHERE "bankId" IS NOT NULL AND "bankId" NOT IN (SELECT id FROM banks);');
+            await safeRun('ALTER TABLE cards DROP CONSTRAINT IF EXISTS "cards_bankId_fkey";');
+            await safeRun('ALTER TABLE cards ADD CONSTRAINT "cards_bankId_fkey" FOREIGN KEY ("bankId") REFERENCES banks(id) ON UPDATE CASCADE ON DELETE SET NULL;');
+            await safeRun('ALTER TABLE cards DROP CONSTRAINT IF EXISTS "cards_userId_fkey";');
+            await safeRun('ALTER TABLE cards ADD CONSTRAINT "cards_userId_fkey" FOREIGN KEY ("userId") REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE;');
+
+            // Bills Table Migrations
+            await safeRun('ALTER TABLE bills ADD COLUMN IF NOT EXISTS "provider" VARCHAR(255);');
+            await safeRun('ALTER TABLE bills ADD COLUMN IF NOT EXISTS "identifiers" JSONB;');
+
+            // Loans Table Migrations
+            await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "processingFee" FLOAT DEFAULT 0;');
+            await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "interestRate" FLOAT;');
+            await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "tenureMonths" INTEGER;');
+            await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "nextEmiDate" DATE;');
+            await safeRun('ALTER TABLE loans ADD COLUMN IF NOT EXISTS "bankProvider" VARCHAR(255);');
         }
     } catch (err) {
         console.error('Migration Error (Non-fatal):', err.message);
@@ -470,7 +502,50 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
 
 
 
-        // Serve uploaded photos with CORS headers
+        // --- SECURE DOCUMENT STREAMING & ACCESS CONTROL ---
+        // Confidential documents (PAN, Aadhaar, Bank Statements) require authentication & ownership check.
+        app.get('/uploads/documents/:filename', authenticateToken, async (req, res) => {
+            try {
+                const rawFilename = req.params.filename;
+                const safeFilename = path.basename(rawFilename);
+                const targetFilePath = `uploads/documents/${safeFilename}`;
+
+                const { Document } = require('./models');
+                const document = await Document.findOne({
+                    where: { filePath: targetFilePath }
+                });
+
+                const diskPath = path.join(__dirname, 'uploads', 'documents', safeFilename);
+                if (!fs.existsSync(diskPath)) {
+                    return res.status(404).json({ error: 'Document file not found' });
+                }
+
+                if (document) {
+                    if (req.user.role !== 'admin' && Number(document.userId) !== Number(req.user.id)) {
+                        return res.status(403).json({ error: 'Unauthorized access to document' });
+                    }
+                } else if (req.user.role !== 'admin') {
+                    return res.status(403).json({ error: 'Unauthorized access to document' });
+                }
+
+                res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+                res.set('Access-Control-Allow-Origin', '*');
+                if (req.query.download === '1') {
+                    return res.download(diskPath, document?.documentName || safeFilename);
+                }
+                return res.sendFile(diskPath);
+            } catch (err) {
+                console.error('[Document Secure Serve] Error:', err);
+                return res.status(500).json({ error: 'Failed to retrieve document' });
+            }
+        });
+
+        // Explicitly block unauthenticated access to any file inside /uploads/documents
+        app.use('/uploads/documents', (req, res) => {
+            return res.status(401).json({ error: 'Authentication required for document access' });
+        });
+
+        // Serve uploaded photos/assets with CORS headers
         app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
             setHeaders: (res, path, stat) => {
                 res.set('Cross-Origin-Resource-Policy', 'cross-origin');

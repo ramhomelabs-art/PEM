@@ -7,14 +7,35 @@ import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Landmark, CreditCard, Plus, Trash2, Copy, Lock, FileText, Upload, Download,
-    File, Shield, Calendar, Eye, EyeOff, ShieldCheck, Sparkles, ChevronDown, ChevronUp, AlertCircle
+    File, Shield, Calendar, Eye, EyeOff, ShieldCheck, Sparkles, ChevronDown, ChevronUp, AlertCircle, Pencil
 } from 'lucide-react';
 import SecurityLock from '../../components/personal_expense/SecurityLock';
 import PDFViewer from '../../components/personal_expense/PDFViewer';
 import ConfirmDialog from '../../components/personal_expense/ConfirmDialog';
+import { VirtualCard } from '../../components/personal_expense/accounts/VirtualCard';
 import { formatCurrency } from '../../utils/currency';
+import { Button } from '../../components/ui/primitives';
+import { cx } from '../../components/ui/cx';
+import {
+    encryptField, decryptFieldStrict, isEncrypted,
+    maskAccountNumber, clearClipboardAfterTimeout
+} from '../../lib/crypto';
 
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+
+const getDocumentUrl = (filePath, download = false) => {
+    if (!filePath) return '';
+    const token = localStorage.getItem('token');
+    const base = `${BASE_URL}/${filePath}`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (download) params.set('download', '1');
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+};
+
+const EMPTY_BANK_FORM = { name: '', accountHolderName: '', accountNumber: '', ifsc: '', micrCode: '', branch: '', balance: '', type: 'Savings' };
+const EMPTY_CARD_FORM = { cardNumber: '', cardHolder: '', expiry: '', cvv: '', type: 'Debit', limit: '', bankId: '', bankName: '' };
 
 const Accounts = () => {
     const { user } = useAuth();
@@ -23,6 +44,7 @@ const Accounts = () => {
     const currency = user?.currency || 'INR';
     const [activeView, setActiveView] = useState('bank'); // 'bank' or 'documents'
     const [banks, setBanks] = useState([]);
+    const [allCards, setAllCards] = useState([]);
     const [documents, setDocuments] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [showRunwayTips, setShowRunwayTips] = useState(false);
@@ -31,8 +53,9 @@ const Accounts = () => {
     const [isBankModalOpen, setIsBankModalOpen] = useState(false);
     const [isCardModalOpen, setIsCardModalOpen] = useState(false);
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
-    const [showCVV, setShowCVV] = useState({});
     const [isLocked, setIsLocked] = useState(true);
+    const [vaultPassphrase, setVaultPassphrase] = useState('');
+    const [editingBank, setEditingBank] = useState(null);
     const [viewerDoc, setViewerDoc] = useState(null);
     const [docPassword, setDocPassword] = useState('');
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -40,28 +63,43 @@ const Accounts = () => {
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, id: null });
 
     // Forms
-    const [bankForm, setBankForm] = useState({ name: '', accountNumber: '', ifsc: '', branch: '', balance: '', type: 'Savings' });
-    const [cardForm, setCardForm] = useState({ cardNumber: '', cardHolder: '', expiry: '', cvv: '', type: 'Debit', limit: '' });
+    const [bankForm, setBankForm] = useState({ ...EMPTY_BANK_FORM });
+    const [cardForm, setCardForm] = useState({ ...EMPTY_CARD_FORM });
     const [docForm, setDocForm] = useState({ documentName: '', documentType: 'other', file: null });
 
-    const copyToClipboard = (text, label) => {
-        navigator.clipboard.writeText(text).then(() => {
+    // Standalone cards (cards not linked to any active bank account)
+    const standaloneCards = useMemo(() => {
+        const bankIds = new Set(banks.map(b => b.id));
+        return allCards.filter(c => !c.bankId || !bankIds.has(c.bankId));
+    }, [allCards, banks]);
+
+    const copyToClipboard = async (text, label) => {
+        if (!text) return;
+        let valueToCopy = text;
+        if (isEncrypted(text)) {
+            const res = await decryptFieldStrict(text, vaultPassphrase);
+            if (res.success) {
+                valueToCopy = res.value;
+            } else {
+                toast.error("Can't decrypt field to copy. Please check your vault unlock.", { title: 'Security', badge: 'ENCRYPTION' });
+                return;
+            }
+        }
+        navigator.clipboard.writeText(valueToCopy).then(() => {
             toast.success(`${label} copied to clipboard!`, {
                 title: 'Copied',
                 badge: 'CLIPBOARD',
                 duration: 2500
             });
+            clearClipboardAfterTimeout(30000);
         });
-    };
-
-    const toggleCVV = (cardId) => {
-        setShowCVV(prev => ({ ...prev, [cardId]: !prev[cardId] }));
     };
 
     useEffect(() => {
         document.title = "PEM Pro | Accounts & Documents";
         if (user?.id) {
             fetchBanks();
+            fetchCards();
             fetchDocuments();
             fetchTransactions();
         }
@@ -141,13 +179,35 @@ const Accounts = () => {
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     setBanks(data);
-                    if (data.length > 0 && !selectedBank) setSelectedBank(data[0]);
+                    setSelectedBank(prev => {
+                        if (prev === 'standalone') return 'standalone';
+                        if (!prev && data.length > 0) return data[0];
+                        if (prev && typeof prev === 'object') {
+                            const updated = data.find(b => b.id === prev.id);
+                            return updated || (data.length > 0 ? data[0] : 'standalone');
+                        }
+                        return prev;
+                    });
                 }
             }
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchCards = async () => {
+        try {
+            const res = await fetch(`${API_URL}/cards`, { headers: authHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setAllCards(data);
+                }
+            }
+        } catch (err) {
+            console.error('[Accounts] Cards fetch error:', err);
         }
     };
 
@@ -173,18 +233,56 @@ const Accounts = () => {
         }
     }, [viewerDoc]);
 
+    const closeBankModal = () => {
+        setIsBankModalOpen(false);
+        setEditingBank(null);
+    };
+
+    const openEditBank = (bank) => {
+        setEditingBank(bank);
+        setBankForm({
+            name: bank.name || '',
+            accountHolderName: bank.accountHolderName || '',
+            accountNumber: bank.accountNumber || '',
+            ifsc: bank.ifsc || '',
+            micrCode: bank.micrCode || '',
+            branch: bank.branch || '',
+            balance: bank.balance ?? '',
+            type: bank.type || 'Savings'
+        });
+        setIsBankModalOpen(true);
+    };
+
     const handleAddBank = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`${API_URL}/banks`, {
-                method: 'POST',
+            const isEdit = Boolean(editingBank);
+            let rawAcc = String(bankForm.accountNumber || '').trim();
+            let encAcc = rawAcc;
+            if (rawAcc && !isEncrypted(rawAcc)) {
+                encAcc = await encryptField(rawAcc, vaultPassphrase);
+            }
+            const payload = isEdit
+                ? { ...bankForm, accountNumber: encAcc }
+                : { ...bankForm, userId: user.id, accountNumber: encAcc };
+
+            const res = await fetch(isEdit ? `${API_URL}/banks/${editingBank.id}` : `${API_URL}/banks`, {
+                method: isEdit ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                body: JSON.stringify({ ...bankForm, userId: user.id })
+                body: JSON.stringify(payload)
             });
             if (res.ok) {
-                setIsBankModalOpen(false);
-                setBankForm({ name: '', accountNumber: '', ifsc: '', branch: '', balance: '', type: 'Savings' });
+                const saved = await res.json();
+                closeBankModal();
+                setBankForm({ ...EMPTY_BANK_FORM });
+                if (isEdit && selectedBank?.id === editingBank.id) {
+                    setSelectedBank((prev) => ({ ...prev, ...saved }));
+                }
                 fetchBanks();
+                toast.success(isEdit ? 'Bank updated' : 'Bank added', { title: 'Accounts', badge: 'BANK', duration: 2500 });
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || 'Failed to save bank', { title: 'Accounts', badge: 'BANK' });
             }
         } catch (err) {
             console.error(err);
@@ -194,15 +292,51 @@ const Accounts = () => {
     const handleAddCard = async (e) => {
         e.preventDefault();
         try {
+            let encCard = String(cardForm.cardNumber || '').trim();
+            if (encCard && !isEncrypted(encCard)) {
+                encCard = await encryptField(encCard, vaultPassphrase);
+            }
+            let encCvv = String(cardForm.cvv || '').trim();
+            if (encCvv && encCvv !== '***' && !isEncrypted(encCvv)) {
+                encCvv = await encryptField(encCvv, vaultPassphrase);
+            } else {
+                encCvv = '***';
+            }
+
+            let targetBankId = cardForm.bankId;
+            if (targetBankId === undefined || targetBankId === '') {
+                targetBankId = (selectedBank && selectedBank !== 'standalone') ? selectedBank.id : null;
+            } else if (targetBankId === 'standalone') {
+                targetBankId = null;
+            }
+
+            let targetBankName = cardForm.bankName ? cardForm.bankName.trim() : '';
+            if (targetBankId) {
+                const matchedBank = banks.find(b => b.id === targetBankId);
+                if (matchedBank) targetBankName = matchedBank.name;
+            }
+
             const res = await fetch(`${API_URL}/cards`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                body: JSON.stringify({ ...cardForm, userId: user.id, bankId: selectedBank.id })
+                body: JSON.stringify({
+                    ...cardForm,
+                    cardNumber: encCard,
+                    cvv: encCvv,
+                    userId: user.id,
+                    bankId: targetBankId,
+                    bankName: targetBankName || null
+                })
             });
             if (res.ok) {
                 setIsCardModalOpen(false);
-                setCardForm({ cardNumber: '', cardHolder: '', expiry: '', cvv: '', type: 'Debit', limit: '' });
+                setCardForm({ ...EMPTY_CARD_FORM });
                 fetchBanks();
+                fetchCards();
+                toast.success('Card saved successfully', { title: 'Cards', badge: 'CARD', duration: 2500 });
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || 'Failed to save card', { title: 'Cards', badge: 'CARD' });
             }
         } catch (err) {
             console.error(err);
@@ -239,6 +373,7 @@ const Accounts = () => {
             if (res.ok) {
                 if (selectedBank?.id === bankId) setSelectedBank(null);
                 fetchBanks();
+                fetchCards();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
             }
         } catch (err) {
@@ -251,7 +386,9 @@ const Accounts = () => {
             const res = await fetch(`${API_URL}/cards/${cardId}`, { method: 'DELETE', headers: authHeaders() });
             if (res.ok) {
                 fetchBanks();
+                fetchCards();
                 setConfirmDialog({ isOpen: false, action: null, id: null });
+                toast.success('Card deleted', { title: 'Cards', badge: 'CARD', duration: 2500 });
             }
         } catch (err) {
             console.error(err);
@@ -272,8 +409,6 @@ const Accounts = () => {
         return false;
     };
 
-    const formatCardNumber = (num) => num.replace(/(\d{4})/g, '$1 ').trim();
-
     const getDocumentIcon = (type) => {
         const icons = {
             pan: Shield,
@@ -290,7 +425,7 @@ const Accounts = () => {
     }
 
     if (isLocked) {
-        return <SecurityLock onUnlock={() => setIsLocked(false)} />;
+        return <SecurityLock onUnlock={(password) => { setVaultPassphrase(password || ''); setIsLocked(false); }} />;
     }
 
     return (
@@ -321,47 +456,42 @@ const Accounts = () => {
             />
             {/* HEADER WITH TOGGLE */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Accounts &amp; Documents</h1>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                    <button onClick={() => setIsLocked(true)} title="Lock" style={{ padding: '12px', backgroundColor: theme.card, borderRadius: '12px', border: `1px solid ${theme.border}`, cursor: 'pointer', color: theme.textSecondary }}>
-                        <Lock size={20} />
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Accounts &amp; Documents</h1>
+                    <p className="mt-1 text-sm text-ink-muted">Manage encrypted bank vaults, linked debit/credit cards, and identity records.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => { setVaultPassphrase(''); setIsLocked(true); }}
+                        title="Lock Vault"
+                        className="grid h-10 w-10 place-items-center rounded-control border border-line bg-surface text-ink-muted transition-all hover:border-line-strong hover:bg-raised hover:text-ink active:scale-95 cursor-pointer shadow-sm"
+                    >
+                        <Lock size={18} />
                     </button>
-                    <div style={{ display: 'flex', gap: '5px', backgroundColor: theme.card, padding: '5px', borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                    <div className="inline-flex rounded-control border border-line bg-sunken p-1">
                         <button
+                            type="button"
                             onClick={() => setActiveView('bank')}
-                            style={{
-                                padding: '12px 24px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                backgroundColor: activeView === 'bank' ? '#10b981' : 'transparent',
-                                color: activeView === 'bank' ? 'white' : theme.textSecondary,
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.3s'
-                            }}
+                            className={cx(
+                                'flex items-center gap-2 rounded-[8px] px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer',
+                                activeView === 'bank'
+                                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-[0_4px_12px_rgba(16,185,129,0.35)]'
+                                    : 'text-ink-muted hover:text-ink'
+                            )}
                         >
-                            <Landmark size={18} /> Bank
+                            <Landmark size={15} /> Bank
                         </button>
                         <button
+                            type="button"
                             onClick={() => setActiveView('documents')}
-                            style={{
-                                padding: '12px 24px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                backgroundColor: activeView === 'documents' ? '#10b981' : 'transparent',
-                                color: activeView === 'documents' ? 'white' : theme.textSecondary,
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.3s'
-                            }}
+                            className={cx(
+                                'flex items-center gap-2 rounded-[8px] px-4 py-2 text-xs font-bold transition-all duration-200 cursor-pointer',
+                                activeView === 'documents'
+                                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-[0_4px_12px_rgba(16,185,129,0.35)]'
+                                    : 'text-ink-muted hover:text-ink'
+                            )}
                         >
-                            <FileText size={18} /> Documents
+                            <FileText size={15} /> Documents
                         </button>
                     </div>
                 </div>
@@ -369,20 +499,20 @@ const Accounts = () => {
 
             {/* RUNWAY & LIQUID RESERVE CARD */}
             {runwayData.totalLiquid > 0 && (
-                <div className="mb-6 p-5 rounded-2xl border border-line bg-surface/70 backdrop-blur-md shadow-sm">
+                <div className="pem-card pem-card-hover mb-6 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                        <div className="flex items-center gap-3">
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shadow-sm">
                                 <Sparkles className="w-5 h-5" />
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+                                <h2 className="text-sm font-extrabold text-ink flex items-center gap-2">
                                     Emergency Cash Runway
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${runwayData.badgeColor}`}>
+                                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${runwayData.badgeColor}`}>
                                         {runwayData.badgeText}
                                     </span>
                                 </h2>
-                                <p className="text-xs text-ink-muted">
+                                <p className="text-xs text-ink-muted mt-0.5">
                                     Total Liquid Cash: <strong className="text-emerald-400">{formatCurrency(runwayData.totalLiquid, currency)}</strong> &bull; Monthly Burn: <strong className="text-ink">{formatCurrency(runwayData.monthlyBurn, currency)}</strong>
                                 </p>
                             </div>
@@ -390,38 +520,38 @@ const Accounts = () => {
                         <button
                             type="button"
                             onClick={() => setShowRunwayTips(!showRunwayTips)}
-                            className="text-xs text-ink-muted hover:text-ink flex items-center gap-1 font-semibold transition cursor-pointer"
+                            className="text-xs text-ink-muted hover:text-emerald-400 flex items-center gap-1 font-bold transition cursor-pointer"
                         >
-                            {showRunwayTips ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            {showRunwayTips ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             <span>{showRunwayTips ? 'Hide Target Details' : 'View Target Details'}</span>
                         </button>
                     </div>
 
                     {/* Progress bar */}
-                        <div className="w-full bg-raised rounded-full h-2.5 overflow-hidden">
+                    <div className="w-full bg-raised rounded-full h-2.5 overflow-hidden border border-white/5">
                         <div
-                            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-500"
+                            className="bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 h-2.5 rounded-full transition-all duration-700 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
                             style={{ width: `${runwayData.progressPercent}%` }}
                         />
                     </div>
-                    <div className="flex justify-between items-center text-[11px] font-semibold text-ink-muted mt-1.5">
-                        <span>Current Runway: <strong className="text-ink">{runwayData.runwayMonthsFormatted} Months</strong> ({runwayData.runwayDays} Days)</span>
+                    <div className="flex justify-between items-center text-[11px] font-semibold text-ink-muted mt-2">
+                        <span>Current Runway: <strong className="text-emerald-400">{runwayData.runwayMonthsFormatted} Months</strong> ({runwayData.runwayDays} Days)</span>
                         <span>6-Month Safety Target: <strong className="text-ink">{formatCurrency(runwayData.targetGoal, currency)}</strong></span>
                     </div>
 
                     {showRunwayTips && (
-                        <div className="mt-3 pt-3 border-t border-line/60 text-xs text-ink-muted grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div className="p-2.5 rounded-xl bg-surface/50">
-                                <p className="font-bold text-ink mb-0.5">Target Fortress Goal</p>
-                                <p className="text-[11px]">Recommended reserve is 6 months of living expenses ({formatCurrency(runwayData.targetGoal, currency)}).</p>
+                        <div className="mt-4 pt-4 border-t border-line/60 text-xs text-ink-muted grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="p-3 rounded-xl bg-sunken border border-line">
+                                <p className="font-bold text-ink mb-1">Target Fortress Goal</p>
+                                <p className="text-[11px] leading-relaxed">Recommended reserve is 6 months of living expenses ({formatCurrency(runwayData.targetGoal, currency)}).</p>
                             </div>
-                                    <div className="p-2.5 rounded-xl bg-surface/50">
-                                <p className="font-bold text-ink mb-0.5">Estimated Survival Days</p>
-                                <p className="text-[11px]">Based on your 90-day spending rate, your cash pool supports {runwayData.runwayDays} days without income.</p>
+                            <div className="p-3 rounded-xl bg-sunken border border-line">
+                                <p className="font-bold text-ink mb-1">Estimated Survival Days</p>
+                                <p className="text-[11px] leading-relaxed">Based on your 90-day spending rate, your cash pool supports {runwayData.runwayDays} days without income.</p>
                             </div>
-                                    <div className="p-2.5 rounded-xl bg-surface/50">
-                                <p className="font-bold text-ink mb-0.5">Liquid Allocation</p>
-                                <p className="text-[11px]">Spread across {banks.length} linked bank accounts with full instant liquidity.</p>
+                            <div className="p-3 rounded-xl bg-sunken border border-line">
+                                <p className="font-bold text-ink mb-1">Liquid Allocation</p>
+                                <p className="text-[11px] leading-relaxed">Spread across {banks.length} linked bank accounts with full instant liquidity.</p>
                             </div>
                         </div>
                     )}
@@ -432,135 +562,382 @@ const Accounts = () => {
             {activeView === 'bank' && (
                 <div>
                     <div className="flex flex-col lg:flex-row gap-8">
-                    {/* LEFT: BANK LIST */}
-                    <div className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text }}>My Banks</h2>
-                            <button onClick={() => setIsBankModalOpen(true)} style={{ padding: '10px', backgroundColor: '#10b981', borderRadius: '12px', border: 'none', cursor: 'pointer', color: 'white', boxShadow: '0 5px 15px rgba(16,185,129,0.2)' }}>
-                                <Plus size={20} />
-                            </button>
+                    {/* LEFT: BANK & CARDS LIST */}
+                    <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-extrabold tracking-tight text-ink">My Accounts</h2>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    icon={CreditCard}
+                                    onClick={() => {
+                                        setCardForm({
+                                            ...EMPTY_CARD_FORM,
+                                            bankId: (selectedBank && selectedBank !== 'standalone') ? selectedBank.id : 'standalone',
+                                            bankName: (selectedBank && selectedBank !== 'standalone') ? selectedBank.name : ''
+                                        });
+                                        setIsCardModalOpen(true);
+                                    }}
+                                    title="Add Card"
+                                >
+                                    + Card
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    icon={Plus}
+                                    onClick={() => { setEditingBank(null); setBankForm({ ...EMPTY_BANK_FORM }); setIsBankModalOpen(true); }}
+                                    title="Add Bank"
+                                >
+                                    + Bank
+                                </Button>
+                            </div>
                         </div>
 
-                        {banks.map(bank => (
-                            <div key={bank.id} style={{ padding: '20px', borderRadius: '20px', backgroundColor: selectedBank?.id === bank.id ? theme.inputBg : theme.card, border: selectedBank?.id === bank.id ? '1px solid #10b981' : `1px solid ${theme.border}`, cursor: 'pointer', transition: 'all 0.3s', position: 'relative' }}>
-                                <div onClick={() => setSelectedBank(bank)}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
-                                        <div style={{ padding: '10px', backgroundColor: 'var(--pem-surface-raised)', borderRadius: '10px' }}>
-                                            <Landmark size={24} color="#10b981" />
+                        {/* Banks List */}
+                        <div className="flex flex-col gap-3">
+                            <p className="px-1 text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">
+                                Bank Accounts ({banks.length})
+                            </p>
+                            {banks.map(bank => {
+                                const isSelected = selectedBank?.id === bank.id;
+                                return (
+                                    <div
+                                        key={bank.id}
+                                        onClick={() => setSelectedBank(bank)}
+                                        className={cx(
+                                            'group relative rounded-2xl p-4 transition-all duration-200 cursor-pointer select-none pem-card',
+                                            isSelected
+                                                ? 'border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_24px_-4px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/30'
+                                                : 'pem-card-hover hover:border-line-strong'
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className={cx(
+                                                'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors',
+                                                isSelected ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'bg-surface-raised text-emerald-400'
+                                            )}>
+                                                <Landmark size={19} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="m-0 truncate text-sm font-extrabold text-ink group-hover:text-emerald-400 transition-colors">
+                                                    {bank.name}
+                                                </h3>
+                                                <p className="m-0 text-xs font-semibold text-ink-muted">
+                                                    {bank.type} Account
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, action: 'deleteBank', id: bank.id }); }}
+                                                className="grid h-8 w-8 place-items-center rounded-lg text-rose-400 transition-all hover:bg-rose-500/15 hover:text-rose-300 cursor-pointer"
+                                                title="Delete Bank"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <h3 style={{ margin: 0, fontWeight: 'bold', color: theme.text }}>{bank.name}</h3>
-                                            <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{bank.type} Account</p>
+                                        <div className="flex items-baseline justify-between">
+                                            <h2 className="m-0 text-xl font-black text-ink tracking-tight">
+                                                {formatCurrency(bank.balance, currency)}
+                                            </h2>
+                                            <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                                                {(bank.Cards || []).length} {((bank.Cards || []).length === 1) ? 'card' : 'cards'}
+                                            </span>
                                         </div>
-                                        <button onClick={(e) => { e.stopPropagation(); setConfirmDialog({ isOpen: true, action: 'deleteBank', id: bank.id }); }} style={{ padding: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '8px', color: '#ef4444', cursor: 'pointer' }} title="Delete Bank">
-                                            <Trash2 size={16} />
-                                        </button>
                                     </div>
-                                    <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '900', color: theme.text }}>
-                                        {formatCurrency(bank.balance, currency)}
-                                    </h2>
+                                );
+                            })}
+
+                            {/* Standalone Cards Sidebar Entry */}
+                            <div className="mt-2">
+                                <p className="px-1 mb-2 text-[11px] font-extrabold uppercase tracking-wider text-ink-muted">
+                                    Cards Portfolio
+                                </p>
+                                <div
+                                    onClick={() => setSelectedBank('standalone')}
+                                    className={cx(
+                                        'group relative rounded-2xl p-4 transition-all duration-200 cursor-pointer select-none pem-card',
+                                        selectedBank === 'standalone'
+                                            ? 'border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_24px_-4px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/30'
+                                            : 'pem-card-hover hover:border-line-strong'
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cx(
+                                            'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors',
+                                            selectedBank === 'standalone' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'bg-surface-raised text-emerald-400'
+                                        )}>
+                                            <CreditCard size={19} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="m-0 text-sm font-extrabold text-ink group-hover:text-emerald-400 transition-colors">
+                                                    Standalone Cards
+                                                </h3>
+                                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-black text-emerald-400">
+                                                    {standaloneCards.length}
+                                                </span>
+                                            </div>
+                                            <p className="mt-0.5 text-xs text-ink-muted">
+                                                Unlinked Debit &amp; Credit Cards
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
+                        </div>
                     </div>
 
                     {/* RIGHT: BANK DETAILS & CARDS */}
-                    <div style={{ flex: 1 }}>
-                        {selectedBank ? (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        {selectedBank === 'standalone' || (!selectedBank && standaloneCards.length > 0 && banks.length === 0) ? (
+                            /* STANDALONE CARDS DASHBOARD */
+                            <div>
+                                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                                    <div>
+                                        <div className="flex items-center gap-3">
+                                            <h1 className="text-2xl sm:text-3xl font-black text-ink tracking-tight">
+                                                Standalone Cards
+                                            </h1>
+                                            <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-0.5 text-xs font-black text-emerald-400">
+                                                {standaloneCards.length} {standaloneCards.length === 1 ? 'Card' : 'Cards'}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-ink-muted">
+                                            Cards not linked to any active bank account in your system (e.g. corporate cards, external debit/credit cards).
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="primary"
+                                        icon={Plus}
+                                        onClick={() => {
+                                            setCardForm({ ...EMPTY_CARD_FORM, bankId: 'standalone' });
+                                            setIsCardModalOpen(true);
+                                        }}
+                                    >
+                                        Add Standalone Card
+                                    </Button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                                    {standaloneCards.map(card => (
+                                        <div key={card.id} className="relative w-full max-w-[440px]">
+                                            <button
+                                                type="button"
+                                                onClick={() => setConfirmDialog({ isOpen: true, action: 'deleteCard', id: card.id })}
+                                                className="absolute top-2 right-2 z-10 grid h-8 w-8 place-items-center rounded-lg bg-rose-500/80 text-white transition hover:bg-rose-500 shadow-md cursor-pointer"
+                                                title="Delete Card"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                            <VirtualCard
+                                                card={card}
+                                                bankName={card.bankName || 'Standalone Card'}
+                                                passphrase={vaultPassphrase}
+                                                onRequestUnlock={() => setIsLocked(true)}
+                                                isUnlocked={!isLocked}
+                                            />
+                                        </div>
+                                    ))}
+
+                                    {standaloneCards.length === 0 && (
+                                        <div className="col-span-full flex flex-col items-center justify-center p-12 text-center rounded-3xl border border-dashed border-line bg-surface/40">
+                                            <CreditCard size={48} className="opacity-25 text-emerald-400 mb-4" />
+                                            <h3 className="m-0 text-base font-bold text-ink">No Standalone Cards</h3>
+                                            <p className="mt-1 mb-5 text-xs text-ink-muted">Add debit or credit cards not tied to any of your listed bank accounts.</p>
+                                            <Button
+                                                variant="primary"
+                                                icon={Plus}
+                                                onClick={() => {
+                                                    setCardForm({ ...EMPTY_CARD_FORM, bankId: 'standalone' });
+                                                    setIsCardModalOpen(true);
+                                                }}
+                                            >
+                                                Add First Standalone Card
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : selectedBank ? (
                             <>
-                                <h1 style={{ fontSize: '36px', fontWeight: '900', marginBottom: '30px', color: theme.text }}>{selectedBank.name} Dashboard</h1>
+                                <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+                                    <div>
+                                        <h1 className="text-2xl sm:text-3xl font-black text-ink tracking-tight">{selectedBank.name} Dashboard</h1>
+                                        <p className="mt-1 text-xs text-ink-muted">Encrypted vault records, linked cards, and transaction activity.</p>
+                                    </div>
+                                    <Button variant="secondary" icon={Pencil} onClick={() => openEditBank(selectedBank)}>
+                                        Edit Bank
+                                    </Button>
+                                </div>
 
                                 {/* ACCOUNT DETAILS */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '40px' }}>
-                                    <div style={{ backgroundColor: theme.card, padding: '20px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                                        <p style={{ margin: '0 0 5px 0', color: theme.textSecondary, fontSize: '12px', fontWeight: 'bold' }}>ACCOUNT NUMBER</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', fontFamily: 'monospace', color: theme.text }}>{selectedBank.accountNumber}</p>
-                                            <button onClick={() => copyToClipboard(selectedBank.accountNumber, 'Account Number')} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }} title="Copy">
-                                                <Copy size={16} style={{ color: '#10b981' }} />
-                                            </button>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mb-8">
+                                    <div className="pem-card pem-card-hover p-4">
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted mb-1">ACCOUNT HOLDER</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="truncate text-base font-extrabold text-ink">{selectedBank.accountHolderName || '—'}</p>
+                                            {selectedBank.accountHolderName && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyToClipboard(selectedBank.accountHolderName, 'Account Holder')}
+                                                    className="grid h-7 w-7 place-items-center rounded-md text-emerald-400 hover:bg-emerald-500/15 transition cursor-pointer"
+                                                    title="Copy"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    <div style={{ backgroundColor: theme.card, padding: '20px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                                        <p style={{ margin: '0 0 5px 0', color: theme.textSecondary, fontSize: '12px', fontWeight: 'bold' }}>IFSC CODE</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', fontFamily: 'monospace', color: theme.text }}>{selectedBank.ifsc}</p>
-                                            <button onClick={() => copyToClipboard(selectedBank.ifsc, 'IFSC Code')} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }} title="Copy">
-                                                <Copy size={16} style={{ color: '#10b981' }} />
-                                            </button>
+                                    <div className="pem-card pem-card-hover p-4">
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted mb-1">ACCOUNT NUMBER</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="tnum font-mono text-base font-extrabold text-ink">{maskAccountNumber(selectedBank.accountNumber) || '—'}</p>
+                                            {selectedBank.accountNumber && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyToClipboard(selectedBank.accountNumber, 'Account Number')}
+                                                    className="grid h-7 w-7 place-items-center rounded-md text-emerald-400 hover:bg-emerald-500/15 transition cursor-pointer"
+                                                    title="Copy"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    <div style={{ backgroundColor: theme.card, padding: '20px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                                        <p style={{ margin: '0 0 5px 0', color: theme.textSecondary, fontSize: '12px', fontWeight: 'bold' }}>BRANCH</p>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <p style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{selectedBank.branch}</p>
+                                    <div className="pem-card pem-card-hover p-4">
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted mb-1">IFSC CODE</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="tnum font-mono text-base font-extrabold text-ink">{selectedBank.ifsc || '—'}</p>
+                                            {selectedBank.ifsc && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyToClipboard(selectedBank.ifsc, 'IFSC Code')}
+                                                    className="grid h-7 w-7 place-items-center rounded-md text-emerald-400 hover:bg-emerald-500/15 transition cursor-pointer"
+                                                    title="Copy"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            )}
                                         </div>
+                                    </div>
+                                    <div className="pem-card pem-card-hover p-4">
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted mb-1">MICR CODE</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="tnum font-mono text-base font-extrabold text-ink">{selectedBank.micrCode || '—'}</p>
+                                            {selectedBank.micrCode && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyToClipboard(selectedBank.micrCode, 'MICR Code')}
+                                                    className="grid h-7 w-7 place-items-center rounded-md text-emerald-400 hover:bg-emerald-500/15 transition cursor-pointer"
+                                                    title="Copy"
+                                                >
+                                                    <Copy size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="pem-card pem-card-hover p-4">
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-ink-muted mb-1">BRANCH</p>
+                                        <p className="truncate text-base font-extrabold text-ink">{selectedBank.branch || '—'}</p>
                                     </div>
                                 </div>
 
                                 {/* CARDS SECTION */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                    <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text }}>Linked Cards</h2>
-                                    <button onClick={() => setIsCardModalOpen(true)} style={{ backgroundColor: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Plus size={18} /> Add Card
-                                    </button>
+                                <div className="flex items-center justify-between gap-3 mb-5">
+                                    <div>
+                                        <h2 className="text-lg font-extrabold text-ink tracking-tight">Linked Cards</h2>
+                                        <p className="text-xs text-ink-muted">Cards tied directly to {selectedBank.name}</p>
+                                    </div>
+                                    <Button
+                                        variant="primary"
+                                        icon={Plus}
+                                        onClick={() => {
+                                            setCardForm({ ...EMPTY_CARD_FORM, bankId: selectedBank.id, bankName: selectedBank.name });
+                                            setIsCardModalOpen(true);
+                                        }}
+                                    >
+                                        Add Card
+                                    </Button>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginBottom: standaloneCards.length > 0 ? '45px' : '0' }}>
                                     {selectedBank.Cards && selectedBank.Cards.map(card => (
-                                        <div key={card.id} style={{
-                                            width: '340px', height: '200px', borderRadius: '24px', padding: '25px', color: 'white',
-                                            background: card.type === 'Credit' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                                            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', opacity: 0.8 }}>{card.type.toUpperCase()}</p>
-                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                    <button onClick={() => setConfirmDialog({ isOpen: true, action: 'deleteCard', id: card.id })} style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', border: 'none', borderRadius: '6px', color: 'white', cursor: 'pointer' }} title="Delete Card">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                    <CreditCard size={24} />
-                                                </div>
-                                            </div>
-                                            <div style={{ fontSize: '26px', fontWeight: 'bold', letterSpacing: '2px', fontFamily: 'monospace', textShadow: '0 2px 4px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                {formatCardNumber(card.cardNumber)}
-                                                <button onClick={() => copyToClipboard(card.cardNumber, 'Card Number')} style={{ padding: '4px', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '4px', cursor: 'pointer' }} title="Copy">
-                                                    <Copy size={14} style={{ color: 'white' }} />
-                                                </button>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '10px', opacity: 0.8, fontWeight: 'bold' }}>CARD HOLDER</p>
-                                                    <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase' }}>{card.cardHolder}</p>
-                                                </div>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '10px', opacity: 0.8, fontWeight: 'bold' }}>EXPIRES</p>
-                                                    <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>{card.expiry}</p>
-                                                </div>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '10px', opacity: 0.8, fontWeight: 'bold' }}>CVV</p>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>{showCVV[card.id] ? card.cvv : '***'}</p>
-                                                        <button onClick={() => toggleCVV(card.id)} style={{ padding: '2px', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', color: 'white' }} title="Toggle CVV">
-                                                            {showCVV[card.id] ? 'Hide' : 'Show'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <div key={card.id} style={{ position: 'relative', width: '100%', maxWidth: '440px' }}>
+                                            <button onClick={() => setConfirmDialog({ isOpen: true, action: 'deleteCard', id: card.id })} style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10, padding: '8px', backgroundColor: 'rgba(239,68,68,0.85)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer' }} title="Delete Card">
+                                                <Trash2 size={16} />
+                                            </button>
+                                            <VirtualCard
+                                                card={card}
+                                                bankName={card.bankName || selectedBank.name}
+                                                passphrase={vaultPassphrase}
+                                                onRequestUnlock={() => setIsLocked(true)}
+                                                isUnlocked={!isLocked}
+                                            />
                                         </div>
                                     ))}
                                     {(!selectedBank.Cards || selectedBank.Cards.length === 0) && (
                                         <div style={{ width: '100%', padding: '40px', textAlign: 'center', backgroundColor: theme.card, borderRadius: '20px', color: theme.textSecondary, border: `1px solid ${theme.border}` }}>
                                             <CreditCard size={48} style={{ opacity: 0.2 }} />
-                                            <p>No cards linked yet.</p>
+                                            <p style={{ marginTop: '10px', marginBottom: 0 }}>No cards linked to this bank account yet.</p>
                                         </div>
                                     )}
                                 </div>
+
+                                {/* STANDALONE CARDS SECTION (UNDER BANK DASHBOARD) */}
+                                {standaloneCards.length > 0 && (
+                                    <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '35px', marginTop: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text, margin: 0 }}>Standalone Cards</h2>
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '999px',
+                                                        backgroundColor: 'rgba(16,185,129,0.15)',
+                                                        color: '#10b981',
+                                                        fontSize: '11px',
+                                                        fontWeight: '800'
+                                                    }}>
+                                                        {standaloneCards.length}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.textSecondary }}>Unlinked cards in your portfolio</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setCardForm({ ...EMPTY_CARD_FORM, bankId: 'standalone' });
+                                                    setIsCardModalOpen(true);
+                                                }}
+                                                style={{ backgroundColor: theme.card, color: theme.text, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                                            >
+                                                <Plus size={15} color="#10b981" /> Add Standalone Card
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+                                            {standaloneCards.map(card => (
+                                                <div key={card.id} style={{ position: 'relative', width: '100%', maxWidth: '440px' }}>
+                                                    <button onClick={() => setConfirmDialog({ isOpen: true, action: 'deleteCard', id: card.id })} style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10, padding: '8px', backgroundColor: 'rgba(239,68,68,0.85)', border: 'none', borderRadius: '10px', color: 'white', cursor: 'pointer' }} title="Delete Card">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                    <VirtualCard
+                                                        card={card}
+                                                        bankName={card.bankName || 'Standalone Card'}
+                                                        passphrase={vaultPassphrase}
+                                                        onRequestUnlock={() => setIsLocked(true)}
+                                                        isUnlocked={!isLocked}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : (
-                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: theme.textSecondary }}>
+                            <div style={{ height: '100%', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: theme.textSecondary }}>
                                 <Landmark size={64} style={{ opacity: 0.2, marginBottom: '20px' }} />
-                                <h2>Select a Bank to view details</h2>
+                                <h2>Select a Bank or Standalone Cards to view details</h2>
                             </div>
                         )}
                     </div>
@@ -592,7 +969,12 @@ const Accounts = () => {
                                         </button>
                                     </div>
                                     <div>
-                                        <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{doc.documentName}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 'bold', color: theme.text }}>{doc.documentName}</h3>
+                                            {doc.source === 'scan' && (
+                                                <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', padding: '2px 8px', borderRadius: '999px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', marginBottom: '5px' }}>SCANNED</span>
+                                            )}
+                                        </div>
                                         <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary, textTransform: 'uppercase', fontWeight: 'bold' }}>{doc.documentType.replace('_', ' ')}</p>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textSecondary }}>
@@ -603,7 +985,7 @@ const Accounts = () => {
                                         <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }} style={{ flex: 1, padding: '10px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '10px', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 2 }}>
                                             <Eye size={16} /> View
                                         </button>
-                                        <a href={`${BASE_URL}/${doc.filePath}`} download onClick={(e) => e.stopPropagation()} style={{ flex: 1, padding: '10px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '10px', textAlign: 'center', color: '#3b82f6', fontWeight: 'bold', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 2 }}>
+                                        <a href={getDocumentUrl(doc.filePath, true)} download onClick={(e) => e.stopPropagation()} style={{ flex: 1, padding: '10px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '10px', textAlign: 'center', color: '#3b82f6', fontWeight: 'bold', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 2 }}>
                                             <Download size={16} /> Download
                                         </a>
                                     </div>
@@ -626,18 +1008,22 @@ const Accounts = () => {
                 {/* BANK MODAL */}
                 {isBankModalOpen && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBankModalOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(12px)' }} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeBankModal} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.8)', }} />
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20 }}>
-                            <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '25px', color: theme.text }}>Add Bank</h2>
+                            <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '25px', color: theme.text }}>{editingBank ? 'Edit Bank' : 'Add Bank'}</h2>
                             <form onSubmit={handleAddBank} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <input type="text" placeholder="Bank Name" value={bankForm.name} onChange={e => setBankForm({ ...bankForm, name: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
+                                <input type="text" placeholder="Account Holder Name" value={bankForm.accountHolderName} onChange={e => setBankForm({ ...bankForm, accountHolderName: e.target.value })} style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
                                 <input type="text" placeholder="Account Number" value={bankForm.accountNumber} onChange={e => setBankForm({ ...bankForm, accountNumber: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <input type="text" placeholder="IFSC" value={bankForm.ifsc} onChange={e => setBankForm({ ...bankForm, ifsc: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
-                                    <input type="text" placeholder="Branch" value={bankForm.branch} onChange={e => setBankForm({ ...bankForm, branch: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
+                                    <input type="text" placeholder="IFSC" value={bankForm.ifsc} onChange={e => setBankForm({ ...bankForm, ifsc: e.target.value })} style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
+                                    <input type="text" placeholder="MICR" value={bankForm.micrCode} onChange={e => setBankForm({ ...bankForm, micrCode: e.target.value })} style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
                                 </div>
-                                <input type="number" placeholder="Initial Balance" value={bankForm.balance} onChange={e => setBankForm({ ...bankForm, balance: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
-                                <button type="submit" style={{ padding: '18px', backgroundColor: '#10b981', color: 'white', fontWeight: '900', border: 'none', borderRadius: '16px', marginTop: '10px', cursor: 'pointer' }}>Add Bank</button>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                    <input type="text" placeholder="Branch" value={bankForm.branch} onChange={e => setBankForm({ ...bankForm, branch: e.target.value })} style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
+                                    <input type="number" placeholder="Balance" value={bankForm.balance} onChange={e => setBankForm({ ...bankForm, balance: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
+                                </div>
+                                <button type="submit" style={{ padding: '18px', backgroundColor: '#10b981', color: 'white', fontWeight: '900', border: 'none', borderRadius: '16px', marginTop: '10px', cursor: 'pointer' }}>{editingBank ? 'Save Changes' : 'Add Bank'}</button>
                             </form>
                         </motion.div>
                     </div>
@@ -647,12 +1033,53 @@ const Accounts = () => {
                 {isCardModalOpen && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCardModalOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(12px)' }} />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20 }}>
-                            <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '25px', color: theme.text }}>Add Card</h2>
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20, maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '25px', color: theme.text }}>
+                                {cardForm.bankId === 'standalone' || (!cardForm.bankId && selectedBank === 'standalone') ? 'Add Standalone Card' : 'Add Card'}
+                            </h2>
                             <form onSubmit={handleAddCard} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {/* Bank Association Selector */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', letterSpacing: '0.6px', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>Account Association</label>
+                                    <select
+                                        value={cardForm.bankId ?? ((selectedBank && selectedBank !== 'standalone') ? selectedBank.id : 'standalone')}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            if (val === 'standalone') {
+                                                setCardForm({ ...cardForm, bankId: 'standalone' });
+                                            } else {
+                                                const selectedB = banks.find(b => b.id === val);
+                                                setCardForm({ ...cardForm, bankId: val, bankName: selectedB?.name || '' });
+                                            }
+                                        }}
+                                        style={{ width: '100%', padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }}
+                                    >
+                                        {banks.map(b => (
+                                            <option key={b.id} value={b.id}>Linked to {b.name}</option>
+                                        ))}
+                                        <option value="standalone">Standalone Card (Not linked to any bank account)</option>
+                                    </select>
+                                </div>
+
+                                {/* Bank / Issuer Name (required for standalone cards) */}
+                                {(cardForm.bankId === 'standalone' || (!cardForm.bankId && (selectedBank === 'standalone' || banks.length === 0))) && (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', letterSpacing: '0.6px', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>Bank / Card Issuer</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Canara Bank, SBI, HDFC, ICICI, Amex"
+                                            value={cardForm.bankName || ''}
+                                            onChange={e => setCardForm({ ...cardForm, bankName: e.target.value })}
+                                            required
+                                            style={{ width: '100%', padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }}
+                                        />
+                                    </div>
+                                )}
+
                                 <div style={{ display: 'flex', gap: '10px' }}>
                                     <button type="button" onClick={() => setCardForm({ ...cardForm, type: 'Debit' })} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: cardForm.type === 'Debit' ? '#3b82f6' : 'transparent', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Debit</button>
                                     <button type="button" onClick={() => setCardForm({ ...cardForm, type: 'Credit' })} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: cardForm.type === 'Credit' ? '#f59e0b' : 'transparent', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Credit</button>
+                                    <button type="button" onClick={() => setCardForm({ ...cardForm, type: 'Virtual' })} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: cardForm.type === 'Virtual' ? '#8b5cf6' : 'transparent', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Virtual</button>
                                 </div>
                                 <input type="text" placeholder="Card Number (16 digits)" maxLength="16" value={cardForm.cardNumber} onChange={e => setCardForm({ ...cardForm, cardNumber: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
                                 <input type="text" placeholder="Card Holder Name" value={cardForm.cardHolder} onChange={e => setCardForm({ ...cardForm, cardHolder: e.target.value })} required style={{ padding: '15px', borderRadius: '12px', backgroundColor: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, outline: 'none' }} />
@@ -672,7 +1099,7 @@ const Accounts = () => {
                 {/* DOCUMENT UPLOAD MODAL */}
                 {isDocModalOpen && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDocModalOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(12px)' }} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsDocModalOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(2,6,23,0.8)', }} />
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} style={{ width: '100%', maxWidth: '500px', backgroundColor: theme.sidebar, borderRadius: '32px', border: `1px solid ${theme.border}`, padding: '40px', position: 'relative', zIndex: 20 }}>
                             <h2 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '25px', color: theme.text }}>Upload Document</h2>
                             <form onSubmit={handleUploadDocument} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -698,7 +1125,7 @@ const Accounts = () => {
 
             {/* DOCUMENT VIEWER MODAL */}
             {viewerDoc && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(5px)' }} onClick={() => { setViewerDoc(null); setDocPassword(''); setShowPasswordPrompt(false); }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backgroundColor: 'rgba(0,0,0,0.95)', }} onClick={() => { setViewerDoc(null); setDocPassword(''); setShowPasswordPrompt(false); }}>
                     <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', maxWidth: '1400px', height: '90vh', backgroundColor: theme.sidebar, borderRadius: '24px', border: `1px solid ${theme.border}`, padding: '30px', position: 'relative', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '20px', borderBottom: `1px solid ${theme.border}` }}>
@@ -713,7 +1140,7 @@ const Accounts = () => {
                                 }} style={{ padding: '10px 20px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Trash2 size={18} /> Delete
                                 </button>
-                                <a href={`${BASE_URL}/${viewerDoc.filePath}`} download={viewerDoc.documentName} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <a href={getDocumentUrl(viewerDoc.filePath, true)} download={viewerDoc.documentName} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Download size={18} /> Download
                                 </a>
                                 <button onClick={() => { setViewerDoc(null); setDocPassword(''); setShowPasswordPrompt(false); }} style={{ padding: '10px 20px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -740,7 +1167,7 @@ const Accounts = () => {
                                 {viewerDoc.mimeType?.startsWith('image/') || viewerDoc.filePath?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                                         <img
-                                            src={`${BASE_URL}/${viewerDoc.filePath}`}
+                                            src={getDocumentUrl(viewerDoc.filePath)}
                                             alt={viewerDoc.documentName}
                                             style={{
                                                 maxWidth: '100%',
@@ -755,10 +1182,10 @@ const Accounts = () => {
                                         />
                                     </div>
                                 ) : viewerDoc.mimeType === 'application/pdf' ? (
-                                    <PDFViewer fileUrl={`${BASE_URL}/${viewerDoc.filePath}`} fileName={viewerDoc.documentName} password={docPassword} onClose={() => { setViewerDoc(null); setDocPassword(''); }} />
+                                    <PDFViewer fileUrl={getDocumentUrl(viewerDoc.filePath)} fileName={viewerDoc.documentName} password={docPassword} onClose={() => { setViewerDoc(null); setDocPassword(''); }} />
                                 ) : viewerDoc.mimeType?.startsWith('text/') ? (
                                     <iframe
-                                        src={`${BASE_URL}/${viewerDoc.filePath}`}
+                                        src={getDocumentUrl(viewerDoc.filePath)}
                                         style={{ width: '100%', height: '100%', border: 'none', backgroundColor: 'white' }}
                                         title={viewerDoc.documentName}
                                         sandbox="allow-same-origin"
@@ -769,7 +1196,7 @@ const Accounts = () => {
                                         <h3 style={{ color: theme.text, marginBottom: '15px', fontSize: '24px' }}>Preview Not Available</h3>
                                         <p style={{ color: theme.textSecondary, marginBottom: '30px', fontSize: '16px' }}>This file type cannot be previewed in the browser</p>
                                         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                            <a href={`${BASE_URL}/${viewerDoc.filePath}`} download onClick={(e) => e.stopPropagation()} style={{ padding: '15px 30px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
+                                            <a href={getDocumentUrl(viewerDoc.filePath, true)} download onClick={(e) => e.stopPropagation()} style={{ padding: '15px 30px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
                                                 <Download size={20} />
                                                 Download File
                                             </a>
@@ -787,6 +1214,3 @@ const Accounts = () => {
 };
 
 export default Accounts;
-
-
-

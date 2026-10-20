@@ -11,6 +11,17 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Metadata arrives as a JSON string from the mobile multipart upload.
+const safeJsonParse = (value) => {
+    if (!value) return null;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch (e) {
+        return null;
+    }
+};
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -97,14 +108,31 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        // 'scan' is used when the mobile app converts camera captures to a PDF.
+        const source = ['upload', 'scan', 'digilocker'].includes(req.body.source)
+            ? req.body.source
+            : 'upload';
+
+        // Normalise type against the ENUM (the mobile app may send 'aadhaar').
+        const ALLOWED_TYPES = ['pan', 'aadhar', 'passport', 'driving_license', 'bank_statement', 'tax_return', 'invoice', 'receipt', 'other'];
+        const typeAlias = { aadhaar: 'aadhar', adhaar: 'aadhar', pan_card: 'pan', bank_passbook: 'bank_statement', passbook: 'bank_statement', id: 'other' };
+        const requestedType = String(documentType || '').toLowerCase().trim();
+        const normalizedType = typeAlias[requestedType] || requestedType;
+        const docType = ALLOWED_TYPES.includes(normalizedType) ? normalizedType : 'other';
+
+        const parsedName = documentName && String(documentName).trim();
+        const fallbackName = path.parse(req.file.originalname || '').name;
+        const finalName = parsedName || fallbackName || 'Document';
+
         const document = await Document.create({
             userId,
-            documentName,
-            documentType,
+            documentName: finalName,
+            documentType: docType,
             filePath: `uploads/documents/${req.file.filename}`,
             fileSize: req.file.size,
             mimeType: req.file.mimetype,
-            source: 'upload',
+            source,
+            metadata: req.body.metadata ? safeJsonParse(req.body.metadata) : null,
             uploadedAt: new Date()
         });
 

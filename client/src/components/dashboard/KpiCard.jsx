@@ -134,7 +134,7 @@ export function KpiCard({
     delta,
     deltaInverse = false,
     spark,
-    sparkColor = '#8b5cf6',
+    sparkColor = '#10b981',
     ring,
     ringColor = '#10b981',
     tone = 'brand',

@@ -51,6 +51,17 @@ router.post('/manual', async (req, res) => {
             date: date || new Date(),
             source: source || 'manual' // Support custom source (e.g., 'sms')
         });
+
+        // Auto-reconcile with open bills if this is an expense
+        if (type === 'expense') {
+            try {
+                const { autoReconcilePayment } = require('../../services/billAutomationService');
+                await autoReconcilePayment(transaction, targetUserId);
+            } catch (reconErr) {
+                console.warn('[Transactions] Auto bill reconciliation warning:', reconErr.message);
+            }
+        }
+
         res.json(transaction);
     } catch (error) {
         res.status(500).json({ error: error.message });

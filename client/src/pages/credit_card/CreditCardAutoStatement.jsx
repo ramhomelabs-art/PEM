@@ -210,10 +210,33 @@ const CreditCardAutoStatement = () => {
                         clientId: data.customConfig.clientId,
                         redirectUri: data.customConfig.redirectUri || prev.redirectUri
                     }));
+                } else {
+                    setGmailConfig(prev => ({
+                        ...prev,
+                        clientId: '',
+                        clientSecret: '',
+                        redirectUri: prev.redirectUri
+                    }));
                 }
             }
         } catch (e) {
             console.error('Failed to fetch Gmail status:', e);
+        }
+    };
+
+    const handleResetGmailConfig = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/credit-cards/gmail/config`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                showToast('Reverted to system default OAuth credentials', 'info');
+                await fetchGmailStatus();
+            }
+        } catch {
+            showToast('Failed to reset configuration', 'error');
         }
     };
 
@@ -1556,6 +1579,37 @@ const CreditCardAutoStatement = () => {
                                             className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all"
                                         >
                                             Disconnect
+                                        </button>
+                                    </div>
+                                )}
+
+                                {gmailStatus.hasEnvConfig && !gmailStatus.hasCustomConfig && (
+                                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center gap-3">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                                        <div className="space-y-0.5">
+                                            <p className="font-bold text-ink">System Google OAuth Configured on Server</p>
+                                            <p className="text-[11px] text-ink-muted">
+                                                Backend <code className="text-emerald-400 font-mono">.env</code> credentials are active. You can tap <strong className="text-ink">Connect & Authorize</strong> directly without entering custom keys, or fill below to override.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {gmailStatus.hasCustomConfig && (
+                                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                                            <div>
+                                                <p className="font-bold text-ink">Custom User OAuth Override Active</p>
+                                                <p className="text-[11px] text-ink-muted">You are currently using custom Google OAuth credentials.</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleResetGmailConfig}
+                                            className="px-2.5 py-1 rounded-lg bg-raised hover:bg-line text-ink font-semibold text-[11px] border border-line transition-all shrink-0"
+                                        >
+                                            Reset to Default
                                         </button>
                                     </div>
                                 )}

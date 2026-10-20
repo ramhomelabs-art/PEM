@@ -40,11 +40,11 @@ export const PanelHeader = ({ title, subtitle, icon: Icon, action }) => (
 
 const BUTTON_VARIANTS = {
     primary:
-        'bg-brand text-slate-950 hover:brightness-110 active:brightness-95 shadow-[0_8px_20px_-10px_var(--pem-accent)]',
+        'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black hover:brightness-110 active:scale-95 shadow-[0_8px_20px_-8px_rgba(16,185,129,0.5)] border border-emerald-400/30',
     secondary:
-        'bg-raised text-ink border border-line hover:border-line-strong hover:bg-raised/70',
-    ghost: 'text-ink-muted hover:text-ink hover:bg-raised',
-    danger: 'bg-neg-soft text-neg border border-neg/25 hover:bg-neg hover:text-white',
+        'bg-raised text-ink border border-line hover:border-line-strong hover:bg-raised/80 active:scale-95',
+    ghost: 'text-ink-muted hover:text-ink hover:bg-raised active:scale-95',
+    danger: 'bg-neg-soft text-neg border border-neg/25 hover:bg-neg hover:text-white active:scale-95',
 };
 
 const BUTTON_SIZES = {
@@ -64,8 +64,8 @@ export const Button = forwardRef(function Button(
             disabled={rest.disabled || loading}
             className={cx(
                 'inline-flex select-none items-center justify-center rounded-control font-bold',
-                'transition-[background-color,color,border-color,filter,opacity] duration-150',
-                'disabled:pointer-events-none disabled:opacity-50',
+                'transition-[background-color,color,border-color,filter,opacity,transform] duration-150',
+                'disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
                 BUTTON_VARIANTS[variant],
                 BUTTON_SIZES[size],
                 className
@@ -115,14 +115,14 @@ export const IconBadge = ({ icon: Icon, tone = 'muted', size = 'md', className }
 export const StatTile = ({ label, value, delta, tone = 'brand', icon, hint, loading }) => {
     if (loading) return <StatSkeleton />;
     return (
-        <div className="relative overflow-hidden rounded-card border border-line bg-surface p-4">
+        <div className="pem-card pem-card-hover relative overflow-hidden p-4">
             <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-faint">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">
                     {label}
                 </p>
                 {icon ? <IconBadge icon={icon} tone={tone} size="sm" /> : null}
             </div>
-            <p className="tnum mt-2 text-2xl font-extrabold leading-tight tracking-tight text-ink">
+            <p className="tnum mt-2 text-2xl font-black leading-tight tracking-tight text-ink">
                 {value}
             </p>
             <div className="mt-1.5 flex items-center gap-2">
@@ -140,7 +140,7 @@ export const StatTile = ({ label, value, delta, tone = 'brand', icon, hint, load
                         {delta.label}
                     </span>
                 ) : null}
-                {hint ? <span className="text-xs text-ink-faint">{hint}</span> : null}
+                {hint ? <span className="text-xs text-ink-muted">{hint}</span> : null}
             </div>
         </div>
     );
@@ -149,7 +149,7 @@ export const StatTile = ({ label, value, delta, tone = 'brand', icon, hint, load
 /* ------------------------------------------------------------- Skeleton -- */
 
 export const StatSkeleton = () => (
-    <div className="rounded-card border border-line bg-surface p-4">
+    <div className="pem-card p-4">
         <div className="pem-skeleton h-2.5 w-20" />
         <div className="pem-skeleton mt-3 h-7 w-28" />
         <div className="pem-skeleton mt-2.5 h-2.5 w-16" />

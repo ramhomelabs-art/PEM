@@ -4,6 +4,7 @@ import {
     Check, X, MessageSquare, Calendar, CreditCard, Tag,
     User, Smartphone, Clock, FileText, ArrowDownRight, ArrowUpRight
 } from 'lucide-react';
+import { symbolFor } from '../../utils/currency';
 
 const buildInitialFormData = (data) => {
     if (!data) return null;
@@ -61,11 +62,21 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const isManualEntry = formData.source === 'MANUAL_ENTRY' || formData.type === 'MANUAL';
+    const isManualEntry = Boolean(
+        formData.source === 'MANUAL_ENTRY' ||
+        formData.source === 'APP' ||
+        formData.source === 'MANUAL' ||
+        formData.source === 'COMPANION' ||
+        formData.type === 'MANUAL' ||
+        formData.tag === 'direct_manual' ||
+        (typeof formData.tag === 'string' && formData.tag.toLowerCase().includes('manual')) ||
+        (formData.description && /^manual\s+(expense|entry):/i.test(formData.description)) ||
+        (formData.raw_message && /^manual\s+(expense|entry):/i.test(formData.raw_message))
+    );
     const currentType = formData.transaction_type === 'credit' ? 'income' : 'expense';
     const safeCategories = Array.isArray(categories) ? categories : [];
     const availableCategories = safeCategories.filter(c => c.type === currentType || c.type === 'both');
-    const currencySymbol = (formData.currency === 'INR' || user?.currency === 'INR') ? '₹' : '$';
+    const currencySymbol = symbolFor(formData.currency || user?.currency || JSON.parse(localStorage.getItem('user') || '{}')?.currency || 'INR');
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -94,13 +105,13 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-ink tracking-tight flex items-center gap-2">
-                                {isManualEntry ? 'Manual App Transaction' : 'Automated SMS Record'}
+                                {isManualEntry ? 'Cash / Manual Transaction' : 'Automated SMS Record'}
                                 <span className={`text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-full font-bold ${
                                     isManualEntry 
                                         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
                                         : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 }`}>
-                                    {formData.extractor || (isManualEntry ? 'Mobile App' : 'Parser')}
+                                    {formData.extractor || (isManualEntry ? 'Cash / Manual' : 'Parser')}
                                 </span>
                             </h2>
                             <p className="text-xs text-ink-muted mt-0.5">
@@ -162,7 +173,9 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
                             Transaction Amount
                         </label>
                         <div className="relative flex items-center">
-                            <span className="absolute left-4 text-2xl font-black text-emerald-400">
+                            <span className={`absolute left-4 text-2xl font-black ${
+                                (currentType === 'income' || formData.transaction_type === 'credit') ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
                                 {currencySymbol}
                             </span>
                             <input
@@ -170,7 +183,11 @@ const AutomationDetailsModal = ({ isOpen, onClose, data, onSave, categories = []
                                 step="any"
                                 value={formData.amount}
                                 onChange={(e) => handleChange('amount', parseFloat(e.target.value) || 0)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-sunken/80 border-2 border-line focus:border-emerald-500 rounded-xl text-3xl font-extrabold text-emerald-400 outline-none transition-all placeholder:text-ink-faint"
+                                className={`w-full pl-12 pr-4 py-3.5 bg-sunken/80 border-2 border-line rounded-xl text-3xl font-extrabold outline-none transition-all placeholder:text-ink-faint ${
+                                    (currentType === 'income' || formData.transaction_type === 'credit')
+                                        ? 'text-emerald-400 focus:border-emerald-500' 
+                                        : 'text-rose-400 focus:border-rose-500'
+                                }`}
                                 placeholder="0.00"
                             />
                         </div>

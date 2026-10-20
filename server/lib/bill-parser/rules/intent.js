@@ -32,12 +32,21 @@ module.exports = function analyzeBillIntent(text) {
     // "paid" is tricky. "Amount paid: 0. Amount due: 500". This is a bill.
     // "Bill of Rs 500 is paid". This is a receipt.
 
-    // Strict Reject List:
-    const STRICT_REJECT = ['debited', 'credited', 'successful', 'received', 'sent to', 'refund'];
-    if (STRICT_REJECT.some(k => lower.includes(k))) return { isBill: false };
+    // Clean out conditional disclaimers like "Please ignore if paid" or "if already paid"
+    const cleaned = lower.replace(/ignore\s*if\s*(?:already\s*)?paid/gi, '');
+
+    // Strict Reject List (Confirmations of completed payments, receipts, or scheduled autopay):
+    const STRICT_REJECT = [
+        'debited', 'credited', 'successful', 'received', 'sent to', 'refund',
+        'thank you for making payment', 'making payment of', 'making payment',
+        'view and download receipt', 'download receipt', 'receipt on your whatsapp', 'receipt',
+        'payment received', 'successfully paid', 'paid from', 'payment of',
+        'is scheduled on', 'scheduled on', 'scheduled for', 'ensure sufficient balance'
+    ];
+    if (STRICT_REJECT.some(k => cleaned.includes(k))) return { isBill: false };
 
     // Soft Reject "paid" if not "payable"
-    if (lower.includes(' paid ') && !lower.includes('payable') && !lower.includes('to be paid')) {
+    if ((cleaned.includes(' paid') || cleaned.includes('paid ')) && !cleaned.includes('payable') && !cleaned.includes('to be paid')) {
         // "Bill paid". "Paid bill".
         return { isBill: false };
     }

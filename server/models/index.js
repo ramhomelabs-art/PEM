@@ -151,15 +151,15 @@ Borrow.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Bank, { foreignKey: 'userId' });
 Bank.belongsTo(User, { foreignKey: 'userId' });
 
-User.hasMany(Card, { foreignKey: 'userId' });
-Card.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(Card, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Card.belongsTo(User, { foreignKey: 'userId', onDelete: 'CASCADE' });
 
 User.hasMany(Budget, { foreignKey: 'userId' });
 Budget.belongsTo(User, { foreignKey: 'userId' });
 
 // Bank-Card Relationship
-Bank.hasMany(Card, { foreignKey: 'bankId' });
-Card.belongsTo(Bank, { foreignKey: 'bankId' });
+Bank.hasMany(Card, { foreignKey: 'bankId', onDelete: 'SET NULL' });
+Card.belongsTo(Bank, { foreignKey: 'bankId', onDelete: 'SET NULL' });
 
 // Transaction Linking
 Loan.hasMany(Transaction, { foreignKey: 'loanId' });

@@ -230,6 +230,42 @@ async function sendOtpEmail(to, code, purpose = 'password_reset', ttlMinutes = 1
 }
 
 /**
+ * Send a login-alert email. Non-blocking callers should attach a .catch().
+ * @param {object} opts
+ * @param {string} opts.to
+ * @param {object} opts.user
+ * @param {string} [opts.ip]
+ * @param {string} [opts.device]
+ * @param {string} [opts.browser]
+ * @param {string} [opts.os]
+ * @param {string} [opts.method]
+ * @param {Date}   [opts.time]
+ * @param {boolean}[opts.isNewDevice]
+ * @param {string} [opts.appUrl]
+ */
+async function sendLoginAlert({ to, user, ip, device, browser, os, method, time, isNewDevice, appUrl }) {
+    const { subject, html, text } = templates.loginAlertEmail({
+        user,
+        ip,
+        device,
+        browser,
+        os,
+        method,
+        time,
+        isNewDevice,
+        appUrl
+    });
+
+    return sendMail({
+        to,
+        subject,
+        text,
+        html,
+        headers: { 'Auto-Submitted': 'auto-generated' }
+    });
+}
+
+/**
  * Send the pending-items digest email (Automation inbox transactions +
  * pending notifications). Adds bulk-sender friendly headers to improve inbox
  * placement and provide a one-click unsubscribe.
@@ -272,10 +308,34 @@ async function sendPendingDigest({ to, user, transactions = [], expenses, income
     });
 }
 
+/**
+ * Send an outbound test verification email.
+ */
+async function sendTestEmail(to) {
+    const status = getStatus();
+    const cfg = resolveConfig();
+    const { subject, html, text } = templates.testEmail({
+        to,
+        host: (cfg && cfg.host) || status.host || '',
+        port: (cfg && cfg.port) || 587,
+        source: status.source || 'settings'
+    });
+
+    return sendMail({
+        to,
+        subject,
+        text,
+        html,
+        headers: { 'Auto-Submitted': 'auto-generated' }
+    });
+}
+
 module.exports = {
     sendMail,
     sendOtpEmail,
+    sendLoginAlert,
     sendPendingDigest,
+    sendTestEmail,
     isConfigured,
     getStatus,
     invalidate

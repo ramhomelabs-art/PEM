@@ -409,7 +409,7 @@ const Dashboard = () => {
             delta: kpi.deltas.savingsRate,
             ring: kpi.current.savingsRate,
             ringColor: CHART.net,
-            tone: 'violet',
+            tone: 'brand',
         },
     ];
 

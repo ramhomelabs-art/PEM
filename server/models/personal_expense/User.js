@@ -94,7 +94,7 @@ module.exports = (sequelize) => {
             comment: 'Whether MFA is enabled for this user'
         },
         mfaMethod: {
-            type: DataTypes.ENUM('push', 'totp', 'both'),
+            type: DataTypes.ENUM('push', 'totp', 'both', 'none'),
             allowNull: true,
             comment: 'Preferred MFA method'
         },

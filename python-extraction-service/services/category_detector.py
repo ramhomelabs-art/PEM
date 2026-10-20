@@ -29,9 +29,14 @@ MERCHANT_CATEGORIES = {
     'BOOKMYSHOW': 'Entertainment',
     
     # Utilities
+    'BSNL': 'Utility',
+    'MTNL': 'Utility',
     'AIRTEL': 'Utility',
     'JIO': 'Utility',
     'VODAFONE': 'Utility',
+    'BESCOM': 'Utility',
+    'TNEB': 'Utility',
+    'ACT FIBERNET': 'Utility',
     'ELECTRICITY': 'Utility',
     'GAS': 'Utility',
     
@@ -47,7 +52,7 @@ CATEGORY_KEYWORDS = {
     'Shopping': ['shop', 'store', 'mart', 'retail', 'mall'],
     'Travel': ['taxi', 'cab', 'fuel', 'petrol', 'diesel', 'flight', 'train'],
     'Entertainment': ['movie', 'cinema', 'theatre', 'music', 'game'],
-    'Utility': ['electric', 'water', 'gas', 'mobile', 'internet', 'broadband'],
+    'Utility': ['electric', 'water', 'gas', 'mobile', 'internet', 'broadband', 'bsnl', 'mtnl', 'bill', 'landline', 'telecom'],
     'Medical': ['hospital', 'clinic', 'pharmacy', 'medical', 'doctor'],
 }
 

@@ -92,13 +92,17 @@ async function handleCallback(code, userId, customConfig = {}) {
         console.warn('[Gmail OAuth] Could not get user email:', e.message);
     }
 
+    const userCustomConfig = (customConfig && customConfig.clientId && customConfig.clientId !== process.env.GOOGLE_CLIENT_ID)
+        ? customConfig
+        : ((savedConfig && savedConfig.clientId && savedConfig.clientId !== process.env.GOOGLE_CLIENT_ID) ? savedConfig : null);
+
     prefs.gmailSync = {
         connected: true,
         email: userEmail,
         tokens: tokens,
         lastSync: null,
         autoSync: true,
-        customConfig: effectiveConfig
+        customConfig: userCustomConfig
     };
 
     user.preferences = { ...prefs };
@@ -145,15 +149,17 @@ async function getStatus(userId) {
     const sync = prefs.gmailSync || {};
 
     const hasEnvConfig = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-    const hasCustomConfig = !!(sync.customConfig && sync.customConfig.clientId);
+    const isCustom = !!(sync.customConfig && sync.customConfig.clientId && sync.customConfig.clientId !== process.env.GOOGLE_CLIENT_ID);
 
     return {
-        isConfigured: hasEnvConfig || hasCustomConfig,
+        isConfigured: hasEnvConfig || isCustom,
+        hasEnvConfig,
+        hasCustomConfig: isCustom,
         connected: !!sync.connected && !!sync.tokens,
         email: sync.email || null,
         lastSync: sync.lastSync || null,
         autoSync: sync.autoSync !== false,
-        customConfig: sync.customConfig ? {
+        customConfig: isCustom ? {
             clientId: sync.customConfig.clientId,
             redirectUri: sync.customConfig.redirectUri
         } : null

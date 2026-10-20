@@ -7,7 +7,7 @@
 export const CHART = {
     income: '#10b981', // emerald-500
     expense: '#f43f5e', // rose-500
-    net: '#8b5cf6', // violet-500
+    net: '#14b8a6', // teal-500 (emerald/teal family)
     balance: '#38bdf8', // sky-400
     grid: 'currentColor',
 };

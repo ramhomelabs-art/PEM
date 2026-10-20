@@ -13,11 +13,13 @@ export default defineConfig({
         target: 'http://localhost:5005',
         changeOrigin: true,
         secure: false,
+        xfwd: true,
       },
       '/uploads': {
         target: 'http://localhost:5005',
         changeOrigin: true,
         secure: false,
+        xfwd: true,
       },
     },
   },

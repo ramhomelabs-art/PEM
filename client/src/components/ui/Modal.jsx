@@ -49,7 +49,7 @@ export function Modal({
                         exit={{ opacity: 0, scale: 0.96, y: 12 }}
                         transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                         className={cx(
-                            'relative z-10 my-auto flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[20px] border border-line bg-surface shadow-raised',
+                            'relative z-10 my-auto flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[24px] border border-line bg-surface shadow-raised pem-card',
                             MODAL_SIZES[size]
                         )}
                     >

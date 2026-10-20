@@ -29,7 +29,7 @@ const SecurityLock = ({ onUnlock }) => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                onUnlock();
+                onUnlock(password);
             } else {
                 setError(data.error || 'Incorrect password');
             }
@@ -41,93 +41,43 @@ const SecurityLock = ({ onUnlock }) => {
     };
 
     return (
-        <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(2, 6, 23, 0.55)',
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            borderRadius: '24px'
-        }}>
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl rounded-[24px]">
             <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 180 }}
-                style={{
-                    backgroundColor: theme.card,
-                    padding: '40px',
-                    borderRadius: '24px',
-                    border: `1px solid ${theme.border}`,
-                    width: '100%',
-                    maxWidth: '400px',
-                    textAlign: 'center',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                }}
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="pem-card relative w-full max-w-[420px] p-8 text-center rounded-[24px] border border-white/10 bg-[#0c1427]/95 shadow-raised overflow-hidden"
             >
-                <div style={{
-                    width: '80px',
-                    height: '80px',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 20px auto'
-                }}>
-                    <Lock size={40} color={theme.accent} />
+                {/* Top ambient highlight line */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+
+                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shadow-[0_0_25px_rgba(16,185,129,0.25)] mx-auto mb-5">
+                    <Lock size={32} />
                 </div>
 
-                <h2 style={{ fontSize: '24px', fontWeight: '900', color: theme.text, marginBottom: '10px' }}>Security Check</h2>
-                <p style={{ color: theme.textSecondary, marginBottom: '30px' }}>Please enter your password to view sensitive card details.</p>
+                <h2 className="text-2xl font-black text-ink tracking-tight mb-2">Vault Security Check</h2>
+                <p className="text-xs leading-relaxed text-ink-muted mb-6">
+                    Enter your master password to decrypt and view sensitive account and card details.
+                </p>
 
-                <form onSubmit={handleUnlock} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ position: 'relative', width: '100%', marginBottom: '5px' }}>
-                        <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: theme.accent }} />
+                <form onSubmit={handleUnlock} className="flex flex-col gap-3.5">
+                    <div className="relative w-full">
+                        <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
                         <input
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Enter your password"
                             required
-                            style={{
-                                width: '100%',
-                                padding: '15px 48px 15px 48px',
-                                backgroundColor: theme.inputBg,
-                                border: `1px solid ${error ? '#ef4444' : theme.border}`,
-                                borderRadius: '12px',
-                                color: theme.text,
-                                outline: 'none',
-                                fontSize: '16px',
-                                fontWeight: '700',
-                                boxSizing: 'border-box'
-                            }}
+                            className="h-11 w-full rounded-control border border-line bg-surface/80 pl-10 pr-10 text-sm font-semibold text-ink placeholder:text-ink-muted/70 transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none"
                         />
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            style={{
-                                position: 'absolute',
-                                right: '16px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: theme.textSecondary,
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center text-ink-muted transition hover:text-ink cursor-pointer"
                         >
-                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     </div>
 
@@ -137,9 +87,9 @@ const SecurityLock = ({ onUnlock }) => {
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontSize: '14px', marginBottom: '15px', justifyContent: 'center' }}
+                                className="flex items-center justify-center gap-2 text-xs font-bold text-rose-400"
                             >
-                                <AlertCircle size={16} /> {error}
+                                <AlertCircle size={14} /> {error}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -147,23 +97,13 @@ const SecurityLock = ({ onUnlock }) => {
                     <button
                         type="submit"
                         disabled={loading || !password}
-                        style={{
-                            width: '100%',
-                            padding: '15px',
-                            backgroundColor: theme.accent,
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '12px',
-                            fontWeight: '900',
-                            cursor: loading || !password ? 'not-allowed' : 'pointer',
-                            opacity: loading || !password ? 0.7 : 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px'
-                        }}
+                        className="h-11 w-full rounded-control border border-emerald-400/30 bg-gradient-to-r from-emerald-500 to-teal-500 font-black text-slate-950 text-sm shadow-[0_8px_20px_-8px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
-                        {loading ? 'Verifying...' : <><Unlock size={20} /> UNLOCK</>}
+                        {loading ? 'Verifying…' : (
+                            <>
+                                <Unlock size={17} /> Unlock Vault
+                            </>
+                        )}
                     </button>
                 </form>
             </motion.div>

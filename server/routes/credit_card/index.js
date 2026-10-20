@@ -35,40 +35,7 @@ const IV_LENGTH = 16;
 const GCM_IV_LENGTH = 12;
 const GCM_TAG_LENGTH = 16;
 
-// Sensitive card data is encrypted with authenticated AES-256-GCM.
-// Format: "v2:" + base64(iv || ciphertext || tag). Legacy values stored with the
-// old AES-256-CBC format ("ivHex:cipherHex") are still decryptable for existing rows.
-function encrypt(text) {
-    const iv = crypto.randomBytes(GCM_IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
-    const encrypted = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return 'v2:' + Buffer.concat([iv, encrypted, tag]).toString('base64');
-}
-
-function decrypt(text) {
-    if (typeof text === 'string' && text.startsWith('v2:')) {
-        const combined = Buffer.from(text.slice(3), 'base64');
-        if (combined.length < GCM_IV_LENGTH + GCM_TAG_LENGTH) {
-            throw new Error('Invalid encrypted payload');
-        }
-        const iv = combined.subarray(0, GCM_IV_LENGTH);
-        const tag = combined.subarray(combined.length - GCM_TAG_LENGTH);
-        const ciphertext = combined.subarray(GCM_IV_LENGTH, combined.length - GCM_TAG_LENGTH);
-        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
-        decipher.setAuthTag(tag);
-        return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
-    }
-
-    // Legacy AES-256-CBC format: ivHex:cipherHex
-    const parts = String(text).split(':');
-    const iv = Buffer.from(parts.shift(), 'hex');
-    const encryptedText = Buffer.from(parts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-}
+const { encrypt, decrypt } = require('../../utils/cardCrypto');
 
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../../config/auth');
@@ -1505,6 +1472,27 @@ router.post('/gmail/config', authenticate, async (req, res) => {
         res.json({ success: true, message: 'Google OAuth configuration saved successfully!' });
     } catch (e) {
         console.error('[Gmail Save Config Error]', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 1b. Reset Custom Google OAuth Configuration (Reverts to system .env)
+router.delete('/gmail/config', authenticate, async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const prefs = user.preferences || {};
+        if (prefs.gmailSync?.customConfig) {
+            delete prefs.gmailSync.customConfig;
+            user.preferences = prefs;
+            user.changed('preferences', true);
+            await user.save();
+        }
+
+        res.json({ success: true, message: 'Custom Google OAuth configuration removed. Reverted to system defaults.' });
+    } catch (e) {
+        console.error('[Gmail Clear Config Error]', e);
         res.status(500).json({ error: e.message });
     }
 });

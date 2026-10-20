@@ -7,18 +7,27 @@
  *
  * @type {import('tailwindcss').Config}
  */
+function withOpacity(variableName) {
+    return ({ opacityValue }) => {
+        if (opacityValue !== undefined) {
+            return `color-mix(in srgb, var(${variableName}) calc(${opacityValue} * 100%), transparent)`;
+        }
+        return `var(${variableName})`;
+    };
+}
+
 export default {
     darkMode: 'class',
     content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
     theme: {
         extend: {
             colors: {
-                bg: 'var(--pem-bg)',
-                sunken: 'var(--pem-bg-sunken)',
-                surface: 'var(--pem-surface)',
-                raised: 'var(--pem-surface-raised)',
-                line: 'var(--pem-border)',
-                'line-strong': 'var(--pem-border-strong)',
+                bg: withOpacity('--pem-bg'),
+                sunken: withOpacity('--pem-bg-sunken'),
+                surface: withOpacity('--pem-surface'),
+                raised: withOpacity('--pem-surface-raised'),
+                line: withOpacity('--pem-border'),
+                'line-strong': withOpacity('--pem-border-strong'),
                 ink: {
                     DEFAULT: 'var(--pem-text)',
                     muted: 'var(--pem-text-secondary)',

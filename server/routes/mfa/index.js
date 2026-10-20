@@ -91,6 +91,11 @@ router.post('/auth/login', mfaRateLimiter, async (req, res) => {
                 mfaExempt: true
             });
 
+            // Fire-and-forget login alert for an exempt (password-only) sign-in.
+            require('../../services/loginAlertService')
+                .notifyLogin(req, user, { method: 'password' })
+                .catch(() => {});
+
             return res.json({
                 success: true,
                 mfaRequired: false,
@@ -272,6 +277,11 @@ router.post('/auth/verify-totp', totpRateLimiter, async (req, res) => {
 
         if (result.success) {
             const user = await User.findByPk(userId);
+
+            // Fire-and-forget login alert after a completed MFA sign-in.
+            require('../../services/loginAlertService')
+                .notifyLogin(req, user, { method: backupCode ? 'backup_code' : 'totp' })
+                .catch(() => {});
 
             return res.json({
                 success: true,
@@ -666,6 +676,16 @@ router.post('/mobile/login', mfaRateLimiter, async (req, res) => {
             ipAddress: req.ip,
             userAgent: req.headers['user-agent']
         }, totpCode);
+
+        // Fire-and-forget login alert for a completed mobile sign-in.
+        if (result && result.success && result.token && result.userId) {
+            const alertUser = await User.findByPk(result.userId);
+            if (alertUser) {
+                require('../../services/loginAlertService')
+                    .notifyLogin(req, alertUser, { method: 'mobile' })
+                    .catch(() => {});
+            }
+        }
 
         res.json(result);
     } catch (error) {

@@ -60,7 +60,7 @@ router.get('/setup-status', async (req, res) => {
 // --- INITIAL SETUP & SERVER MANAGEMENT ROOT ACCOUNT CREATION (WITHOUT MFA) ---
 router.post('/initial-setup', async (req, res) => {
     try {
-        const { username, email, fullName, password } = req.body;
+        const { username, email, fullName, password, currency = 'INR', timezone = 'IST (UTC+5:30)', country = 'India' } = req.body;
         if (!username || !email || !password) {
             return res.status(400).json({ error: 'Username, email, and password are required' });
         }
@@ -120,6 +120,9 @@ router.post('/initial-setup', async (req, res) => {
                 mfaEnabled: false,
                 mfaConfigured: false,
                 mfaMethod: 'none',
+                currency: currency || user.currency || 'INR',
+                timezone: timezone || user.timezone || 'IST (UTC+5:30)',
+                country: country || user.country || 'India',
                 smsApiKey: user.smsApiKey || smsApiKey
             });
         } else {
@@ -135,9 +138,9 @@ router.post('/initial-setup', async (req, res) => {
                 mfaEnabled: false,
                 mfaConfigured: false,
                 mfaMethod: 'none',
-                country: 'India',
-                currency: 'INR',
-                timezone: 'IST (UTC+5:30)',
+                country: country || 'India',
+                currency: currency || 'INR',
+                timezone: timezone || 'IST (UTC+5:30)',
                 mobile: '+91 98765 43210',
                 smsApiKey: smsApiKey
             });
@@ -152,9 +155,20 @@ router.post('/initial-setup', async (req, res) => {
             console.warn('[Server Mgr] Could not prune old MFA records:', mfaErr.message);
         }
 
+        // Generate immediate JWT token for seamless continuation in setup wizard
+        const jwt = require('jsonwebtoken');
+        const { JWT_SECRET } = require('../../config/auth');
+        const token = jwt.sign(
+            { id: user.id, username: user.username, role: user.role, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '30d' }
+        );
+
         res.json({
             success: true,
-            message: 'Server Management Root Account configured successfully without MFA requirement.',
+            message: 'Server Management Root Account configured successfully.',
+            token,
+            smsApiKey: user.smsApiKey,
             user: {
                 id: user.id,
                 username: user.username,
@@ -162,12 +176,212 @@ router.post('/initial-setup', async (req, res) => {
                 fullName: user.fullName,
                 role: user.role,
                 status: user.status,
+                currency: user.currency,
+                timezone: user.timezone,
+                country: user.country,
+                smsApiKey: user.smsApiKey,
                 mfaExempt: true,
                 mfaEnabled: false
             }
         });
     } catch (err) {
         console.error('[Server Mgr] Initial setup error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- ANDROID COMPANION APK DIRECT DOWNLOAD & QR ENDPOINTS ---
+const resolveApkPath = () => {
+    const candidates = [
+        'D:/Project/sms-forwarder-app/app/build/outputs/apk/debug/app-debug.apk',
+        'D:/Project/sms-forwarder-app/app/release/app-release.apk',
+        path.join(__dirname, '../../uploads/pem-companion.apk')
+    ];
+    for (const p of candidates) {
+        if (fs.existsSync(p)) return p;
+    }
+    return null;
+};
+
+router.get('/apk-download', (req, res) => {
+    const apkPath = resolveApkPath();
+    if (!apkPath) {
+        return res.status(404).json({ error: 'APK build not found on server.' });
+    }
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.download(apkPath, 'pem-companion.apk');
+});
+
+router.get('/apk-qr', async (req, res) => {
+    try {
+        const qrcode = require('qrcode');
+        const host = req.get('host');
+        const protocol = req.protocol;
+        const downloadUrl = `${protocol}://${host}/api/server/apk-download`;
+        const qrCodeUrl = await qrcode.toDataURL(downloadUrl, {
+            width: 320,
+            margin: 2,
+            color: { dark: '#020617', light: '#ffffff' }
+        });
+        res.json({
+            downloadUrl,
+            qrCodeUrl,
+            apkAvailable: Boolean(resolveApkPath())
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- COMPLETE SERVICES & EXTERNAL APIS CATALOG ---
+router.get('/external-services-catalog', async (req, res) => {
+    try {
+        const pyUrl = process.env.PYTHON_SERVICE_URL || 'http://127.0.0.1:5002';
+        let pythonHealth = 'offline';
+        try {
+            const pyRes = await axios.get(`${pyUrl}/health`, { timeout: 1500 });
+            pythonHealth = pyRes.data?.status || 'online';
+        } catch {
+            pythonHealth = 'offline';
+        }
+
+        const host = req.get('host') || 'localhost:5005';
+        const protocol = req.protocol || 'http';
+        const baseUrl = `${protocol}://${host}`;
+
+        const catalog = [
+            {
+                id: 'sms-webhook',
+                category: 'Mobile & Ingestion',
+                name: 'SMS Forwarder Webhook Gateway',
+                type: 'Inbound Webhook',
+                status: 'active',
+                endpoint: `${baseUrl}/api/sms/ingest`,
+                secondaryEndpoint: `${baseUrl}/api/sms/webhook`,
+                authMethod: 'X-API-Key Header or URL Parameter',
+                description: 'Receives encrypted AES-GCM SMS payloads from the Android companion app. Auto-extracts bank debits, credits, UPI handles, merchants, and balances.'
+            },
+            {
+                id: 'mfa-push-fcm',
+                category: 'Mobile & Ingestion',
+                name: 'Mobile Push MFA & Device Gateway',
+                type: 'Hybrid (FCM + Long Polling)',
+                status: process.env.FIREBASE_PROJECT_ID ? 'configured' : 'long-polling-active',
+                endpoint: `${baseUrl}/api/mfa/mobile/pending-requests`,
+                authMethod: 'smsApiKey Header / Device Secret',
+                description: 'Delivers real-time 1-tap push approval prompts to the Android companion app with fallback to local polling.'
+            },
+            {
+                id: 'python-ai-ocr',
+                category: 'AI & Document Microservice',
+                name: 'Python AI OCR & Passbook Extractor',
+                type: 'Microservice (FastAPI/Flask Port 5002)',
+                status: pythonHealth,
+                endpoint: pyUrl,
+                authMethod: 'Internal Service Network',
+                description: 'Computer vision OCR for bank passbook scans, credit card statements, and receipt image parsing.'
+            },
+            {
+                id: 'yahoo-finance',
+                category: 'Market & Investment APIs',
+                name: 'Yahoo Finance Market Engine',
+                type: 'External Financial API (yahoo-finance2)',
+                status: 'active',
+                endpoint: `${baseUrl}/api/market/quote/:ticker`,
+                authMethod: 'Pre-configured (Zero-Config)',
+                description: 'Real-time quotes, historical price charts, and forex rates for NSE/BSE stocks, US Equities, Currencies (USD/INR), and Crypto.'
+            },
+            {
+                id: 'alpha-vantage',
+                category: 'Market & Investment APIs',
+                name: 'Alpha Vantage Intelligence',
+                type: 'External Market API',
+                status: process.env.ALPHA_VANTAGE_API_KEY ? 'configured' : 'optional',
+                endpoint: 'https://www.alphavantage.co/query',
+                envVar: 'ALPHA_VANTAGE_API_KEY',
+                isConfigured: Boolean(process.env.ALPHA_VANTAGE_API_KEY),
+                description: 'Institutional-grade technical indicators (RSI, MACD, SMA), balance sheet fundamentals, and company news sentiment.'
+            },
+            {
+                id: 'twelve-data',
+                category: 'Market & Investment APIs',
+                name: 'Twelve Data Market Streaming',
+                type: 'External Financial Stream',
+                status: process.env.TWELVE_DATA_API_KEY ? 'configured' : 'optional',
+                endpoint: 'https://api.twelvedata.com',
+                envVar: 'TWELVE_DATA_API_KEY',
+                isConfigured: Boolean(process.env.TWELVE_DATA_API_KEY),
+                description: 'Low-latency intraday market time series and currency exchange data.'
+            },
+            {
+                id: 'amfi-nav',
+                category: 'Market & Investment APIs',
+                name: 'AMFI India Mutual Funds Daily NAV Feed',
+                type: 'Public Government/Regulatory Feed',
+                status: 'active',
+                endpoint: 'https://www.amfiindia.com/spages/NAVAll.txt',
+                authMethod: 'Public Unauthenticated Feed',
+                description: 'Nightly automated synchronization of daily Net Asset Values (NAV) for all Indian mutual fund schemes.'
+            },
+            {
+                id: 'cas-parser',
+                category: 'Market & Investment APIs',
+                name: 'CAMS & KFintech CAS Statement Decryptor',
+                type: 'Internal PDF Engine',
+                status: 'active',
+                endpoint: `${baseUrl}/api/investing/cas/upload`,
+                authMethod: 'Bearer JWT',
+                description: 'Decrypts password-protected Consolidated Account Statement (CAS) PDFs and maps folios, units, and transactions.'
+            },
+            {
+                id: 'metals-api',
+                category: 'Market & Investment APIs',
+                name: 'Gold & Silver Live Spot Prices',
+                type: 'Commodities Price Tracker',
+                status: 'active',
+                endpoint: `${baseUrl}/api/metals/live`,
+                authMethod: 'Internal Service',
+                description: '24 Karat and 22 Karat Gold and Silver spot prices in INR per gram/10g.'
+            },
+            {
+                id: 'google-gmail',
+                category: 'Automated Bill & Statement Ingestion',
+                name: 'Google OAuth & Gmail Statement Harvester',
+                type: 'Google Workspace API',
+                status: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'optional',
+                envVar: 'GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET',
+                isConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
+                scopes: 'gmail.readonly',
+                description: 'Automatically detects and downloads credit card e-statements from bank emails (HDFC, SBI, ICICI, Axis, Amex).'
+            },
+            {
+                id: 'smtp-email',
+                category: 'Outbound Notifications & Alerts',
+                name: 'SMTP Outbound Email Gateway',
+                type: 'SMTP Relay',
+                status: process.env.SMTP_HOST ? 'configured' : 'console-mode',
+                envVar: 'SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS',
+                isConfigured: Boolean(process.env.SMTP_HOST),
+                description: 'Sends password recovery OTPs, login anomaly alerts, and daily pending transaction digest emails.'
+            },
+            {
+                id: 'developer-rest-api',
+                category: 'Developer & Third-Party Integrations',
+                name: 'Core REST Developer Gateway (30+ Endpoints)',
+                type: 'Internal OpenAPI/REST',
+                status: 'active',
+                endpoint: `${baseUrl}/api`,
+                authMethod: 'Authorization: Bearer <JWT_TOKEN>',
+                description: 'Full REST API coverage for Home Assistant, Node-RED, Shortcuts, scripts, and webhook automations.'
+            }
+        ];
+
+        res.json({
+            success: true,
+            totalServices: catalog.length,
+            catalog
+        });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

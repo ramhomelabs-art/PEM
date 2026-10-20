@@ -3,9 +3,11 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ZoomIn, ZoomOut, Download, KeyRound, Loader2 } from 'lucide-react';
 import { Button } from '../ui/primitives';
 import { cx } from '../ui/cx';
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// The worker is served from public/ by the app shell.
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// Resolve the worker from the installed pdfjs-dist so the worker and the API
+// always share the same version (a stale public/ copy caused a version-mismatch).
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 const PAGE_WIDTH = 720;
 

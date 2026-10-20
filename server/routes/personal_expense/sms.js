@@ -3,6 +3,7 @@ const router = express.Router();
 const { parseSMS, categorize } = require('../../utils/smsParser');
 const { parseBillSMS } = require('../../lib/bill-parser');
 const { User, Bill } = require('../../models');
+const billAutomationService = require('../../services/billAutomationService');
 const { authenticateToken } = require('../../middleware/auth');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -545,52 +546,194 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                     tx.category = 'Subscription';
                 }
 
-                const isCreditCardTx = (
-                    modeInfo.isCreditCard ||
+                // Check if this is an upcoming or unpaid Bill / Utility reminder (exclude completed payment receipts!)
+                if (tx.isBillPaymentReceipt) {
+                    tx.isBill = false;
+                    tx.dueDate = null;
+                    if (!tx.mode || tx.mode === 'OTHER') {
+                        tx.mode = 'BILL_PAYMENT';
+                        tx.paymentMethod = 'Bill Payment';
+                    }
+                    if (!tx.category || tx.category === 'General') {
+                        tx.category = 'Utility';
+                    }
+                } else if (tx.isScheduledMandate) {
+                    tx.isBill = true;
+                    tx.status = 'Scheduled';
+                    if (!tx.category || tx.category === 'General') {
+                        tx.category = 'Subscription';
+                    }
+                } else {
+                    const billData = parseBillSMS(tx.raw_message || tx.description || smsContent);
+                    if (billData || modeInfo.isBill || tx.isBill) {
+                        tx.isBill = true;
+                        if (billData) {
+                            if (!tx.merchant || tx.merchant === 'Unknown' || tx.merchant === 'Pending Review' || /cyber\s*crime/i.test(tx.merchant)) {
+                                tx.merchant = billData.providerName || tx.merchant || 'Utility Bill';
+                            }
+                            if (!tx.category || tx.category === 'General' || tx.category === 'Uncategorized') {
+                                tx.category = billData.category || 'Utility';
+                            }
+                            if (billData.description) {
+                                tx.description = billData.description;
+                            }
+                            if (billData.dueDate) {
+                                tx.dueDate = billData.dueDate;
+                            }
+                            if (billData.identifiers?.account && !tx.accountMasked) {
+                                tx.accountMasked = billData.identifiers.account;
+                            }
+                            if (billData.identifiers?.phone && !tx.referenceNo) {
+                                tx.referenceNo = billData.identifiers.phone;
+                            }
+                        }
+                        if (tx.mode === 'BANK_TRANSFER' || !tx.mode) {
+                            tx.mode = 'BILL';
+                            tx.paymentMethod = 'Bill';
+                        }
+                        if (!tx.category || tx.category === 'General') {
+                            tx.category = 'Utility';
+                        }
+                    }
+
+                    // Check if this bill was already paid in the database or if it's an update to an existing bill
+                    if (tx.isBill && !tx.isBillPaymentReceipt) {
+                        try {
+                            const billRes = await billAutomationService.handleIncomingBillSMS(tx, user.id);
+                            if (billRes && billRes.action === 'SUPPRESS_ALREADY_PAID') {
+                                tx.isBill = false;
+                                tx.isRedundantReminder = true;
+                                tx.status = 'Paid';
+                                tx.description = `${tx.description || tx.merchant} (Already Paid for this cycle)`;
+                                console.log(`[Webhook BillAutomation] Suppressed redundant reminder for user ${user.id}: ${tx.description}`);
+                            }
+                        } catch (billAutoErr) {
+                            console.warn('[Webhook BillAutomation Warning]', billAutoErr.message);
+                        }
+                    }
+                }
+
+                // Disallow fake merchants from fraud disclaimers
+                if (/cyber\s*crime/i.test(tx.merchant)) {
+                    tx.merchant = 'BSNL';
+                }
+
+                const isCreditCardTx = modeInfo.isCreditCard ||
                     tx.isCreditCard === true ||
                     tx.paymentMethod === 'Credit Card' ||
                     /\b(credit\s*card|creditcard)\b/i.test(tx.raw_message || tx.description || '') ||
-                    /\bcard\s+(?:ending|x{2,}|\*{2,})\b/i.test(tx.raw_message || tx.description || '') ||
-                    /\b(spent\s+on\s+.*card|used\s+at\s+.*limit)\b/i.test(tx.raw_message || tx.description || '')
-                );
+                    /\bcard\s+(?:ending|x{1,}|\*{1,})\b/i.test(tx.raw_message || tx.description || '') ||
+                    /\b(spent\s+on\s+.*card|used\s+at\s+.*limit)\b/i.test(tx.raw_message || tx.description || '');
 
-                // Auto-route Credit Card transactions directly to Credit Card page
-                if (isCreditCardTx) {
+                if (isCreditCardTx || tx.isCreditCardBill) {
+                    tx.isCreditCard = true;
+                }
+
+                // Smart Credit Card Matching & Auto-Creation
+                if (isCreditCardTx || tx.isCreditCardBill) {
                     try {
+                        const { CreditCardBill } = require('../../models');
+                        const { encrypt, decrypt } = require('../../utils/cardCrypto');
+
                         let userCards = await CreditCard.findAll({ where: { userId: user.id } });
                         if (userCards.length === 0 && user.id !== 1) {
                             userCards = await CreditCard.findAll({ where: { userId: 1 } });
                         }
-                        const targetCard = userCards[0];
-                        if (targetCard) {
-                            const rawType = (tx.transaction_type || tx.type || 'debit').toString().toLowerCase();
-                            const normalizedType = (rawType === 'credit' || rawType === 'income' || rawType === 'refund') ? 'credit' : 'debit';
-                            await CreditCardTransaction.create({
-                                creditCardId: targetCard.id,
-                                userId: targetCard.userId,
-                                merchant: tx.merchant || 'Credit Card Spend',
-                                amount: tx.amount,
-                                transactionDate: tx.date ? new Date(tx.date) : new Date(),
-                                category: tx.category || 'Others',
-                                type: normalizedType,
-                                status: 'completed',
-                                description: tx.description || tx.raw_message,
-                                referenceNumber: tx.reference || null
+
+                        let targetCard = null;
+                        if (tx.cardLast4) {
+                            targetCard = userCards.find(c => {
+                                try {
+                                    const dec = decrypt(c.cardNumber);
+                                    return dec.slice(-4) === tx.cardLast4;
+                                } catch { return false; }
                             });
-                            if (normalizedType === 'debit') {
+                        }
+                        if (!targetCard && tx.bank) {
+                            targetCard = userCards.find(c => {
+                                const cb = (c.bankName || '').toLowerCase();
+                                const tb = tx.bank.toLowerCase();
+                                return cb.includes(tb) || tb.includes(cb);
+                            });
+                        }
+
+                        // Auto-create card if not registered yet
+                        if (!targetCard) {
+                            const bankName = tx.bank || 'Credit';
+                            const cardDigits = tx.cardLast4 || '1234';
+                            targetCard = await CreditCard.create({
+                                userId: user.id,
+                                bankName: bankName,
+                                cardName: `${bankName} Card (${cardDigits})`,
+                                cardType: 'Visa',
+                                cardNumber: encrypt(`411111111111${cardDigits}`),
+                                cvv: encrypt('123'),
+                                expiryMonth: '12',
+                                expiryYear: '30',
+                                creditLimit: tx.availableLimit ? (tx.availableLimit + (tx.amount || 0)) : 50000,
+                                usedAmount: 0,
+                                billingDate: 1,
+                                dueDate: tx.dueDate ? new Date(tx.dueDate).getDate() : 20,
+                                isActive: true
+                            });
+                            userCards.push(targetCard);
+                            console.log(`[Webhook -> CreditCard] Auto-created credit card record "${targetCard.cardName}" for user.`);
+                        }
+
+                        if (targetCard) {
+                            tx.creditCardId = targetCard.id;
+                            tx.cardName = targetCard.cardName;
+
+                            // Handle Credit Card Bill / Statement Generation
+                            if (tx.isCreditCardBill) {
                                 await targetCard.update({
-                                    usedAmount: parseFloat(targetCard.usedAmount || 0) + parseFloat(tx.amount)
+                                    totalDue: tx.totalDue || tx.amount,
+                                    minPayment: tx.minDue || Math.round((tx.totalDue || tx.amount) * 0.05),
+                                    dueDate: tx.dueDate ? new Date(tx.dueDate).getDate() : targetCard.dueDate
                                 });
+                                await CreditCardBill.create({
+                                    creditCardId: targetCard.id,
+                                    userId: user.id,
+                                    billDate: tx.date || new Date().toISOString().slice(0, 10),
+                                    dueDate: tx.dueDate || new Date().toISOString().slice(0, 10),
+                                    totalAmount: tx.totalDue || tx.amount,
+                                    minDueAmount: tx.minDue || Math.round((tx.totalDue || tx.amount) * 0.05),
+                                    paidAmount: 0,
+                                    status: 'unpaid',
+                                    metadata: { source: 'sms_statement', raw: tx.raw_message }
+                                });
+                                console.log(`[Webhook -> CreditCard] Generated statement bill for "${targetCard.cardName}": Total Due ₹${tx.totalDue || tx.amount}, Due: ${tx.dueDate}`);
+                            } else {
+                                // Record Credit Card Spend or Payment
+                                const rawType = (tx.transaction_type || tx.type || 'debit').toString().toLowerCase();
+                                const normalizedType = (rawType === 'credit' || rawType === 'income' || rawType === 'refund') ? 'credit' : 'debit';
+                                await CreditCardTransaction.create({
+                                    creditCardId: targetCard.id,
+                                    userId: targetCard.userId,
+                                    merchant: tx.merchant || 'Credit Card Spend',
+                                    amount: tx.amount,
+                                    transactionDate: tx.date ? new Date(tx.date) : new Date(),
+                                    category: tx.category || 'Others',
+                                    type: normalizedType,
+                                    status: 'completed',
+                                    description: tx.description || tx.raw_message,
+                                    referenceNumber: tx.reference || null
+                                });
+                                if (normalizedType === 'debit') {
+                                    await targetCard.update({
+                                        usedAmount: parseFloat(targetCard.usedAmount || 0) + parseFloat(tx.amount)
+                                    });
+                                } else {
+                                    await targetCard.update({
+                                        usedAmount: Math.max(0, parseFloat(targetCard.usedAmount || 0) - parseFloat(tx.amount))
+                                    });
+                                }
+                                console.log(`[Webhook -> CreditCard] Auto-routed ₹${tx.amount} (${normalizedType}) to Credit Card page on card "${targetCard.cardName}".`);
                             }
-                            console.log(`[Webhook -> CreditCard] Auto-routed ₹${tx.amount} to Credit Card page on card "${targetCard.cardName}".`);
-                        } else {
-                            console.log(`[Webhook -> CreditCard] Credit card SMS received, but no registered credit card found for user.`);
                         }
                     } catch (ccErr) {
                         console.error('[Webhook -> CreditCard Error]', ccErr.message);
                     }
-                    // Do not push credit card spends to personal expense pending inbox
-                    continue;
                 }
 
                 // Personal Expense Automation feed
@@ -601,10 +744,132 @@ router.post(['/webhook', '/webhook/:apiKey'], async (req, res) => {
                 tx.tag = extractionSource;
                 tx.raw_message = smsContent;
                 if (bodyData.type === 'MANUAL') {
-                    tx.source = 'APP';
+                    tx.source = 'MANUAL_ENTRY';
                 } else {
                     tx.source = 'SMS';
                 }
+
+                // --- SMART DEDUPLICATION & CROSS-MESSAGE MERGING ---
+                // 1. Exact Duplicate Drop (same message text or same amount + date + reference)
+                const isExactDuplicate = currentPending.some(p => {
+                    if (String(p.userId) !== String(user.id)) return false;
+                    if (p.raw_message && tx.raw_message && p.raw_message.trim() === tx.raw_message.trim()) return true;
+                    const sameAmt = Math.abs(Number(p.amount) - Number(tx.amount)) < 0.01;
+                    const sameDate = p.date && tx.date && p.date.slice(0, 10) === tx.date.slice(0, 10);
+                    const sameRef = p.reference && tx.reference && p.reference === tx.reference;
+                    if (sameAmt && sameDate && sameRef) return true;
+                    return false;
+                });
+
+                if (isExactDuplicate) {
+                    console.log(`[Webhook DEDUPE] Dropping exact duplicate SMS for user ${user.id} (Amt: ${tx.amount}, Ref: ${tx.reference})`);
+                    continue;
+                }
+
+                // 2. Gateway Debit & Utility Receipt Cross-Message Correlation & Merging
+                // Case: User pays BSNL bill of Rs 707 via CRED / BillDesk.
+                // Bank SMS: "INR 707.00 is paid from HSBC account to Dreamplug Service Private Limited..."
+                // BSNL SMS: "Thank You for making payment of Rs 707.00... for your BSNL Landline bill from BILLDESK"
+                // Instead of 2 transactions or a ghost bill, merge them into 1 enriched transaction!
+                const GATEWAY_NAMES = /^(cred|dreamplug|billdesk|razorpay|payu|cashfree|paytm\s*payment|upi\s*gateway)\b/i;
+                const existingCorrelatedIndex = currentPending.findIndex(p => {
+                    if (String(p.userId) !== String(user.id)) return false;
+                    const sameAmt = Math.abs(Number(p.amount) - Number(tx.amount)) < 0.01;
+                    if (!sameAmt) return false;
+                    const pDate = (p.date || p.received_at || '').slice(0, 10);
+                    const txDate = (tx.date || tx.received_at || '').slice(0, 10);
+                    if (pDate && txDate && pDate !== txDate) return false;
+
+                    // Match A: Gateway debit + Utility receipt
+                    const pIsGateway = GATEWAY_NAMES.test(p.merchant || '') || p.mode === 'BANK_TRANSFER';
+                    const txIsGateway = GATEWAY_NAMES.test(tx.merchant || '') || tx.mode === 'BANK_TRANSFER';
+                    const pIsReceipt = p.isBillPaymentReceipt || /thank\s*you\s*for\s*making\s*payment|payment\s*of/i.test(p.raw_message || '');
+                    const txIsReceipt = tx.isBillPaymentReceipt || /thank\s*you\s*for\s*making\s*payment|payment\s*of/i.test(tx.raw_message || '');
+
+                    if ((pIsGateway && txIsReceipt) || (txIsGateway && pIsReceipt)) return true;
+
+                    // Match B: Wallet update + Wallet debit for same amount
+                    const pIsWallet = p.mode === 'WALLET' || /wallet/i.test(p.category || '');
+                    const txIsWallet = tx.mode === 'WALLET' || /wallet/i.test(tx.category || '');
+                    if (pIsWallet && txIsWallet) return true;
+
+                    // Match C: Existing unpaid bill due + incoming payment/receipt
+                    if ((p.isBill && !p.isBillPaymentReceipt) && (txIsReceipt || txIsGateway)) {
+                        const mMatch = (p.merchant && tx.merchant && (p.merchant.toLowerCase().includes(tx.merchant.toLowerCase()) || tx.merchant.toLowerCase().includes(p.merchant.toLowerCase())));
+                        if (mMatch || txIsReceipt) return true;
+                    }
+
+                    // Match D: Duplicate incoming bill reminder for the SAME BILL (same provider + identifier + cycle)
+                    if ((p.isBill && !p.isBillPaymentReceipt) && (tx.isBill && !tx.isBillPaymentReceipt)) {
+                        const billMatch = billAutomationService.identifySameBill(p, tx);
+                        if (billMatch.isSame) return true;
+                    }
+
+                    return false;
+                });
+
+                if (existingCorrelatedIndex !== -1) {
+                    const existing = currentPending[existingCorrelatedIndex];
+                    console.log(`[Webhook SMART-MERGE] Merging correlated transaction for user ${user.id} (Amt: ${tx.amount}) with existing ID ${existing.id}`);
+
+                    // Prioritize specific merchant/utility (e.g. BSNL) over gateway (Dreamplug/CRED)
+                    let enrichedMerchant = existing.merchant;
+                    if (GATEWAY_NAMES.test(existing.merchant || '') && !GATEWAY_NAMES.test(tx.merchant || '') && tx.merchant && tx.merchant !== 'Unknown') {
+                        enrichedMerchant = `${tx.merchant} (via ${existing.merchant})`;
+                    } else if (GATEWAY_NAMES.test(tx.merchant || '') && !GATEWAY_NAMES.test(existing.merchant || '') && existing.merchant && existing.merchant !== 'Unknown') {
+                        enrichedMerchant = `${existing.merchant} (via ${tx.merchant})`;
+                    } else if (!existing.merchant || existing.merchant === 'Unknown') {
+                        enrichedMerchant = tx.merchant || existing.merchant;
+                    }
+
+                    // Inherit bank and account details
+                    existing.bank = existing.bank || tx.bank;
+                    existing.accountMasked = existing.accountMasked || tx.accountMasked;
+                    existing.cardLast4 = existing.cardLast4 || tx.cardLast4;
+                    existing.reference = existing.reference || tx.reference;
+                    existing.merchant = enrichedMerchant;
+
+                    // Mark as completed bill payment, NOT an unpaid bill due!
+                    existing.isBill = false;
+                    existing.isBillPaymentReceipt = true;
+                    existing.dueDate = null;
+
+                    if (tx.category && tx.category !== 'General' && tx.category !== 'Uncategorized') {
+                        existing.category = tx.category;
+                    }
+
+                    // If both are unpaid bills: update existing bill details rather than duplicate
+                    if (existing.isBill && tx.isBill && !existing.isBillPaymentReceipt && !tx.isBillPaymentReceipt) {
+                        existing.amount = tx.amount || existing.amount;
+                        existing.dueDate = tx.dueDate || existing.dueDate;
+                        existing.description = tx.description || existing.description;
+                        existing.raw_message = `${existing.raw_message}\n---\n[Duplicate Reminder]: ${tx.raw_message}`;
+                        console.log(`[Webhook SMART-MERGE] Updated existing bill due for ${existing.merchant} (Amt: ${existing.amount}, Due: ${existing.dueDate})`);
+                        continue;
+                    }
+
+                    existing.description = `Payment for ${enrichedMerchant}${existing.bank ? ' via ' + existing.bank : ''}${existing.accountMasked ? ' - A/c: ' + existing.accountMasked : ''}`.trim();
+                    existing.raw_message = `${existing.raw_message}\n---\n${tx.raw_message}`;
+
+                    // Auto-reconcile with open database bills
+                    try {
+                        await billAutomationService.autoReconcilePayment(existing, user.id);
+                    } catch (reconErr) {
+                        console.warn('[Webhook Payment Reconciliation Warning]', reconErr.message);
+                    }
+
+                    continue; // Merged in place, do not push duplicate!
+                }
+
+                // If standalone payment receipt: auto-reconcile with open database bills
+                if (tx.isBillPaymentReceipt || txIsGateway || tx.mode === 'BANK_TRANSFER' || tx.mode === 'UPI') {
+                    try {
+                        await billAutomationService.autoReconcilePayment(tx, user.id);
+                    } catch (reconErr) {
+                        console.warn('[Webhook Standalone Payment Reconciliation Warning]', reconErr.message);
+                    }
+                }
+
                 currentPending.push(tx);
             }
             savePendingSMS(currentPending);

@@ -191,6 +191,12 @@ export function useUnreadMessages(enabled, { onNewMessage } = {}) {
                     return;
                 }
 
+                if (countRes?.status === 429 || convRes?.status === 429) {
+                    // Back off if rate limited
+                    timer = setTimeout(tick, 60000);
+                    return;
+                }
+
                 if (!cancelled && countRes.ok) {
                     const data = await countRes.json();
                     setCount(data?.count ?? 0);
@@ -223,7 +229,7 @@ export function useUnreadMessages(enabled, { onNewMessage } = {}) {
                 }
             }
 
-            timer = setTimeout(tick, document.hidden ? 30000 : 10000);
+            timer = setTimeout(tick, document.hidden ? 45000 : 15000);
         };
 
         tick();

@@ -20,9 +20,17 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING,
             allowNull: false
         },
+        accountHolderName: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         ifsc: {
             type: DataTypes.STRING,
             allowNull: false
+        },
+        micrCode: {
+            type: DataTypes.STRING,
+            allowNull: true
         },
         branch: {
             type: DataTypes.STRING

@@ -54,6 +54,32 @@ function IconAction({ icon: Icon, label, onClick, badge, className }) {
     );
 }
 
+function SearchButton({ onSearch }) {
+    return (
+        <button
+            type="button"
+            onClick={onSearch}
+            aria-label="Global search"
+            title="Global search (Ctrl+K)"
+            className="group inline-flex h-9 items-center rounded-control border border-line bg-sunken/60 text-ink-muted transition-all hover:border-line-strong hover:bg-sunken hover:text-ink active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+        >
+            <span className="grid h-full w-9 shrink-0 place-items-center">
+                <Search
+                    size={15}
+                    aria-hidden="true"
+                    className="text-ink-faint transition-colors group-hover:text-ink group-focus-within:text-ink"
+                />
+            </span>
+            <span className="flex max-w-0 items-center gap-1.5 overflow-hidden opacity-0 transition-all duration-200 ease-out group-hover:max-w-[12rem] group-hover:pr-2.5 group-hover:opacity-100 group-focus-within:max-w-[12rem] group-focus-within:pr-2.5 group-focus-within:opacity-100">
+                <span className="whitespace-nowrap text-xs">Search…</span>
+                <kbd className="rounded border border-line bg-surface/80 px-1.5 py-0.5 text-[10px] font-semibold text-ink-faint">
+                    Ctrl K
+                </kbd>
+            </span>
+        </button>
+    );
+}
+
 function RangeFilter({ range, onRangeChange, customRange, onCustomRangeChange }) {
     const [showCustom, setShowCustom] = useState(false);
     const customRef = useRef(null);
@@ -192,7 +218,7 @@ function MoreMenu({ onOpenNotes, onOpenContacts, onOpenShare, onExportCsv, onExp
                 <MoreHorizontal size={16} aria-hidden="true" />
             </button>
             {open && (
-                <div className="absolute right-0 z-50 mt-2 w-52 rounded-card border border-line bg-surface/95 p-1.5 shadow-raised backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 z-50 mt-2 w-52 rounded-card border border-line bg-surface p-1.5 shadow-raised animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-faint">
                         Quick Hub
                     </div>
@@ -254,7 +280,7 @@ export function DashboardHeader({
     return (
         <header className="no-print sticky top-0 z-20 border-b border-line/70 bg-bg/80 backdrop-blur-xl transition-colors duration-200">
             <div className="mx-auto flex max-w-[1600px] flex-col gap-2.5 px-4 py-2.5 sm:px-6 md:flex-row md:items-center md:justify-between">
-                {/* Zone 1: Greeting + Search */}
+                {/* Zone 1: Greeting */}
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                         <h1 className="truncate text-base font-extrabold tracking-tight text-ink flex items-center gap-2">
@@ -269,23 +295,12 @@ export function DashboardHeader({
                             })}
                         </p>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={onSearch}
-                        className="group hidden sm:inline-flex h-9 items-center gap-2 rounded-control border border-line bg-sunken/60 px-3 text-ink-muted transition-all hover:border-line-strong hover:bg-sunken hover:text-ink active:scale-95"
-                        aria-label="Global search"
-                    >
-                        <Search size={14} aria-hidden="true" className="text-ink-faint group-hover:text-ink" />
-                        <span className="text-xs">Search…</span>
-                        <kbd className="ml-1 rounded border border-line bg-surface/80 px-1.5 py-0.5 text-[10px] font-semibold text-ink-faint">
-                            Ctrl K
-                        </kbd>
-                    </button>
                 </div>
 
                 {/* Zone 2: Filters, Weather, Actions */}
                 <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                    <SearchButton onSearch={onSearch} />
+
                     <div className="no-scrollbar overflow-x-auto py-0.5 max-w-full">
                         <RangeFilter
                             range={range}

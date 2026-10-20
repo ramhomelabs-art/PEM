@@ -35,9 +35,14 @@ NORMALIZATION_RULES = {
     r'SPOTIFY.*': 'SPOTIFY',
     
     # Utilities
+    r'.*BSNL.*': 'BSNL',
+    r'.*MTNL.*': 'MTNL',
     r'AIRTEL.*': 'AIRTEL',
     r'JIO.*': 'JIO',
     r'VODAFONE.*': 'VODAFONE',
+    r'.*BESCOM.*': 'BESCOM',
+    r'.*TNEB.*': 'TNEB',
+    r'.*ACT\s+FIBERNET.*': 'ACT FIBERNET',
     
     # Fuel
     r'INDIAN\s+OIL.*': 'INDIAN OIL',

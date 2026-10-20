@@ -743,6 +743,15 @@ const ServerManager = ({ initialSetupMode = false }) => {
                                 <p className="text-xs text-ink-muted">
                                     Configure or update the primary administrator account to manage this server. This account is <span className="text-emerald-400 font-bold">MFA-Exempt</span> so you can never be locked out by authenticator apps, offline phone access, or network barriers.
                                 </p>
+                                <div className="pt-2">
+                                    <Link
+                                        to="/setup"
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs hover:from-emerald-400 hover:to-teal-500 transition shadow-lg shadow-emerald-500/20"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        <span>Launch 8-Step First-Time Deployment Wizard →</span>
+                                    </Link>
+                                </div>
                             </div>
                         </div>
 

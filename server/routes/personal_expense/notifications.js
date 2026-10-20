@@ -106,7 +106,17 @@ router.get('/digest/preview', authenticateToken, async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         const pref = pendingDigestService.getDigestPreference(user);
-        const { transactions, expenses, income, notifications, summary } = await pendingDigestService.buildDigest(user);
+        const { transactions, bills, expenses, income, notifications, summary } = await pendingDigestService.buildDigest(user);
+
+        const emailTemplates = require('../../utils/emailTemplates');
+        const emailContent = emailTemplates.pendingDigestEmail({
+            user,
+            transactions,
+            notifications,
+            summary,
+            appUrl: pendingDigestService.appUrl(),
+            unsubscribeTo: pendingDigestService.unsubscribeAddress()
+        });
 
         res.json({
             enabled: pref.enabled,
@@ -116,16 +126,20 @@ router.get('/digest/preview', authenticateToken, async (req, res) => {
             email: user.email,
             counts: {
                 transactions: transactions.length,
+                bills: (bills || []).length,
                 expenses: expenses.length,
                 income: income.length,
                 notifications: notifications.length,
                 total: transactions.length + notifications.length
             },
             summary,
-            expenses: expenses.slice(0, 10),
-            income: income.slice(0, 10),
-            transactions: transactions.slice(0, 10),
-            notifications: notifications.slice(0, 10)
+            bills: bills || [],
+            expenses,
+            income,
+            transactions,
+            notifications,
+            htmlPreview: emailContent.html,
+            subject: emailContent.subject
         });
     } catch (err) {
         console.error('[notifications] digest preview error:', err.message);

@@ -149,10 +149,10 @@ const CreditCardTransactions = () => {
                                     initial={{ opacity: 0, x: -16 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: Math.min(index * 0.04, 0.4) }}
-                                    className="flex items-center justify-between gap-3 rounded-card border border-line bg-sunken p-4 transition hover:border-line-strong"
+                                    className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface/80 p-4 transition pem-card-hover"
                                 >
                                     <div className="flex min-w-0 items-center gap-3">
-                                        <IconBadge icon={ShoppingBag} tone="violet" />
+                                        <IconBadge icon={ShoppingBag} tone="brand" />
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-bold text-ink">{txn.merchant || 'Unknown Merchant'}</p>
                                             <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-faint">

@@ -38,7 +38,7 @@ export function MethodPopover() {
                 <div
                     role="dialog"
                     aria-label="Forecast Calculation Methodology"
-                    className="absolute bottom-full left-0 z-50 mb-2 w-80 rounded-xl border border-line bg-surface/98 p-4 shadow-2xl backdrop-blur-xl sm:w-96"
+                    className="absolute bottom-full left-0 z-50 mb-2 w-80 rounded-xl border border-line bg-surface p-4 shadow-2xl backdrop-blur-xl sm:w-96"
                 >
                     <div className="flex items-center justify-between border-b border-line pb-2">
                         <span className="text-xs font-bold text-ink">Forecast Methodology</span>

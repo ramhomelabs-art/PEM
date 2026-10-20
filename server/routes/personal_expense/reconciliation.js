@@ -32,9 +32,9 @@ function publicTxn(t) {
         category: t.category,
         description: t.description,
         date: t.date,
-        paymentMode: b_ = b => b.otherPaymentMode || b.paymentMode,
+        paymentMode: t.otherPaymentMode || t.paymentMode,
         source: t.source,
-        billId: b.billId || null
+        billId: t.billId || null
     };
 }
 

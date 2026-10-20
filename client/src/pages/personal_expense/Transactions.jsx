@@ -78,17 +78,30 @@ const Transactions = () => {
     const fetchTransactions = useCallback(async () => {
         try {
             const res = await fetch(`${API_URL}/transactions/user/${user.id}`);
+            let data = null;
+            try {
+                data = await res.json();
+            } catch {
+                data = null;
+            }
+
             if (res.status === 404 || res.status === 500) {
-                const data = await res.json();
-                if (data.error && data.error.includes("not found")) {
+                if (data && data.error && data.error.includes("not found")) {
                     logout();
                     return;
                 }
             }
-            const data = await res.json();
-            setTransactions(data);
+
+            if (!res.ok) {
+                console.error(`Failed to fetch transactions (HTTP ${res.status})`, data);
+                setTransactions([]);
+                return;
+            }
+
+            setTransactions(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Failed to fetch transactions", err);
+            setTransactions([]);
         } finally {
             setLoading(false);
         }
@@ -332,37 +345,37 @@ const Transactions = () => {
 
             {/* KPI SUMMARY TILES */}
             <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                <div className="pem-card pem-card-hover p-4 flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-semibold text-ink-muted">Total Income</p>
-                        <p className="text-xl font-extrabold text-pos tracking-tight mt-0.5">
+                        <p className="text-xs font-bold uppercase tracking-wider text-ink-muted">Total Income</p>
+                        <p className="text-xl sm:text-2xl font-black text-pos tracking-tight mt-1">
                             +{formatCurrency(totalIncome, user?.currency || 'INR')}
                         </p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-pos">
-                        <TrendingUp size={20} />
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-500/15 text-pos border border-emerald-500/25 shadow-sm">
+                        <TrendingUp size={22} />
                     </div>
                 </div>
-                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                <div className="pem-card pem-card-hover p-4 flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-semibold text-ink-muted">Total Expense</p>
-                        <p className="text-xl font-extrabold text-neg tracking-tight mt-0.5">
+                        <p className="text-xs font-bold uppercase tracking-wider text-ink-muted">Total Expense</p>
+                        <p className="text-xl sm:text-2xl font-black text-neg tracking-tight mt-1">
                             -{formatCurrency(totalExpense, user?.currency || 'INR')}
                         </p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-rose-500/10 text-neg">
-                        <TrendingDown size={20} />
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-rose-500/15 text-neg border border-rose-500/25 shadow-sm">
+                        <TrendingDown size={22} />
                     </div>
                 </div>
-                <div className="p-4 rounded-2xl border border-line bg-surface flex items-center justify-between">
+                <div className="pem-card pem-card-hover p-4 flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-semibold text-ink-muted">Net Cash Flow</p>
-                        <p className={`text-xl font-extrabold tracking-tight mt-0.5 ${netBalance >= 0 ? 'text-pos' : 'text-neg'}`}>
+                        <p className="text-xs font-bold uppercase tracking-wider text-ink-muted">Net Cash Flow</p>
+                        <p className={`text-xl sm:text-2xl font-black tracking-tight mt-1 ${netBalance >= 0 ? 'text-pos' : 'text-neg'}`}>
                             {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance, user?.currency || 'INR')}
                         </p>
                     </div>
-                    <div className={`p-2.5 rounded-xl ${netBalance >= 0 ? 'bg-emerald-500/10 text-pos' : 'bg-rose-500/10 text-neg'}`}>
-                        <Wallet size={20} />
+                    <div className={`grid h-11 w-11 place-items-center rounded-xl shadow-sm border ${netBalance >= 0 ? 'bg-emerald-500/15 text-pos border-emerald-500/25' : 'bg-rose-500/15 text-neg border-rose-500/25'}`}>
+                        <Wallet size={22} />
                     </div>
                 </div>
             </div>
@@ -373,14 +386,14 @@ const Transactions = () => {
                     <div className="relative min-w-0 flex-1">
                         <Search
                             size={18}
-                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
+                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted"
                         />
                         <input
                             type="text"
                             placeholder="Search by description or category..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="h-10 w-full rounded-control border border-line bg-surface pl-10 pr-4 text-sm font-medium text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+                            className="h-10 w-full rounded-control border border-line bg-surface/80 pl-10 pr-4 text-sm font-medium text-ink placeholder:text-ink-muted/70 transition-all focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none"
                         />
                     </div>
                 </div>

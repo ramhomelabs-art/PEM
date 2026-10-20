@@ -14,7 +14,11 @@ module.exports = (sequelize) => {
         },
         bankId: {
             type: DataTypes.UUID,
-            allowNull: false
+            allowNull: true
+        },
+        bankName: {
+            type: DataTypes.STRING,
+            allowNull: true
         },
         cardNumber: {
             type: DataTypes.STRING,

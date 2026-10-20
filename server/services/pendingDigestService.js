@@ -58,11 +58,16 @@ async function buildDigest(user) {
     const transactions = pendingStore.filterPendingOwnedBy(pending, user.id).slice(0, MAX_ITEMS);
     const notifications = await notificationsDigest.buildNotifications(user);
 
-    const expenses = transactions.filter((t) => !isIncomeTransaction(t));
-    const income = transactions.filter(isIncomeTransaction);
+    const isBill = (t) => (t.isBill === true || t.isScheduledMandate === true || t.mode === 'BILL' || t.isCreditCardBill === true) && !t.isBillPaymentReceipt;
+    const bills = transactions.filter(isBill);
+    const nonBillTx = transactions.filter((t) => !isBill(t));
+    const expenses = nonBillTx.filter((t) => !isIncomeTransaction(t));
+    const income = nonBillTx.filter(isIncomeTransaction);
     const sum = (arr) => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
     const summary = {
+        billsCount: bills.length,
+        billsTotal: sum(bills),
         expenseCount: expenses.length,
         incomeCount: income.length,
         expenseTotal: sum(expenses),
@@ -70,7 +75,7 @@ async function buildDigest(user) {
         notificationCount: notifications.length
     };
 
-    return { transactions, expenses, income, notifications, summary };
+    return { transactions, bills, expenses, income, notifications, summary };
 }
 
 /**
@@ -217,5 +222,7 @@ module.exports = {
     runDigestCycle,
     startPendingDigestScheduler,
     stopPendingDigestScheduler,
-    INTERVAL_MINUTES
+    INTERVAL_MINUTES,
+    appUrl,
+    unsubscribeAddress
 };

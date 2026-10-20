@@ -216,7 +216,7 @@ export function OverspendRadarModal({
                 <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
                 {/* 1. STICKY HEADER */}
-                <header className="sticky top-0 z-30 flex items-start justify-between gap-4 border-b border-line bg-surface/95 px-5 py-4 backdrop-blur-xl sm:px-6">
+                <header className="sticky top-0 z-30 flex items-start justify-between gap-4 border-b border-line bg-surface px-5 py-4 backdrop-blur-xl sm:px-6">
                     <div className="flex items-center gap-3.5 min-w-0">
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400">
                             <Radar size={20} aria-hidden="true" />

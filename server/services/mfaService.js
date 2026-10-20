@@ -1139,16 +1139,36 @@ class MFAService {
 
         if (effectiveMethod === 'push' || effectiveMethod === 'both') {
             if (activeDevice) {
+                // Reuse an existing pending, unexpired push request so rapid
+                // re-login attempts don't flood the device with notifications.
+                let existing = null;
                 try {
-                    const pushResult = await this.sendPushRequest(userId, null, {
-                        ipAddress,
-                        userAgent,
-                        type: 'login_request'
+                    existing = await MfaPushRequest.findOne({
+                        where: {
+                            userId: userId,
+                            status: 'pending',
+                            expiresAt: { [Op.gt]: new Date() }
+                        },
+                        order: [['created_at', 'DESC']]
                     });
-                    requestId = pushResult.requestId;
                 } catch (err) {
-                    console.error('Failed to send push request:', err);
-                    requestId = null;
+                    existing = null;
+                }
+
+                if (existing) {
+                    requestId = existing.requestId;
+                } else {
+                    try {
+                        const pushResult = await this.sendPushRequest(userId, null, {
+                            ipAddress,
+                            userAgent,
+                            type: 'login_request'
+                        });
+                        requestId = pushResult.requestId;
+                    } catch (err) {
+                        console.error('Failed to send push request:', err);
+                        requestId = null;
+                    }
                 }
             } else {
                 // No active companion device paired -> fallback to TOTP

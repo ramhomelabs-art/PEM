@@ -324,7 +324,7 @@ const InvestmentDashboard = () => {
         const inv = plan.investment;
 
         return (
-            <div key={plan.id} className="rounded-card border border-line bg-surface p-5">
+            <div key={plan.id} className="pem-card pem-card-hover p-5">
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                         <IconBadge icon={CalendarClock} tone={tone} />

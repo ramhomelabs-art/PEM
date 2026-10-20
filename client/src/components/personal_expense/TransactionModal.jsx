@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCategories } from '../../context/CategoryContext'; // Import context
 import { API_URL } from '../../config';
+import { symbolFor } from '../../utils/currency';
 import { X, Check, Plus, Coffee, ArrowRight, ShoppingBag, Heart, Zap, Film, TrendingUp, ReceiptText, Briefcase, CircleDollarSign, Gift, Building, BarChart, Smartphone, AlertTriangle } from 'lucide-react';
 
 export const categoryIcons = {
@@ -268,7 +269,9 @@ const TransactionModal = ({ isOpen, onClose, user, logout, onReload, mode = 'add
                                     ))}
                                 </div>
                                 <div style={{ position: 'relative' }}>
-                                    <span style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', fontSize: '24px', fontWeight: '900', color: '#10b981' }}>{user?.currency === 'INR' ? '₹' : '$'}</span>
+                                    <span style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', fontSize: '24px', fontWeight: '900', color: '#10b981' }}>
+                                        {symbolFor(user?.currency || JSON.parse(localStorage.getItem('user') || '{}')?.currency || 'INR')}
+                                    </span>
                                     <input
                                         type="text"
                                         inputMode="decimal"
