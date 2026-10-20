@@ -224,9 +224,11 @@ router.post('/initial-setup', async (req, res) => {
 // --- ANDROID COMPANION APK DIRECT DOWNLOAD & QR ENDPOINTS ---
 const resolveApkPath = () => {
     const candidates = [
-        'D:/Project/sms-forwarder-app/app/build/outputs/apk/debug/app-debug.apk',
+        path.join(__dirname, '../../public/pem-companion.apk'),
+        path.join(__dirname, '../../uploads/pem-companion.apk'),
+        path.join(__dirname, '../../data/pem-companion.apk'),
         'D:/Project/sms-forwarder-app/app/release/app-release.apk',
-        path.join(__dirname, '../../uploads/pem-companion.apk')
+        'D:/Project/sms-forwarder-app/app/build/outputs/apk/debug/app-debug.apk'
     ];
     for (const p of candidates) {
         if (fs.existsSync(p)) return p;
@@ -237,18 +239,19 @@ const resolveApkPath = () => {
 router.get('/apk-download', (req, res) => {
     const apkPath = resolveApkPath();
     if (!apkPath) {
-        return res.status(404).json({ error: 'APK build not found on server.' });
+        return res.status(404).json({ error: 'APK build not found on server. Please check public/pem-companion.apk.' });
     }
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.download(apkPath, 'pem-companion.apk');
+    res.setHeader('Content-Disposition', 'attachment; filename="pem-companion.apk"');
+    res.download(path.resolve(apkPath), 'pem-companion.apk');
 });
 
 router.get('/apk-qr', async (req, res) => {
     try {
         const qrcode = require('qrcode');
-        const host = req.get('host');
-        const protocol = req.protocol;
-        const downloadUrl = `${protocol}://${host}/api/server/apk-download`;
+        const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        const downloadUrl = `${proto}://${host}/api/server/apk-download`;
         const qrCodeUrl = await qrcode.toDataURL(downloadUrl, {
             width: 320,
             margin: 2,

@@ -555,6 +555,28 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
             }
         }));
 
+        // Serve public assets (e.g. companion APK)
+        app.use('/public', express.static(path.join(__dirname, 'public'), {
+            setHeaders: (res, path, stat) => {
+                res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+                res.set('Access-Control-Allow-Origin', '*');
+                res.set('Access-Control-Allow-Methods', 'GET');
+            }
+        }));
+
+        // Ensure bundled APK is synced to persistent uploads volume
+        try {
+            const pubApk = path.join(__dirname, 'public', 'pem-companion.apk');
+            const uplApk = path.join(__dirname, 'uploads', 'pem-companion.apk');
+            if (fs.existsSync(pubApk) && !fs.existsSync(uplApk)) {
+                fs.mkdirSync(path.dirname(uplApk), { recursive: true });
+                fs.copyFileSync(pubApk, uplApk);
+                console.log('✓ Synced pem-companion.apk from public to uploads volume.');
+            }
+        } catch (apkSyncErr) {
+            console.warn('[APK Sync] Warning:', apkSyncErr.message);
+        }
+
         // Graceful fallback for missing profile photos/uploads to prevent browser 404 errors
         app.use('/uploads', (req, res) => {
             res.setHeader('Content-Type', 'image/svg+xml');
